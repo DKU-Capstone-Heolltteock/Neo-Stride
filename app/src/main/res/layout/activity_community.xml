@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <FrameLayout
+        android:id="@+id/community_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@+id/bottom_layout" />
+
+    <LinearLayout
+        android:id="@+id/bottom_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginHorizontal="20dp" android:layout_marginBottom="50dp" android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/tab_back_to_main"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            app:cardBackgroundColor="#1A1A1A"
+            app:cardCornerRadius="30dp"
+            app:cardElevation="10dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:contentDescription="뒤로가기 버튼">
+
+            <ImageView
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_back"
+                app:tint="#FFFFFF"
+                android:importantForAccessibility="no" />
+        </androidx.cardview.widget.CardView>
+
+        <androidx.cardview.widget.CardView
+            android:id="@+id/community_nav_card"
+            android:layout_width="0dp"
+            android:layout_height="60dp" android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            app:cardBackgroundColor="#1A1A1A"
+            app:cardCornerRadius="30dp" app:cardElevation="10dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:weightSum="4">
+
+                <LinearLayout
+                    android:id="@+id/tab_feed"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:orientation="vertical"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:contentDescription="피드 탭"
+                    tools:ignore="UseCompoundDrawables">
+                    <ImageView android:id="@+id/iv_feed" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_feed" android:importantForAccessibility="no"/>
+                    <TextView android:id="@+id/tv_feed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="피드" android:textSize="10sp" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/tab_tip" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true" android:contentDescription="팁 탭" tools:ignore="UseCompoundDrawables">
+                    <ImageView android:id="@+id/iv_tip" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_tip" android:importantForAccessibility="no"/>
+                    <TextView android:id="@+id/tv_tip" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="팁" android:textSize="10sp" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/tab_search" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true" android:contentDescription="검색 탭" tools:ignore="UseCompoundDrawables">
+                    <ImageView android:id="@+id/iv_search" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_search" android:importantForAccessibility="no"/>
+                    <TextView android:id="@+id/tv_search" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="검색" android:textSize="10sp" />
+                </LinearLayout>
+
+                <LinearLayout android:id="@+id/tab_event" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical" android:clickable="true" android:focusable="true" android:contentDescription="이벤트 탭" tools:ignore="UseCompoundDrawables">
+                    <ImageView android:id="@+id/iv_event" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_event" android:importantForAccessibility="no"/>
+                    <TextView android:id="@+id/tv_event" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="공지/이벤트" android:textSize="10sp" />
+                </LinearLayout>
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+    </LinearLayout>
+</RelativeLayout>
