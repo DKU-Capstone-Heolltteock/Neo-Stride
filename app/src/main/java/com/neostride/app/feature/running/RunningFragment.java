@@ -49,9 +49,14 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
+
 import com.neostride.app.R;
-import com.neostride.app.feature.running.dto.GpsTraceRequest;
-import com.neostride.app.feature.running.dto.RunningRecordRequest;
+import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.running.api.RunningApi;
+import com.neostride.app.feature.running.model.GpsTraceRequest;
+import com.neostride.app.feature.running.model.RunningRecordRequest;
+import com.neostride.app.feature.running.repository.RunningRepository;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -64,6 +69,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private GoogleMap mMap;
     private FusedLocationProviderClient fusedLocationClient;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
+
+    // ── 백엔드 통신 관련 변수 ──
+    private RunningRepository runningRepository;
 
     // ── UI 뷰 변수 ──
     private CardView btnStart, btnStop, btnPause, btnMyLocation, btnResultConfirm;
@@ -112,6 +120,10 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         View view = inflater.inflate(R.layout.fragment_running, container, false);
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity());
 
+        // [백엔드 연동] 레포지토리 초기화
+        RunningApi runningApi = ApiClient.getInstance().create(RunningApi.class);
+        runningRepository = new RunningRepository(runningApi);
+
         SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.map);
         if (mapFragment != null) mapFragment.getMapAsync(this);
 
@@ -144,7 +156,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         return view;
     }
 
-    // [백엔드 작업] 수집된 데이터를 DTO에 담아 전송 준비 (Log 출력)
+    // [백엔드 작업] 수집된 데이터를 DTO에 담아 전송 실행
     private void sendDataToBackend() {
         List<GpsTraceRequest> traces = new ArrayList<>();
         for (int i = 0; i < routePoints.size(); i++) {
@@ -155,8 +167,11 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             ));
         }
 
+        // 로그인 세션에서 실제 유저 ID 가져오기
+        int currentUserId = TokenManager.getUserId(requireContext());
+
         RunningRecordRequest request = new RunningRecordRequest(
-                1, // TODO: 로그인 성공 후 세션의 user_id 연동
+                currentUserId,
                 null, // TODO: 코칭 탭에서 선택한 plan_id 연동
                 totalDistanceMeters / 1000f,
                 (elapsedMillis / 1000f),
@@ -165,8 +180,10 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 traces
         );
 
-        Log.d("NeoStride_Backend", "=== 데이터 전송 준비 완료 ===");
-        Log.d("NeoStride_Backend", "좌표 데이터 개수: " + traces.size());
+        Log.d("NeoStride_Backend", "=== 서버 데이터 전송 요청 ===");
+        if (runningRepository != null) {
+            runningRepository.saveRunningRecord(request);
+        }
     }
 
     @Override
