@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="100dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Set your goal for AI"
+            android:textColor="#CCFF00"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_gravity="center"
+            android:layout_marginBottom="28dp" />
+
+        <!-- ════════ 기간 설정 ════════ -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="기간 설정"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="10dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView android:id="@+id/btn_period_1m" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:gravity="center" android:text="1 month" android:textColor="#000000" android:textSize="13sp" android:textStyle="bold" android:background="@drawable/btn_period_selected" />
+            <TextView android:id="@+id/btn_period_3m" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:gravity="center" android:text="3 month" android:textColor="#AAAAAA" android:textSize="13sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_period_6m" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:gravity="center" android:text="6 month" android:textColor="#AAAAAA" android:textSize="13sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_period_1y" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="a year" android:textColor="#AAAAAA" android:textSize="13sp" android:background="@drawable/btn_period_unselected" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_custom_period"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="14dp"
+            android:background="@drawable/btn_period_unselected"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Custom :"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp" />
+
+            <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+
+            <EditText
+                android:id="@+id/et_custom_weeks"
+                android:layout_width="60dp"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:gravity="center"
+                android:hint="입력"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
+                android:textSize="14sp"
+                android:inputType="number" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="weeks"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- ════════ 러닝 데이 설정 ════════ -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="10dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="러닝 데이 설정"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_day_warning"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="  (1일 이상 선택 필수)"
+                android:textColor="#FF4444"
+                android:textSize="11sp"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <TextView android:id="@+id/btn_day_sun" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center" android:text="일" android:textColor="#AAAAAA" android:textSize="14sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_day_mon" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center" android:text="월" android:textColor="#AAAAAA" android:textSize="14sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_day_tue" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center" android:text="화" android:textColor="#AAAAAA" android:textSize="14sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_day_wed" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center" android:text="수" android:textColor="#AAAAAA" android:textSize="14sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_day_thu" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center" android:text="목" android:textColor="#AAAAAA" android:textSize="14sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_day_fri" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="4dp" android:gravity="center" android:text="금" android:textColor="#AAAAAA" android:textSize="14sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_day_sat" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="토" android:textColor="#AAAAAA" android:textSize="14sp" android:background="@drawable/btn_period_unselected" />
+        </LinearLayout>
+
+        <!-- ════════ 목표 거리 ════════ -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="목표 거리"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="10dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView android:id="@+id/btn_dist_3" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:gravity="center" android:text="3km" android:textColor="#000000" android:textSize="13sp" android:textStyle="bold" android:background="@drawable/btn_period_selected" />
+            <TextView android:id="@+id/btn_dist_5" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:gravity="center" android:text="5km" android:textColor="#AAAAAA" android:textSize="13sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_dist_10" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:gravity="center" android:text="10km" android:textColor="#AAAAAA" android:textSize="13sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_dist_20" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:layout_marginEnd="6dp" android:gravity="center" android:text="20km" android:textColor="#AAAAAA" android:textSize="13sp" android:background="@drawable/btn_period_unselected" />
+            <TextView android:id="@+id/btn_dist_40" android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1" android:gravity="center" android:text="40km" android:textColor="#AAAAAA" android:textSize="13sp" android:background="@drawable/btn_period_unselected" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_custom_distance"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="14dp"
+            android:background="@drawable/btn_period_unselected"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Custom :"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp" />
+
+            <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+
+            <EditText
+                android:id="@+id/et_custom_distance"
+                android:layout_width="60dp"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:gravity="center"
+                android:hint="입력"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
+                android:textSize="14sp"
+                android:inputType="numberDecimal" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="km"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- ════════ 목표 페이스 ════════ -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="목표 페이스"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="10dp" />
+
+        <SeekBar
+            android:id="@+id/seekbar_pace"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:min="210"
+            android:max="510"
+            android:progress="360"
+            android:progressTint="#CCFF00"
+            android:thumbTint="#CCFF00"
+            android:layout_marginBottom="4dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="3:30/km" android:textColor="#666666" android:textSize="12sp" />
+            <TextView android:id="@+id/tv_pace_value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="6:00/km" android:textColor="#CCFF00" android:textSize="14sp" android:textStyle="bold" />
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:gravity="end" android:text="8:30/km" android:textColor="#666666" android:textSize="12sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_custom_pace"
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="14dp"
+            android:background="@drawable/btn_period_unselected"
+            android:layout_marginBottom="32dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Custom :"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp" />
+
+            <View android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
+
+            <EditText
+                android:id="@+id/et_custom_pace_min"
+                android:layout_width="40dp"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:gravity="center"
+                android:hint="분"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
+                android:textSize="14sp"
+                android:inputType="number" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" : "
+                android:textColor="#AAAAAA"
+                android:textSize="14sp" />
+
+            <EditText
+                android:id="@+id/et_custom_pace_sec"
+                android:layout_width="40dp"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:gravity="center"
+                android:hint="초"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#666666"
+                android:textSize="14sp"
+                android:inputType="number" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" /km"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- Confirm -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/btn_confirm"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="50dp"
+            android:layout_marginBottom="140dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="#CCFF00"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Confirm"
+                android:textColor="#000000"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </androidx.cardview.widget.CardView>
+
+    </LinearLayout>
+</ScrollView>

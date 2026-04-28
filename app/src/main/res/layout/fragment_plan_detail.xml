@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp"
+        android:paddingTop="60dp">
+
+        <!-- 뒤로가기 -->
+        <ImageView
+            android:id="@+id/btn_back"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_arrow_left"
+            app:tint="#FFFFFF"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:layout_marginBottom="16dp" />
+
+        <!-- AI 알림 배너 -->
+        <androidx.cardview.widget.CardView
+            android:id="@+id/card_ai_notice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="#1A2600"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:gravity="center"
+                    android:text="🤖"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tv_ai_notice"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="AI가 당신의 누적된 기록에 따라 스케줄을 변경했어요."
+                    android:textColor="#CCFF00"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+
+        <!-- 당일 플랜 제목 -->
+        <TextView
+            android:id="@+id/tv_plan_date_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="04/26 Training Routine"
+            android:textColor="#CCFF00"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/tv_plan_summary"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="10km in 60minutes"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:layout_marginBottom="24dp" />
+
+        <!-- ════════ your set. + 삭제 버튼 ════════ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <View
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:background="#CCFF00"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="your set."
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <!-- 목표 삭제 버튼 -->
+                <TextView
+                    android:id="@+id/btn_delete_goal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:gravity="center"
+                    android:paddingHorizontal="14dp"
+                    android:text="목표 삭제"
+                    android:textColor="#FF4444"
+                    android:textSize="13sp"
+                    android:background="@drawable/btn_delete_bg"
+                    android:clickable="true"
+                    android:focusable="true" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_set_period"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="설정 기간 : 3 months"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp"
+                android:paddingStart="18dp"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/tv_set_days"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="설정 러닝 데이 : 월, 화, 금, 토"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp"
+                android:paddingStart="18dp"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/tv_set_distance"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="최종 목표 거리 : 10km"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp"
+                android:paddingStart="18dp"
+                android:layout_marginBottom="2dp" />
+
+            <TextView
+                android:id="@+id/tv_set_pace"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="최종 목표 기록 : 6:00/km"
+                android:textColor="#AAAAAA"
+                android:textSize="14sp"
+                android:paddingStart="18dp" />
+        </LinearLayout>
+
+        <!-- ════════ AI feedback ════════ -->
+        <LinearLayout
+            android:id="@+id/layout_ai_feedback"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="32dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <View
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:background="#CCFF00"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="AI feedback"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="#1A1A1A"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp">
+
+                <TextView
+                    android:id="@+id/tv_ai_feedback"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="16dp"
+                    android:text="아직 피드백이 없습니다. 오늘의 러닝을 완료하면 AI가 피드백을 제공합니다."
+                    android:textColor="#AAAAAA"
+                    android:textSize="14sp"
+                    android:lineSpacingExtra="4dp" />
+            </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
