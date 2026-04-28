@@ -36,7 +36,7 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_gravity="center"
-                android:src="@drawable/ic_back"
+                android:src="@drawable/ic_arrow_left"
                 app:tint="#FFFFFF"
                 android:importantForAccessibility="no" />
         </androidx.cardview.widget.CardView>
