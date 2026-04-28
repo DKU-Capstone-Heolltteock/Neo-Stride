@@ -1,4 +1,4 @@
-package com.neostride.app.feature.running.dto;
+package com.neostride.app.feature.running.model;
 
 // ============================================================
 // GpsTraceRequest.java
