@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="35dp"
+    android:height="35dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 바깥 원 (채우기 + 테두리) -->
+    <path
+        android:fillColor="#E0E0E0"
+        android:strokeColor="#000000"
+        android:strokeWidth="1.5"
+        android:pathData="M12,2a10,10 0,1 0,0.1,0z"/>
+
+    <!-- + -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M11,7h2v10h-2zM7,11h10v2h-10z"/>
+
+</vector>

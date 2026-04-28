@@ -5,7 +5,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
 
@@ -18,6 +17,42 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.NeoStride">
+        <activity
+            android:name=".feature.auth.FindIdSuccessActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.FindIdCodeVerifyActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.FindIdActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.ResetSuccessActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.NewPasswordActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.ResetCodeVerifyActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.ResetPasswordActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.SuccessActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.CodeVerifyActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.EmailAuthActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.SignupActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.LoginActivity"
+            android:exported="false" />
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
@@ -28,14 +63,13 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".activity.CommunityActivity"
             android:exported="false" />
-
     </application>
 
 </manifest>

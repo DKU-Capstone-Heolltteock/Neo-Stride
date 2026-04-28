@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#111111"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp">
+
+    <TextView
+        android:id="@+id/tvFindIdTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Find ID"
+        android:textColor="#FFFFFF"
+        android:textSize="30sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_marginTop="120dp"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/tvFindIdDesc"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Please enter your email to find your ID"
+        android:textColor="#9E9E9E"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/tvFindIdTitle"
+        android:layout_marginTop="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:id="@+id/tvEmailLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="your email"
+        android:textColor="#FFFFFF"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/tvFindIdDesc"
+        android:layout_marginTop="42dp"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <EditText
+        android:id="@+id/etFindIdEmail"
+        android:layout_width="0dp"
+        android:layout_height="58dp"
+        android:hint="Enter your email"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#A0A0A0"
+        android:inputType="textEmailAddress"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:background="@drawable/bg_input_round"
+        app:layout_constraintTop_toBottomOf="@id/tvEmailLabel"
+        android:layout_marginTop="16dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <Button
+        android:id="@+id/btnFindIdContinue"
+        android:layout_width="0dp"
+        android:layout_height="56dp"
+        android:text="Continue"
+        android:textAllCaps="false"
+        android:textStyle="bold"
+        android:textColor="#000000"
+        android:backgroundTint="#B8FF06"
+        app:cornerRadius="28dp"
+        app:layout_constraintTop_toBottomOf="@id/etFindIdEmail"
+        android:layout_marginTop="42dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

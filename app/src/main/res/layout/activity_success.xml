@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#111111">
+
+    <TextView
+        android:id="@+id/tv_check_icon"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:gravity="center"
+        android:text="✓"
+        android:textColor="#B8FF06"
+        android:textSize="34sp"
+        android:background="@drawable/bg_success_circle"
+        app:layout_constraintTop_toTopOf="parent"
+        android:layout_marginTop="170dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <TextView
+        android:id="@+id/tv_success"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Successful"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintTop_toBottomOf="@id/tv_check_icon"
+        android:layout_marginTop="220dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <TextView
+        android:id="@+id/tv_success_desc"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Congratulation! You are now a Runner!\nClick continue to login"
+        android:textColor="#AAAAAA"
+        android:textSize="14sp"
+        android:gravity="center"
+        app:layout_constraintTop_toBottomOf="@id/tv_success"
+        android:layout_marginTop="18dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <Button
+        android:id="@+id/btn_continue_login"
+        android:layout_width="0dp"
+        android:layout_height="55dp"
+        android:text="Continue to Login"
+        android:textColor="#000000"
+        android:textStyle="bold"
+        android:backgroundTint="#B8FF06"
+        app:layout_constraintTop_toBottomOf="@id/tv_success_desc"
+        android:layout_marginTop="28dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="36dp"
+        android:layout_marginEnd="36dp"/>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

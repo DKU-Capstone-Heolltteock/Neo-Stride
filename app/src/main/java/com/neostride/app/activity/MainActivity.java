@@ -22,6 +22,10 @@ import com.neostride.app.feature.record.RecordFragment;
 import com.neostride.app.feature.coaching.CoachingFragment;
 import com.neostride.app.feature.notification.NotificationFragment;
 
+import android.content.Intent;
+import android.widget.LinearLayout;
+import com.neostride.app.feature.auth.LoginActivity;
+
 public class MainActivity extends AppCompatActivity {
 
     private LinearLayout tabRunning, tabRecord, tabCoaching, tabCommunity;
@@ -100,6 +104,15 @@ public class MainActivity extends AppCompatActivity {
 
         // 팝업 표시 위치 설정
         popupWindow.showAsDropDown(anchorView, -width + anchorView.getWidth(), 15);
+
+        // 로그아웃 버튼 연동
+        LinearLayout menuLogout = menuView.findViewById(R.id.menu_logout);
+
+        menuLogout.setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+        });
     }
 
     private void replaceFragment(Fragment fragment) {

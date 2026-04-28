@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#000000">
+
+    <!-- 상단 형광 로고 -->
+
+    <!-- ID -->
+    <ImageView
+        android:id="@+id/img_logo_top"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_marginStart="144dp"
+        android:layout_marginTop="80dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_main_logo"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tv_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ID"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        app:layout_constraintTop_toBottomOf="@id/img_logo_top"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="40dp"
+        android:layout_marginStart="40dp"/>
+
+    <EditText
+        android:id="@+id/et_id"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Enter your ID"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#888888"
+        android:backgroundTint="#FFFFFF"
+        app:layout_constraintTop_toBottomOf="@id/tv_id"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginHorizontal="40dp"/>
+
+    <!-- Password -->
+    <TextView
+        android:id="@+id/tv_pw"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Password"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        app:layout_constraintTop_toBottomOf="@id/et_id"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="24dp"
+        android:layout_marginStart="40dp"/>
+
+    <EditText
+        android:id="@+id/et_pw"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:hint="Enter your password"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#888888"
+        android:inputType="textPassword"
+        android:backgroundTint="#FFFFFF"
+        app:layout_constraintTop_toBottomOf="@id/tv_pw"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginHorizontal="40dp"/>
+
+    <!-- 로그인 유지 -->
+    <CheckBox
+        android:id="@+id/cb_keep_login"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="로그인 유지"
+        android:textColor="#FFFFFF"
+        app:layout_constraintTop_toBottomOf="@id/et_pw"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="12dp"
+        android:layout_marginStart="40dp"/>
+
+    <!-- 찾기 -->
+    <TextView
+        android:id="@+id/tv_find"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ID/비밀번호 찾기"
+        android:textColor="#AAAAAA"
+        app:layout_constraintTop_toBottomOf="@id/et_pw"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="40dp"/>
+
+    <!-- 하단 형광 배경 -->
+    <ImageView
+        android:id="@+id/img_bottom"
+        android:layout_width="0dp"
+        android:layout_height="260dp"
+        android:src="@drawable/ic_bottom_logo"
+        android:scaleType="fitXY"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- 로그인 버튼 -->
+    <Button
+        android:id="@+id/btn_login"
+        android:layout_width="0dp"
+        android:layout_height="55dp"
+        android:text="Login"
+        android:textColor="#B8FF06"
+        android:backgroundTint="#111111"
+        app:layout_constraintBottom_toBottomOf="@id/img_bottom"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginHorizontal="60dp"
+        android:layout_marginBottom="80dp"/>
+
+    <!-- 회원가입 -->
+    <TextView
+        android:id="@+id/tv_register"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Don't have an account yet? Register here"
+        android:textColor="#000000"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.496"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btn_login" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
