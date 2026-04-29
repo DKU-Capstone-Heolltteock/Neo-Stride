@@ -7,17 +7,18 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.neostride.app.R;
+
 import java.util.List;
 
 public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.ViewHolder> {
-    private List<RunningRecord> records;
+    private List<RunningRecordItem> records;
     private OnRecordClickListener listener;
 
     public interface OnRecordClickListener {
-        void onRecordClick(RunningRecord record);
+        void onRecordClick(RunningRecordItem record);
     }
 
-    public DailyRecordAdapter(List<RunningRecord> records, OnRecordClickListener listener) {
+    public DailyRecordAdapter(List<RunningRecordItem> records, OnRecordClickListener listener) {
         this.records = records;
         this.listener = listener;
     }
@@ -31,7 +32,7 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        RunningRecord record = records.get(position);
+        RunningRecordItem record = records.get(position);
         holder.tvDistance.setText(record.getDistance());
         holder.tvTime.setText(record.getTime());
         holder.tvPace.setText(record.getPace());
@@ -43,7 +44,7 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
     @Override
     public int getItemCount() { return records.size(); }
 
-    public void updateData(List<RunningRecord> newRecords) {
+    public void updateData(List<RunningRecordItem> newRecords) {
         this.records = newRecords;
         notifyDataSetChanged();
     }
@@ -52,10 +53,10 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
         TextView tvDistance, tvTime, tvPace, tvCalories;
         ViewHolder(View view) {
             super(view);
-            tvDistance = view.findViewById(R.id.tv_record_distance);
-            tvTime = view.findViewById(R.id.tv_record_time);
-            tvPace = view.findViewById(R.id.tv_record_pace);
-            tvCalories = view.findViewById(R.id.tv_record_calories);
+            tvDistance = view.findViewById(R.id.tv_item_distance);
+            tvTime = view.findViewById(R.id.tv_item_time);
+            tvPace = view.findViewById(R.id.tv_item_pace);
+            tvCalories = view.findViewById(R.id.tv_item_calories);
         }
     }
 }
