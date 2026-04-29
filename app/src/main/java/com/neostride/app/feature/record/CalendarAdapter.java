@@ -8,19 +8,20 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.neostride.app.R;
+
 import java.time.LocalDate;
 import java.util.List;
 
 public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.ViewHolder> {
-    private final List<CalendarDay> days;
+    private final List<CalendarDayItem> days;
     private final OnDayClickListener listener;
     private int selectedPosition = -1;
 
     public interface OnDayClickListener {
-        void onDayClick(CalendarDay day);
+        void onDayClick(CalendarDayItem day);
     }
 
-    public CalendarAdapter(List<CalendarDay> days, OnDayClickListener listener) {
+    public CalendarAdapter(List<CalendarDayItem> days, OnDayClickListener listener) {
         this.days = days;
         this.listener = listener;
     }
@@ -34,7 +35,7 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.ViewHo
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
-        CalendarDay day = days.get(position);
+        CalendarDayItem day = days.get(position);
 
         if (day == null) {
             holder.tvDay.setText("");
@@ -52,11 +53,10 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.ViewHo
         boolean isToday = day.getDate().equals(LocalDate.now());
         boolean isSelected = position == selectedPosition;
 
-        // ── 선택 상태 ──
+        // ── 1. 선택 상태 처리 ──
         if (isSelected) {
             holder.viewSelected.setVisibility(View.VISIBLE);
             holder.tvDay.setTextColor(Color.parseColor("#000000")); // 선택 시 검정 글씨
-            // 코칭 상태에 따른 선택 배경 색
             if (day.getCoachingStatus() != null) {
                 switch (day.getCoachingStatus()) {
                     case "completed": holder.viewSelected.setBackgroundResource(R.drawable.bg_calendar_selected); break;
@@ -75,30 +75,23 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.ViewHo
             }
         }
 
-        // 현재 월이 아닌 날짜 투명도
         holder.tvDay.setAlpha(day.isCurrentMonth() ? 1.0f : 0.3f);
 
-        // ── 거리 표시 (뛴 기록 있을 때) ──
+        // ── 2. 거리 표시 로직 (선택 상태에 따라 가시성 조절) ──
         if (day.hasDistance()) {
-            holder.tvDistance.setVisibility(View.VISIBLE);
-            // 거리 앞에 색상 원 표시 (● 5.9km 형태)
-            String dotColor;
-            if (day.getCoachingStatus() != null) {
-                switch (day.getCoachingStatus()) {
-                    case "completed": dotColor = "🟢 "; break;
-                    case "missed": dotColor = "🔴 "; break;
-                    default: dotColor = "🟠 "; break;
-                }
+            // [수정] 선택된 상태가 아닐 때만 거리를 보여줍니다.
+            if (isSelected) {
+                holder.tvDistance.setVisibility(View.GONE);
             } else {
-                dotColor = "● ";
+                holder.tvDistance.setVisibility(View.VISIBLE);
+                holder.tvDistance.setText(day.getDistance());
+                holder.tvDistance.setTextColor(Color.parseColor("#CCFF00"));
             }
-            holder.tvDistance.setText(day.getDistance());
-            holder.tvDistance.setTextColor(Color.parseColor("#CCFF00"));
         } else {
             holder.tvDistance.setVisibility(View.GONE);
         }
 
-        // ── 코칭 상태 점 (뛴 기록 없고 코칭만 있을 때) ──
+        // ── 3. 코칭 상태 점 처리 ──
         if (!day.hasDistance() && day.getCoachingStatus() != null && !isSelected) {
             holder.viewPlanDot.setVisibility(View.VISIBLE);
             switch (day.getCoachingStatus()) {
@@ -110,12 +103,16 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.ViewHo
             holder.viewPlanDot.setVisibility(View.GONE);
         }
 
-        // ── 클릭 ──
+        // ── 4. 클릭 이벤트 (갱신 호출) ──
         holder.itemView.setOnClickListener(v -> {
             int oldPos = selectedPosition;
             selectedPosition = holder.getBindingAdapterPosition();
+
+            // 이전 선택된 아이템을 다시 그려서 거리가 나타나게 함
             if (oldPos >= 0) notifyItemChanged(oldPos);
+            // 새로 선택된 아이템을 다시 그려서 거리를 숨김
             notifyItemChanged(selectedPosition);
+
             listener.onDayClick(day);
         });
     }

@@ -1,32 +1,75 @@
 package com.neostride.app.feature.record;
 
+import android.annotation.SuppressLint;
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
+import android.graphics.Shader;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.location.Location;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.UiSettings;
+import com.google.android.gms.maps.model.JointType;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MapStyleOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.neostride.app.R;
+import com.neostride.app.feature.running.model.GpsTraceRequest;
+import com.neostride.app.feature.running.model.RunningRecordResponse;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
-public class RecordDetailFragment extends Fragment {
+public class RecordDetailFragment extends Fragment implements OnMapReadyCallback {
 
-    // 페이스별 색상 (RunningFragment와 동일)
+    private GoogleMap mMap;
+    private RunningRecordResponse recordData;
+    private boolean isAnalysisExpanded = false;
+
     private static final int COLOR_VERY_SLOW = Color.parseColor("#FF3B30");
     private static final int COLOR_SLOW      = Color.parseColor("#FF9500");
     private static final int COLOR_NORMAL    = Color.parseColor("#FFCC00");
     private static final int COLOR_FAST      = Color.parseColor("#A8D600");
     private static final int COLOR_VERY_FAST = Color.parseColor("#34C759");
 
-    public static RecordDetailFragment newInstance(RunningRecord record) {
+    private float paceThresVS, paceThresS, paceThresF, paceThresVF;
+    private boolean thresSet = false;
+
+    // 그래프 포인트 모델
+    public static class PacePoint {
+        public String timeStr;
+        public float paceValue;
+        public PacePoint(String timeStr, float paceValue) { this.timeStr = timeStr; this.paceValue = paceValue; }
+    }
+
+    public static RecordDetailFragment newInstance(RunningRecordResponse record) {
         RecordDetailFragment fragment = new RecordDetailFragment();
         Bundle args = new Bundle();
-        args.putSerializable("record", record);
+        args.putSerializable("record_data", record);
         fragment.setArguments(args);
         return fragment;
     }
@@ -35,90 +78,277 @@ public class RecordDetailFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_record_detail, container, false);
-
-        ImageView btnBack = view.findViewById(R.id.btn_detail_back);
-        btnBack.setOnClickListener(v -> {
-            if (getParentFragmentManager() != null) {
-                getParentFragmentManager().popBackStack();
-            }
-        });
-
-        if (getArguments() != null) {
-            RunningRecord record = (RunningRecord) getArguments().getSerializable("record");
-            if (record != null) {
-                TextView tvTitle = view.findViewById(R.id.tv_detail_title);
-                TextView tvDistance = view.findViewById(R.id.tv_detail_distance);
-                TextView tvTime = view.findViewById(R.id.tv_detail_time);
-                TextView tvPace = view.findViewById(R.id.tv_detail_pace);
-                TextView tvCalories = view.findViewById(R.id.tv_detail_calories);
-
-                tvTitle.setText("#1  " + record.getDate());
-                tvDistance.setText(record.getDistance());
-                tvTime.setText(record.getTime());
-                tvPace.setText(record.getPace());
-                tvCalories.setText(record.getCalories());
-
-                // 페이스 차트 그리기
-                LinearLayout chartLayout = view.findViewById(R.id.layout_pace_chart);
-                drawPaceChart(chartLayout);
-            }
-        }
-
+        if (getArguments() != null) recordData = (RunningRecordResponse) getArguments().getSerializable("record_data");
+        if (recordData != null) setupBasicUI(view);
+        SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.map_detail);
+        if (mapFragment != null) mapFragment.getMapAsync(this);
+        setupExpandableCard(view);
         return view;
     }
 
-    private void drawPaceChart(LinearLayout container) {
-        // 백엔드 연동 전이라 더미 데이터로 차트 시연
-        // 실제로는 segment_paces 배열을 받아서 그려야 함
-        float[] dummyPaces = {6.2f, 5.8f, 6.5f, 5.5f, 7.0f, 6.0f, 5.3f, 6.8f, 7.2f, 5.0f, 6.3f, 5.7f};
+    private void setupBasicUI(View view) {
+        TextView tvTitle = view.findViewById(R.id.tv_detail_title);
+        if (recordData.getCreatedAt() != null) tvTitle.setText(recordData.getCreatedAt().split("T")[0].replace("-", "."));
+        ((TextView) view.findViewById(R.id.tv_detail_distance)).setText(String.format(Locale.KOREA, "%.2f km", recordData.getDistance()));
+        ((TextView) view.findViewById(R.id.tv_detail_time)).setText(formatTime((int)recordData.getTime()));
+        ((TextView) view.findViewById(R.id.tv_detail_calories)).setText(String.valueOf((int) recordData.getCalories()));
+        double paceVal = recordData.getPace();
+        ((TextView) view.findViewById(R.id.tv_detail_pace)).setText(String.format(Locale.KOREA, "%d'%02d\"", (int)paceVal, (int)((paceVal-(int)paceVal)*60)));
+    }
 
-        float maxPace = 0;
-        for (float p : dummyPaces) {
-            if (p > maxPace) maxPace = p;
+    private void setupExpandableCard(View view) {
+        View toggleArea = view.findViewById(R.id.layout_expand_toggle);
+        LinearLayout expandContent = view.findViewById(R.id.layout_expand_content);
+        ImageView arrowIcon = view.findViewById(R.id.iv_expand_arrow);
+        ImageView chartIcon = view.findViewById(R.id.ivPaceChartGradient);
+        ImageView routeCenterIcon = view.findViewById(R.id.ivRouteCenterGradient);
+        FrameLayout chartContainer = view.findViewById(R.id.chart_container);
+
+        // 인터랙션용 텍스트뷰
+        LinearLayout layoutSelectedInfo = view.findViewById(R.id.layout_selected_info);
+        TextView tvSelectedTime = view.findViewById(R.id.tv_selected_time);
+        TextView tvSelectedPace = view.findViewById(R.id.tv_selected_pace);
+
+        int[] colors = {Color.RED, Color.parseColor("#FF9800"), Color.YELLOW, Color.GREEN};
+        float[] pos = {0f, 0.33f, 0.66f, 1f};
+        setGradientTintToIcon(chartIcon, colors, pos);
+        setGradientTintToIcon(routeCenterIcon, colors, pos);
+
+        updatePaceThresholds();
+
+        // [인터랙티브 줄 그래프 생성]
+        if (recordData != null && recordData.getGpsPath() != null) {
+            PaceLineView lineView = new PaceLineView(getContext());
+            lineView.setData(calculatePacePoints(recordData.getGpsPath()));
+
+            // 터치 콜백 설정
+            lineView.setOnPointSelectedListener(point -> {
+                layoutSelectedInfo.setVisibility(View.VISIBLE);
+                tvSelectedTime.setText("시간: " + point.timeStr);
+                tvSelectedPace.setText("페이스: " + formatPaceStr(point.paceValue));
+            });
+
+            chartContainer.addView(lineView);
         }
 
-        container.removeAllViews();
+        arrowIcon.setRotation(0);
+        toggleArea.setOnClickListener(v -> {
+            if (isAnalysisExpanded) {
+                expandContent.setVisibility(View.GONE);
+                arrowIcon.animate().rotation(0).setDuration(300).start();
+            } else {
+                expandContent.setVisibility(View.VISIBLE);
+                arrowIcon.animate().rotation(180).setDuration(300).start();
+            }
+            isAnalysisExpanded = !isAnalysisExpanded;
+        });
+    }
 
-        for (int i = 0; i < dummyPaces.length; i++) {
-            float pace = dummyPaces[i];
+    private List<PacePoint> calculatePacePoints(List<GpsTraceRequest> path) {
+        List<PacePoint> points = new ArrayList<>();
+        long startMillis = parseIsoTime(path.get(0).getTime());
+        for (int i = 0; i < path.size() - 1; i++) {
+            GpsTraceRequest p1 = path.get(i);
+            GpsTraceRequest p2 = path.get(i + 1);
+            double dist = distanceBetween(p1.getLatitude(), p1.getLongitude(), p2.getLatitude(), p2.getLongitude());
+            long currentMillis = parseIsoTime(p2.getTime());
+            long diffSec = (currentMillis - parseIsoTime(p1.getTime())) / 1000;
 
-            // 바 높이 비율 (높을수록 느림 → 바가 높음)
-            float heightRatio = pace / maxPace;
-            int barHeight = (int) (heightRatio * 100);
+            if (dist > 0.001 && diffSec > 0) {
+                float pace = (float) ((diffSec / 60.0) / dist);
+                // 진행 시간 계산 (mm:ss)
+                long elapsed = (currentMillis - startMillis) / 1000;
+                String timeLabel = String.format(Locale.KOREA, "%02d:%02d", elapsed / 60, elapsed % 60);
+                points.add(new PacePoint(timeLabel, Math.min(pace, 15f)));
+            }
+        }
+        return points;
+    }
 
-            // 바 색상
-            int color = getPaceColor(pace);
+    // --- [고급] 커스텀 인터랙티브 선 그래프 뷰 ---
+    private class PaceLineView extends View {
+        private List<PacePoint> points = new ArrayList<>();
+        private Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private Paint axisPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private Paint guidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
-            // 바 뷰
-            View bar = new View(getContext());
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    0, dpToPx(barHeight), 1f);
-            params.setMargins(dpToPx(2), 0, dpToPx(2), 0);
-            bar.setLayoutParams(params);
-            bar.setBackgroundColor(color);
+        private int selectedIndex = -1;
+        private OnPointSelectedListener listener;
 
-            // 바를 담는 컨테이너 (하단 정렬)
-            LinearLayout barContainer = new LinearLayout(getContext());
-            barContainer.setOrientation(LinearLayout.VERTICAL);
-            barContainer.setGravity(Gravity.BOTTOM);
-            LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
-            barContainer.setLayoutParams(containerParams);
-            barContainer.addView(bar);
+        private float paddingLeft = 100f;
+        private float paddingBottom = 60f;
+        private float paddingTop = 40f;
+        private float paddingRight = 40f;
 
-            container.addView(barContainer);
+        public PaceLineView(Context context) {
+            super(context);
+            linePaint.setStrokeWidth(6f);
+            linePaint.setStrokeCap(Paint.Cap.ROUND);
+
+            axisPaint.setColor(Color.parseColor("#44FFFFFF"));
+            axisPaint.setStrokeWidth(2f);
+
+            textPaint.setColor(Color.parseColor("#88FFFFFF"));
+            textPaint.setTextSize(24f);
+
+            guidePaint.setColor(Color.parseColor("#CCFF00"));
+            guidePaint.setStrokeWidth(3f);
+            guidePaint.setPathEffect(null);
+        }
+
+        public void setData(List<PacePoint> data) { this.points = data; invalidate(); }
+        public void setOnPointSelectedListener(OnPointSelectedListener l) { this.listener = l; }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            if (points.size() < 2) return;
+
+            float w = getWidth() - paddingLeft - paddingRight;
+            float h = getHeight() - paddingTop - paddingBottom;
+
+            float minPace = 15f; float maxPace = 0f;
+            for (PacePoint p : points) { if (p.paceValue < minPace) minPace = p.paceValue; if (p.paceValue > maxPace) maxPace = p.paceValue; }
+            float range = Math.max(1f, maxPace - minPace);
+
+            // 1. 축 그리기 (X: 시간, Y: 페이스)
+            canvas.drawLine(paddingLeft, paddingTop, paddingLeft, paddingTop + h, axisPaint); // Y축
+            canvas.drawLine(paddingLeft, paddingTop + h, paddingLeft + w, paddingTop + h, axisPaint); // X축
+
+            // 2. Y축 눈금 (페이스)
+            canvas.drawText(formatPaceStr(minPace), 10, paddingTop + 10, textPaint);
+            canvas.drawText(formatPaceStr(maxPace), 10, paddingTop + h, textPaint);
+
+            // 3. 선 그리기
+            float stepX = w / (points.size() - 1);
+            for (int i = 0; i < points.size() - 1; i++) {
+                float p1 = points.get(i).paceValue;
+                float p2 = points.get(i + 1).paceValue;
+
+                // 빠를수록(수치가 작을수록) 위로
+                float y1 = paddingTop + ((p1 - minPace) / range) * h;
+                float y2 = paddingTop + ((p2 - minPace) / range) * h;
+
+                linePaint.setColor(getPaceColor(p1));
+                canvas.drawLine(paddingLeft + (i * stepX), y1, paddingLeft + ((i + 1) * stepX), y2, linePaint);
+            }
+
+            // 4. X축 눈금 (시작, 중간, 끝 시간)
+            canvas.drawText(points.get(0).timeStr, paddingLeft, paddingTop + h + 40, textPaint);
+            canvas.drawText(points.get(points.size()-1).timeStr, paddingLeft + w - 60, paddingTop + h + 40, textPaint);
+
+            // 5. 선택 가이드라인 그리기
+            if (selectedIndex != -1) {
+                float selX = paddingLeft + (selectedIndex * stepX);
+                canvas.drawLine(selX, paddingTop, selX, paddingTop + h, guidePaint);
+                float selY = paddingTop + ((points.get(selectedIndex).paceValue - minPace) / range) * h;
+                canvas.drawCircle(selX, selY, 10f, guidePaint);
+            }
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            if (points.isEmpty()) return false;
+            float w = getWidth() - paddingLeft - paddingRight;
+            float stepX = w / (points.size() - 1);
+
+            if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
+                float touchX = event.getX() - paddingLeft;
+                selectedIndex = Math.round(touchX / stepX);
+                if (selectedIndex < 0) selectedIndex = 0;
+                if (selectedIndex >= points.size()) selectedIndex = points.size() - 1;
+
+                if (listener != null) listener.onPointSelected(points.get(selectedIndex));
+                invalidate();
+                return true;
+            }
+            return super.onTouchEvent(event);
         }
     }
 
-    private int getPaceColor(float paceMinPerKm) {
-        if (paceMinPerKm >= 7.0f) return COLOR_VERY_SLOW;
-        if (paceMinPerKm >= 6.5f) return COLOR_SLOW;
-        if (paceMinPerKm >= 5.8f) return COLOR_NORMAL;
-        if (paceMinPerKm >= 5.2f) return COLOR_FAST;
+    public interface OnPointSelectedListener { void onPointSelected(PacePoint point); }
+
+    // --- 색상 및 유틸 (기존 동일) ---
+    private void updatePaceThresholds() {
+        if (recordData == null) return;
+        float avgPace = (float) recordData.getPace();
+        paceThresVS = avgPace * 1.20f; paceThresS = avgPace * 1.08f;
+        paceThresF = avgPace * 0.92f; paceThresVF = avgPace * 0.80f;
+        thresSet = true;
+    }
+
+    private int getPaceColor(float pace) {
+        if (!thresSet) {
+            if (pace >= 8.5f) return COLOR_VERY_SLOW; if (pace >= 7.5f) return COLOR_SLOW;
+            if (pace >= 6.5f) return COLOR_NORMAL; if (pace >= 5.5f) return COLOR_FAST;
+            return COLOR_VERY_FAST;
+        }
+        if (pace >= paceThresVS) return COLOR_VERY_SLOW;
+        if (pace >= paceThresS) return COLOR_SLOW;
+        if (pace >= paceThresF) return COLOR_NORMAL;
+        if (pace >= paceThresVF) return COLOR_FAST;
         return COLOR_VERY_FAST;
     }
 
-    private int dpToPx(int dp) {
-        return (int) (dp * getResources().getDisplayMetrics().density);
+    @Override
+    public void onMapReady(@NonNull GoogleMap googleMap) {
+        mMap = googleMap;
+        mMap.getUiSettings().setAllGesturesEnabled(true);
+        mMap.getUiSettings().setMyLocationButtonEnabled(false);
+        try { mMap.setMyLocationEnabled(true); } catch (SecurityException e) { e.printStackTrace(); }
+        if (getView() != null) {
+            getView().findViewById(R.id.btn_my_location).setOnClickListener(v -> {
+                @SuppressLint("MissingPermission") Location loc = mMap.getMyLocation();
+                if (loc != null) mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(loc.getLatitude(), loc.getLongitude()), 16f));
+            });
+            getView().findViewById(R.id.btn_route_center).setOnClickListener(v -> {
+                if (recordData != null && recordData.getGpsPath() != null && !recordData.getGpsPath().isEmpty()) {
+                    LatLngBounds.Builder b = new LatLngBounds.Builder();
+                    for (GpsTraceRequest p : recordData.getGpsPath()) b.include(new LatLng(p.getLatitude(), p.getLongitude()));
+                    mMap.animateCamera(CameraUpdateFactory.newLatLng(b.build().getCenter()));
+                }
+            });
+        }
+        try { mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(requireContext(), R.raw.map_style)); } catch (Exception e) { e.printStackTrace(); }
+        if (recordData != null && recordData.getGpsPath() != null) drawFullRoute(recordData.getGpsPath());
     }
+
+    private void drawFullRoute(List<GpsTraceRequest> path) {
+        if (path.size() < 2) return;
+        LatLngBounds.Builder b = new LatLngBounds.Builder();
+        for (int i = 0; i < path.size() - 1; i++) {
+            GpsTraceRequest p1 = path.get(i); GpsTraceRequest p2 = path.get(i+1);
+            LatLng from = new LatLng(p1.getLatitude(), p1.getLongitude()); LatLng to = new LatLng(p2.getLatitude(), p2.getLongitude());
+            double d = distanceBetween(p1.getLatitude(), p1.getLongitude(), p2.getLatitude(), p2.getLongitude());
+            long t = (parseIsoTime(p2.getTime()) - parseIsoTime(p1.getTime())) / 1000;
+            int c = (d > 0 && t > 0) ? getPaceColor((float)((t/60.0)/d)) : COLOR_NORMAL;
+            mMap.addPolyline(new PolylineOptions().add(from, to).width(14f).color(c).geodesic(true).jointType(JointType.ROUND));
+            b.include(from); b.include(to);
+        }
+        mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(b.build(), 300));
+    }
+
+    private void setGradientTintToIcon(ImageView iv, int[] cls, float[] pts) {
+        if (iv == null || iv.getDrawable() == null) return;
+        Drawable d = iv.getDrawable(); Bitmap b = Bitmap.createBitmap(d.getIntrinsicWidth(), d.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(b); d.setBounds(0, 0, c.getWidth(), c.getHeight()); d.draw(c);
+        Paint p = new Paint(); p.setShader(new LinearGradient(0, 0, c.getWidth(), 0, cls, pts, Shader.TileMode.CLAMP));
+        p.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP)); c.drawRect(0, 0, c.getWidth(), c.getHeight(), p);
+        iv.setImageDrawable(new BitmapDrawable(getResources(), b));
+    }
+
+    private double distanceBetween(double la1, double lo1, double la2, double lo2) {
+        Location l1 = new Location(""); l1.setLatitude(la1); l1.setLongitude(lo1);
+        Location l2 = new Location(""); l2.setLatitude(la2); l2.setLongitude(lo2);
+        return l1.distanceTo(l2) / 1000.0;
+    }
+
+    private long parseIsoTime(String t) {
+        try { String c = t.replace("Z", "").replace("T", " "); if (c.contains(".")) c = c.substring(0, c.lastIndexOf("."));
+            return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).parse(c).getTime(); } catch (Exception e) { return System.currentTimeMillis(); }
+    }
+
+    private String formatTime(int s) { return String.format(Locale.KOREA, "%02d:%02d", s / 60, s % 60); }
+    private String formatPaceStr(float p) { return String.format(Locale.KOREA, "%d'%02d\"", (int)p, (int)((p-(int)p)*60)); }
 }

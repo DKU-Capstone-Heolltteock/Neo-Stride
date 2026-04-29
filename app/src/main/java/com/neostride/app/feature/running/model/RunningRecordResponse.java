@@ -1,23 +1,56 @@
 package com.neostride.app.feature.running.model;
 
 import com.google.gson.annotations.SerializedName;
+import java.io.Serializable;
+import java.util.List;
 
+/**
+ * 서버 응답 DTO — 저장 응답 + 조회 응답 통합
+ * ERD: RUNNING_RECORDS 테이블 매핑
+ */
+public class RunningRecordResponse implements Serializable {
 
-//RunningRecordResponse.java
-//서버에 기록 저장을 요청한 후 돌아오는 응답 데이터를 담는 DTO
-
-public class RunningRecordResponse {
+    // ── 저장 응답 ──
     @SerializedName("status")
-    private String status;      // 성공 여부 (success / error)
+    private String status;
 
     @SerializedName("message")
-    private String message;     // 서버에서 보내는 메시지
+    private String message;
 
     @SerializedName("run_record_id")
-    private int runRecordId;    // DB에 저장된 기록의 고유 번호 (결과 상세 화면 이동 시 사용)
+    private int runRecordId;
 
-    // 서버의 응답을 확인하기 위한 Getter 메서드들
+    // ── 조회 응답 (RUNNING_RECORDS 테이블) ──
+    @SerializedName("created_at")
+    private String createdAt;              // "2026-04-28T14:30:00"
+
+    @SerializedName("total_distance")
+    private float distance;                // km
+
+    @SerializedName("duration")
+    private float time;                    // 초
+
+    @SerializedName("pace")
+    private float pace;                    // 분/km
+
+    @SerializedName("calories")
+    private float calories;                // kcal
+
+    @SerializedName("gps_traces")
+    private List<GpsTraceRequest> gpsPath; // GPS 경로
+
+    @SerializedName("segment_paces")
+    private List<Float> segmentPaces;      // 구간별 페이스
+
+    // ── Getter (MonthPageFragment + RecordDetailFragment에서 사용하는 이름 그대로) ──
     public String getStatus() { return status; }
     public String getMessage() { return message; }
     public int getRunRecordId() { return runRecordId; }
+    public String getCreatedAt() { return createdAt; }
+    public float getDistance() { return distance; }
+    public float getTime() { return time; }
+    public float getPace() { return pace; }
+    public float getCalories() { return calories; }
+    public List<GpsTraceRequest> getGpsPath() { return gpsPath; }
+    public List<Float> getSegmentPaces() { return segmentPaces; }
 }
