@@ -2,14 +2,14 @@ package com.neostride.app.feature.record;
 
 import java.time.LocalDate;
 
-public class CalendarDay {
+public class CalendarDayItem {
     private LocalDate date;
     private String distance;
     private boolean isSelected;
     private boolean isCurrentMonth;
     private String coachingStatus; // null / "pending" / "completed" / "missed"
 
-    public CalendarDay(LocalDate date, String distance, boolean isCurrentMonth) {
+    public CalendarDayItem(LocalDate date, String distance, boolean isCurrentMonth) {
         this.date = date;
         this.distance = distance;
         this.isCurrentMonth = isCurrentMonth;
