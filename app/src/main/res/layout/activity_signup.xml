@@ -30,14 +30,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 프로필 -->
+        <!-- 프로필 이미지 -->
         <ImageView
             android:id="@+id/img_profile"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:src="@drawable/ic_profile"/>
 
-        <!-- + 버튼 -->
+        <!-- 프로필 추가 버튼 -->
         <ImageButton
             android:id="@+id/img_add"
             android:layout_width="32dp"
@@ -48,33 +48,6 @@
             android:layout_margin="4dp"/>
     </FrameLayout>
 
-    <!-- ID -->
-    <TextView
-        android:id="@+id/tv_id"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="ID"
-        android:textColor="#FFFFFF"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/profile_container"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginStart="24dp"
-        android:layout_marginTop="30dp"/>
-
-    <EditText
-        android:id="@+id/et_id"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:hint="Will be Your ID"
-        android:textColor="#FFFFFF"
-        android:textColorHint="#888888"
-        android:backgroundTint="#FFFFFF"
-        app:layout_constraintTop_toBottomOf="@id/tv_id"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_marginHorizontal="24dp"/>
-
     <!-- Email -->
     <TextView
         android:id="@+id/tv_email"
@@ -83,10 +56,10 @@
         android:text="Email"
         android:textColor="#FFFFFF"
         android:textStyle="bold"
-        app:layout_constraintTop_toBottomOf="@id/et_id"
+        app:layout_constraintTop_toBottomOf="@id/profile_container"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginStart="24dp"
-        android:layout_marginTop="16dp"/>
+        android:layout_marginTop="30dp"/>
 
     <EditText
         android:id="@+id/et_email"
@@ -96,6 +69,7 @@
         android:textColor="#FFFFFF"
         android:textColorHint="#888888"
         android:backgroundTint="#FFFFFF"
+        android:inputType="textEmailAddress"
         app:layout_constraintTop_toBottomOf="@id/tv_email"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -140,18 +114,6 @@
         android:layout_marginStart="24dp"
         android:layout_marginTop="16dp"/>
 
-    <ImageButton
-        android:id="@+id/img_eye1"
-        android:layout_width="20dp"
-        android:layout_height="15dp"
-        android:src="@drawable/ic_eye"
-        android:background="@null"
-
-        app:layout_constraintEnd_toEndOf="@id/et_pw"
-        app:layout_constraintTop_toTopOf="@id/et_pw"
-        app:layout_constraintBottom_toBottomOf="@id/et_pw"
-        android:layout_marginEnd="8dp"/>
-
     <EditText
         android:id="@+id/et_pw"
         android:layout_width="0dp"
@@ -166,6 +128,16 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginHorizontal="24dp"/>
 
+    <ImageButton
+        android:id="@+id/img_eye1"
+        android:layout_width="20dp"
+        android:layout_height="15dp"
+        android:src="@drawable/ic_eye"
+        android:background="@null"
+        app:layout_constraintEnd_toEndOf="@id/et_pw"
+        app:layout_constraintTop_toTopOf="@id/et_pw"
+        app:layout_constraintBottom_toBottomOf="@id/et_pw"
+        android:layout_marginEnd="8dp"/>
 
     <!-- Confirm Password -->
     <TextView
@@ -179,18 +151,6 @@
         app:layout_constraintStart_toStartOf="parent"
         android:layout_marginStart="24dp"
         android:layout_marginTop="16dp"/>
-
-    <ImageButton
-        android:id="@+id/img_eye2"
-        android:layout_width="20dp"
-        android:layout_height="15dp"
-        android:src="@drawable/ic_eye"
-        android:background="@null"
-
-        app:layout_constraintEnd_toEndOf="@id/et_confirm_pw"
-        app:layout_constraintTop_toTopOf="@id/et_confirm_pw"
-        app:layout_constraintBottom_toBottomOf="@id/et_confirm_pw"
-        android:layout_marginEnd="8dp"/>
 
     <EditText
         android:id="@+id/et_confirm_pw"
@@ -206,9 +166,18 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginHorizontal="24dp"/>
 
+    <ImageButton
+        android:id="@+id/img_eye2"
+        android:layout_width="20dp"
+        android:layout_height="15dp"
+        android:src="@drawable/ic_eye"
+        android:background="@null"
+        app:layout_constraintEnd_toEndOf="@id/et_confirm_pw"
+        app:layout_constraintTop_toTopOf="@id/et_confirm_pw"
+        app:layout_constraintBottom_toBottomOf="@id/et_confirm_pw"
+        android:layout_marginEnd="8dp"/>
 
-
-    <!-- 버튼 -->
+    <!-- 회원가입 버튼 -->
     <Button
         android:id="@+id/btn_register"
         android:layout_width="0dp"
