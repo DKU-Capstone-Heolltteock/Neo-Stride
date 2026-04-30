@@ -43,6 +43,7 @@ public class CoachingFragment extends Fragment {
 
     private Calendar weekStart = Calendar.getInstance();
     private int selectedDay = -1, selectedMonth = -1, selectedYear = -1;
+    private int forceHeaderMonth = -1, forceHeaderYear = -1;
 
     static String dayKeyToKorean(String key) {
         switch (key) { case "sun": return "일"; case "mon": return "월"; case "tue": return "화"; case "wed": return "수"; case "thu": return "목"; case "fri": return "금"; case "sat": return "토"; default: return key; }
@@ -79,45 +80,11 @@ public class CoachingFragment extends Fragment {
         tvHistoryEmpty = view.findViewById(R.id.tv_history_empty);
         ivHistoryArrow = view.findViewById(R.id.iv_history_arrow);
 
-        ImageView btnPrev = view.findViewById(R.id.btn_prev_week);
-        ImageView btnNext = view.findViewById(R.id.btn_next_week);
-
         setToStartOfWeek(weekStart);
         updateWeekView();
 
-        // 월 이동 — 다음/전 달의 1일이 속한 주로
-        btnPrev.setOnClickListener(v -> {
-            // 현재 주의 중간 날짜 기준으로 해당 월 구하기
-            Calendar mid = (Calendar) weekStart.clone();
-            mid.add(Calendar.DAY_OF_MONTH, 3); // 주의 중간(수요일쯤)
-            int curMonth = mid.get(Calendar.MONTH);
-            int curYear = mid.get(Calendar.YEAR);
-
-            // 전 달 1일로
-            Calendar target = Calendar.getInstance();
-            target.clear();
-            target.set(curYear, curMonth - 1, 1);
-            setToStartOfWeek(target);
-            weekStart = target;
-            selectedDay = -1;
-            updateWeekView();
-        });
-
-        btnNext.setOnClickListener(v -> {
-            Calendar mid = (Calendar) weekStart.clone();
-            mid.add(Calendar.DAY_OF_MONTH, 3);
-            int curMonth = mid.get(Calendar.MONTH);
-            int curYear = mid.get(Calendar.YEAR);
-
-            // 다음 달 1일로
-            Calendar target = Calendar.getInstance();
-            target.clear();
-            target.set(curYear, curMonth + 1, 1);
-            setToStartOfWeek(target);
-            weekStart = target;
-            selectedDay = -1;
-            updateWeekView();
-        });
+        // 월 텍스트 클릭 → 년/월 선택 팝업
+        tvWeekLabel.setOnClickListener(v -> showYearMonthPicker());
 
         btnToday.setOnClickListener(v -> {
             weekStart = Calendar.getInstance();
@@ -132,12 +99,14 @@ public class CoachingFragment extends Fragment {
             public void onSwipeLeft() {
                 weekStart.add(Calendar.WEEK_OF_YEAR, 1);
                 selectedDay = -1;
+                forceHeaderMonth = -1; forceHeaderYear = -1;
                 updateWeekView();
             }
             @Override
             public void onSwipeRight() {
                 weekStart.add(Calendar.WEEK_OF_YEAR, -1);
                 selectedDay = -1;
+                forceHeaderMonth = -1; forceHeaderYear = -1;
                 updateWeekView();
             }
         });
@@ -200,8 +169,64 @@ public class CoachingFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        updateWeekView();
+        // 서버에서 활성 목표 데이터 가져와서 로컬에 동기화
+        fetchActiveGoalFromServer();
         if (historyExpanded) loadHistory();
+    }
+
+    // 서버에서 활성 목표 + 플랜 데이터 가져오기
+    private void fetchActiveGoalFromServer() {
+        int userId = com.neostride.app.common.network.TokenManager.getUserId(requireContext());
+
+        com.neostride.app.feature.coaching.repository.CoachingRepository repo =
+                new com.neostride.app.feature.coaching.repository.CoachingRepository();
+
+        repo.getActiveGoal(userId, new com.neostride.app.feature.coaching.repository.CoachingRepository.OnResultListener<com.neostride.app.feature.coaching.model.GoalResponse>() {
+            @Override
+            public void onSuccess(com.neostride.app.feature.coaching.model.GoalResponse data) {
+                if (!isAdded()) return; // Fragment가 이미 분리됐으면 무시
+
+                if (data.hasActiveGoal() && data.getPlanDays() != null) {
+                    // 기존 로컬 데이터 초기화 후 서버 데이터로 덮어쓰기
+                    GoalStorage.clearAllPlans(requireContext());
+
+                    com.neostride.app.feature.coaching.model.GoalResponse.GoalInfo goal = data.getGoal();
+                    String goalId = "goal_server_" + data.getGoalId();
+
+                    for (com.neostride.app.feature.coaching.model.PlanDayResponse planDay : data.getPlanDays()) {
+                        // plan_date "2026-04-28" → "2026-4-28" 형식으로 변환 (GoalStorage 키 형식)
+                        String[] dateParts = planDay.getPlanDate().split("-");
+                        int year = Integer.parseInt(dateParts[0]);
+                        int month = Integer.parseInt(dateParts[1]);
+                        int day = Integer.parseInt(dateParts[2]);
+                        String key = year + "-" + month + "-" + day;
+
+                        GoalStorage.PlanData plan = new GoalStorage.PlanData();
+                        plan.goalId = goalId;
+                        plan.distanceKm = planDay.getDayDistanceKm();
+                        plan.paceSecPerKm = (int) (planDay.getDayPaceMinPerKm() * 60);
+                        plan.durationWeeks = goal != null ? goal.getDurationWeeks() : 4;
+                        plan.runningDays = goal != null ? goal.getRunningDays() : new java.util.ArrayList<>();
+                        plan.status = planDay.getStatus();
+                        plan.paceStr = planDay.getFormattedPace();
+                        plan.description = planDay.getDescription();
+                        plan.aiFeedbackComment = planDay.getAiFeedbackComment();
+
+                        GoalStorage.savePlan(requireContext(), key, plan);
+                    }
+                }
+
+                // UI 갱신
+                requireActivity().runOnUiThread(() -> updateWeekView());
+            }
+
+            @Override
+            public void onError(String message) {
+                // 서버 연결 안 되면 로컬 데이터로 표시 (오프라인 모드)
+                android.util.Log.e("CoachingFragment", "서버 동기화 실패: " + message);
+                if (isAdded()) updateWeekView();
+            }
+        });
     }
 
     private void loadHistory() {
@@ -264,10 +289,122 @@ public class CoachingFragment extends Fragment {
     }
 
     private void setToStartOfWeek(Calendar cal) {
-        cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+        // 현재 요일(1=일, 2=월, ... 7=토)에서 일요일까지 빼기
+        int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK); // 1=SUNDAY, 2=MONDAY...
+        int daysToSubtract = dayOfWeek - Calendar.SUNDAY; // 일요일이면 0, 월요일이면 1, ...
+        cal.add(Calendar.DAY_OF_MONTH, -daysToSubtract);
         cal.set(Calendar.HOUR_OF_DAY, 0);
         cal.set(Calendar.MINUTE, 0);
         cal.set(Calendar.SECOND, 0);
+        cal.set(Calendar.MILLISECOND, 0);
+    }
+
+    private void showYearMonthPicker() {
+        Calendar mid = (Calendar) weekStart.clone();
+        mid.add(Calendar.DAY_OF_MONTH, 3);
+        int curYear = mid.get(Calendar.YEAR);
+        int curMonth = mid.get(Calendar.MONTH);
+
+        android.app.Dialog dialog = new android.app.Dialog(requireContext());
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(Color.parseColor("#1A1A1A"));
+        root.setPadding(dp(24), dp(20), dp(24), dp(16));
+
+        LinearLayout pickerRow = new LinearLayout(requireContext());
+        pickerRow.setOrientation(LinearLayout.HORIZONTAL);
+        pickerRow.setGravity(Gravity.CENTER);
+        pickerRow.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        android.widget.NumberPicker yearPicker = new android.widget.NumberPicker(requireContext());
+        yearPicker.setMinValue(2024); yearPicker.setMaxValue(2030);
+        yearPicker.setValue(curYear); yearPicker.setWrapSelectorWheel(false);
+        String[] yearLabels = new String[7];
+        for (int i = 0; i < 7; i++) yearLabels[i] = (2024 + i) + "년";
+        yearPicker.setDisplayedValues(yearLabels);
+
+        android.widget.NumberPicker monthPicker = new android.widget.NumberPicker(requireContext());
+        monthPicker.setMinValue(1); monthPicker.setMaxValue(12);
+        monthPicker.setValue(curMonth + 1); monthPicker.setWrapSelectorWheel(true);
+        String[] monthLabels = new String[12];
+        for (int i = 0; i < 12; i++) monthLabels[i] = (i + 1) + "월";
+        monthPicker.setDisplayedValues(monthLabels);
+
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(0, dp(160), 1f);
+        pp.setMargins(dp(8), 0, dp(8), 0);
+        yearPicker.setLayoutParams(pp); monthPicker.setLayoutParams(pp);
+
+        pickerRow.addView(yearPicker); pickerRow.addView(monthPicker);
+        root.addView(pickerRow);
+
+        View divider = new View(requireContext());
+        divider.setBackgroundColor(Color.parseColor("#333333"));
+        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        divP.topMargin = dp(16); divider.setLayoutParams(divP);
+        root.addView(divider);
+
+        LinearLayout btnRow = new LinearLayout(requireContext());
+        btnRow.setOrientation(LinearLayout.HORIZONTAL); btnRow.setGravity(Gravity.END);
+        LinearLayout.LayoutParams brP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        brP.topMargin = dp(12); btnRow.setLayoutParams(brP);
+
+        TextView btnCancel = new TextView(requireContext());
+        btnCancel.setText("취소"); btnCancel.setTextColor(Color.parseColor("#888888"));
+        btnCancel.setTextSize(15); btnCancel.setPadding(dp(20), dp(10), dp(20), dp(10));
+        btnCancel.setOnClickListener(v2 -> dialog.dismiss());
+
+        TextView btnConfirm = new TextView(requireContext());
+        btnConfirm.setText("완료"); btnConfirm.setTextColor(Color.parseColor("#888888"));
+        btnConfirm.setTextSize(15); btnConfirm.setPadding(dp(20), dp(10), dp(20), dp(10));
+        btnConfirm.setOnClickListener(v2 -> {
+            int selYear = yearPicker.getValue();
+            int selMonth = monthPicker.getValue(); // 1~12
+
+            // 해당 월 1일로 설정
+            Calendar target = Calendar.getInstance();
+            target.set(Calendar.YEAR, selYear);
+            target.set(Calendar.MONTH, selMonth - 1);
+            target.set(Calendar.DAY_OF_MONTH, 1);
+
+            // 1일을 자동 선택
+            selectedDay = 1;
+            selectedMonth = selMonth;
+            selectedYear = selYear;
+
+            // 해당 월 1일이 속한 주의 일요일로 이동
+            setToStartOfWeek(target);
+            weekStart = target;
+
+            // 헤더를 선택한 월로 강제 표시
+            forceHeaderMonth = selMonth;
+            forceHeaderYear = selYear;
+
+            updateWeekView();
+            dialog.dismiss();
+        });
+
+        btnRow.addView(btnCancel); btnRow.addView(btnConfirm);
+        root.addView(btnRow);
+
+        dialog.setContentView(root);
+        android.view.Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            android.view.WindowManager.LayoutParams params = window.getAttributes();
+            params.width = dp(280); params.gravity = Gravity.CENTER;
+            window.setAttributes(params);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(Color.parseColor("#1A1A1A")); bg.setCornerRadius(dp(16));
+            root.setBackground(bg);
+        }
+        dialog.show();
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density);
     }
 
     private void updateWeekView() {
@@ -277,10 +414,17 @@ public class CoachingFragment extends Fragment {
         // 새 목표 버튼 — 목표 있으면 숨김
         btnAddGoal.setVisibility(allPlans.isEmpty() ? View.VISIBLE : View.GONE);
 
-        // 헤더
-        Calendar midWeek = (Calendar) weekStart.clone();
-        midWeek.add(Calendar.DAY_OF_MONTH, 3);
-        tvWeekLabel.setText(String.format("%d년 %d월", midWeek.get(Calendar.YEAR), midWeek.get(Calendar.MONTH) + 1));
+        // 헤더: 선택한 월 기준 또는 주 중간 날짜 기준
+        if (forceHeaderYear > 0) {
+            tvWeekLabel.setText(String.format("%d년 %d월", forceHeaderYear, forceHeaderMonth));
+            // 스와이프하면 초기화
+        } else if (selectedMonth > 0) {
+            tvWeekLabel.setText(String.format("%d년 %d월", selectedYear, selectedMonth));
+        } else {
+            Calendar midWeek = (Calendar) weekStart.clone();
+            midWeek.add(Calendar.DAY_OF_MONTH, 3);
+            tvWeekLabel.setText(String.format("%d년 %d월", midWeek.get(Calendar.YEAR), midWeek.get(Calendar.MONTH) + 1));
+        }
 
         // 오늘 버튼
         Calendar todayWeekStart = (Calendar) today.clone();
@@ -320,8 +464,9 @@ public class CoachingFragment extends Fragment {
             cell.addView(tvLabel);
 
             TextView tvDay = new TextView(getContext());
-            tvDay.setText(String.valueOf(dayNum)); tvDay.setTextSize(16); tvDay.setGravity(Gravity.CENTER);
+            tvDay.setText(String.valueOf(dayNum)); tvDay.setTextSize(14); tvDay.setGravity(Gravity.CENTER);
             tvDay.setTextColor(Color.WHITE);
+            tvDay.setTypeface(null, android.graphics.Typeface.BOLD);
 
             float density = getResources().getDisplayMetrics().density;
             int circleSize = (int) (36 * density); // 36dp 원형
@@ -333,13 +478,10 @@ public class CoachingFragment extends Fragment {
                 dayParams.topMargin = (int) (4 * density);
                 tvDay.setLayoutParams(dayParams);
 
-                // 상태별 색상으로 원형 배경
+                // 선택 시 항상 형광 그린 원형
                 GradientDrawable circle = new GradientDrawable();
                 circle.setShape(GradientDrawable.OVAL);
-                if (plan != null && "completed".equals(plan.status)) circle.setColor(Color.parseColor("#34C759"));
-                else if (plan != null && "missed".equals(plan.status)) circle.setColor(Color.parseColor("#FF3B30"));
-                else if (plan != null) circle.setColor(Color.parseColor("#FF9500"));
-                else circle.setColor(Color.parseColor("#CCFF00"));
+                circle.setColor(Color.parseColor("#CCFF00"));
                 tvDay.setBackground(circle);
             } else {
                 LinearLayout.LayoutParams dayParams = new LinearLayout.LayoutParams(circleSize, circleSize);
@@ -347,14 +489,16 @@ public class CoachingFragment extends Fragment {
                 dayParams.topMargin = (int) (4 * density);
                 tvDay.setLayoutParams(dayParams);
 
-                if (isToday) { tvDay.setTextColor(Color.parseColor("#CCFF00")); tvDay.setTextSize(18); }
+                if (isToday) { tvDay.setTextColor(Color.parseColor("#CCFF00")); }
             }
             cell.addView(tvDay);
 
             View dot = new View(getContext());
-            int dotSize = (int) (6 * getResources().getDisplayMetrics().density); // 6dp
+            int dotSize = (int) (5 * getResources().getDisplayMetrics().density);
             LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(dotSize, dotSize);
-            dp.topMargin = 4; dp.gravity = Gravity.CENTER; dot.setLayoutParams(dp);
+            dp.topMargin = 0;
+            dp.gravity = Gravity.CENTER;
+            dot.setLayoutParams(dp);
             if (!isSelected && plan != null) {
                 dot.setVisibility(View.VISIBLE);
                 switch (plan.status) {
@@ -366,7 +510,12 @@ public class CoachingFragment extends Fragment {
             cell.addView(dot);
 
             int fDay = dayNum, fMonth = dayMonth, fYear = dayYear;
-            cell.setOnClickListener(v -> { selectedDay = fDay; selectedMonth = fMonth; selectedYear = fYear; updateWeekView(); showPlanDetail(dateKey); });
+            cell.setOnClickListener(v -> {
+                selectedDay = fDay; selectedMonth = fMonth; selectedYear = fYear;
+                // 헤더를 선택한 날짜의 월로 변경
+                forceHeaderMonth = fMonth; forceHeaderYear = fYear;
+                updateWeekView(); showPlanDetail(dateKey);
+            });
 
             layoutWeekRow.addView(cell);
             dayCal.add(Calendar.DAY_OF_MONTH, 1);
@@ -406,7 +555,18 @@ public class CoachingFragment extends Fragment {
             tvSetDays.setText("설정 러닝 데이 : " + daysListToKorean(plan.runningDays));
             tvSetDistance.setText("최종 목표 거리 : " + plan.distanceKm + "km");
             tvSetPace.setText("최종 목표 기록 : " + plan.paceStr + "/km");
-            tvAiFeedback.setText("아직 피드백이 없습니다.\n오늘의 러닝을 완료하면 AI가 피드백을 제공합니다.");
+
+            // AI 피드백 표시
+            if (plan.aiFeedbackComment != null && !plan.aiFeedbackComment.isEmpty()) {
+                tvAiFeedback.setText(plan.aiFeedbackComment);
+                tvAiFeedback.setTextColor(0xFFCCCCCC);
+            } else if (plan.description != null && !plan.description.isEmpty()) {
+                tvAiFeedback.setText("📋 " + plan.description);
+                tvAiFeedback.setTextColor(0xFF888888);
+            } else {
+                tvAiFeedback.setText("아직 피드백이 없습니다.\n오늘의 러닝을 완료하면 AI가 피드백을 제공합니다.");
+                tvAiFeedback.setTextColor(0xFF888888);
+            }
         } else {
             tvNoPlan.setVisibility(View.VISIBLE);
             layoutPlanDetail.setVisibility(View.GONE);

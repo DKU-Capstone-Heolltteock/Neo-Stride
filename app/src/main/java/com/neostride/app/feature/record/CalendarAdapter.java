@@ -77,22 +77,35 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.ViewHo
 
         holder.tvDay.setAlpha(day.isCurrentMonth() ? 1.0f : 0.3f);
 
-        // ── 2. 거리 표시 로직 (선택 상태에 따라 가시성 조절) ──
-        if (day.hasDistance()) {
-            // [수정] 선택된 상태가 아닐 때만 거리를 보여줍니다.
-            if (isSelected) {
-                holder.tvDistance.setVisibility(View.GONE);
-            } else {
-                holder.tvDistance.setVisibility(View.VISIBLE);
-                holder.tvDistance.setText(day.getDistance());
-                holder.tvDistance.setTextColor(Color.parseColor("#CCFF00"));
-            }
-        } else {
-            holder.tvDistance.setVisibility(View.GONE);
-        }
+        boolean hasCoaching = day.getCoachingStatus() != null;
+        boolean hasDistance = day.hasDistance();
 
-        // ── 3. 코칭 상태 점 처리 ──
-        if (!day.hasDistance() && day.getCoachingStatus() != null && !isSelected) {
+        // ── 2. 거리 + 코칭 dot 동시 표시 로직 ──
+        if (isSelected) {
+            // 선택 상태: 거리/dot 숨김
+            holder.tvDistance.setVisibility(View.GONE);
+            holder.viewPlanDot.setVisibility(View.GONE);
+        } else if (hasDistance && hasCoaching) {
+            // 둘 다 있을 때: dot(왼쪽) + 거리(오른쪽) 함께 표시
+            holder.viewPlanDot.setVisibility(View.VISIBLE);
+            switch (day.getCoachingStatus()) {
+                case "completed": holder.viewPlanDot.setBackgroundResource(R.drawable.bg_calendar_selected); break;
+                case "missed": holder.viewPlanDot.setBackgroundResource(R.drawable.bg_calendar_missed); break;
+                case "pending": holder.viewPlanDot.setBackgroundResource(R.drawable.bg_calendar_pending); break;
+            }
+            holder.tvDistance.setVisibility(View.VISIBLE);
+            holder.tvDistance.setText(day.getDistance());
+            holder.tvDistance.setTextColor(Color.parseColor("#CCFF00"));
+        } else if (hasDistance) {
+            // 거리만 있을 때: 거리만 중앙에
+            holder.tvDistance.setVisibility(View.VISIBLE);
+            holder.tvDistance.setText(day.getDistance());
+            holder.tvDistance.setTextColor(Color.parseColor("#CCFF00"));
+            holder.viewPlanDot.setVisibility(View.GONE);
+        } else if (hasCoaching) {
+            // 코칭만 있을 때: dot만 표시, tv_distance는 INVISIBLE(constraint 유지용)
+            holder.tvDistance.setVisibility(View.INVISIBLE);
+            holder.tvDistance.setText("");
             holder.viewPlanDot.setVisibility(View.VISIBLE);
             switch (day.getCoachingStatus()) {
                 case "completed": holder.viewPlanDot.setBackgroundResource(R.drawable.bg_calendar_selected); break;
@@ -100,6 +113,8 @@ public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.ViewHo
                 case "pending": holder.viewPlanDot.setBackgroundResource(R.drawable.bg_calendar_pending); break;
             }
         } else {
+            // 둘 다 없을 때
+            holder.tvDistance.setVisibility(View.GONE);
             holder.viewPlanDot.setVisibility(View.GONE);
         }
 

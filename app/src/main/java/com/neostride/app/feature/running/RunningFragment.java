@@ -17,7 +17,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView;
+import androidx.cardview.widget.CardView; // 중요: 반드시 이 import가 있어야 함
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
@@ -38,7 +38,6 @@ import com.google.android.gms.maps.model.PolylineOptions;
 
 import com.neostride.app.R;
 import com.neostride.app.common.network.ApiClient;
-import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.running.api.RunningApi;
 import com.neostride.app.feature.running.model.GpsTraceRequest;
 import com.neostride.app.feature.running.model.RunningRecordRequest;
@@ -58,6 +57,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
     private RunningRepository runningRepository;
 
+    // XML의 모든 버튼이 CardView이므로 타입을 CardView로 통일합니다.
     private CardView btnStart, btnStop, btnPause, btnMyLocation, btnResultConfirm;
     private LinearLayout layoutResult;
     private TextView tvElapsedTime, tvDistance, tvPauseLabel;
@@ -106,11 +106,13 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.map);
         if (mapFragment != null) mapFragment.getMapAsync(this);
 
-        btnStart = view.findViewById(R.id.btn_start);
-        btnStop = view.findViewById(R.id.btn_stop);
-        btnPause = view.findViewById(R.id.btn_pause);
-        btnMyLocation = view.findViewById(R.id.btn_my_location);
-        btnResultConfirm = view.findViewById(R.id.btn_result_confirm);
+        // 뷰 연결: 타입을 CardView로 명확히 캐스팅하여 ClassCastException을 방지합니다.
+        btnStart = (CardView) view.findViewById(R.id.btn_start);
+        btnStop = (CardView) view.findViewById(R.id.btn_stop);
+        btnPause = (CardView) view.findViewById(R.id.btn_pause);
+        btnMyLocation = (CardView) view.findViewById(R.id.btn_my_location);
+        btnResultConfirm = (CardView) view.findViewById(R.id.btn_result_confirm);
+
         layoutResult = view.findViewById(R.id.layout_result);
         tvElapsedTime = view.findViewById(R.id.tv_elapsed_time);
         tvDistance = view.findViewById(R.id.tv_distance);
@@ -134,7 +136,6 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void sendDataToBackend() {
-        // [수정 완료] GpsTraceRequest 리스트 조립
         List<GpsTraceRequest> traces = new ArrayList<>();
         for (int i = 0; i < routePoints.size(); i++) {
             traces.add(new GpsTraceRequest(
@@ -144,10 +145,10 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             ));
         }
 
-        int currentUserId = TokenManager.getUserId(requireContext());
+        // [수정] 로그인 기능이 없으므로 팀장님이 주신 더미 ID를 직접 사용합니다.
+        int currentUserId = 1000000;
         int durationSeconds = (int) (elapsedMillis / 1000);
 
-        // [수정 완료] 명칭 및 생성자 인자 순서 동기화
         RunningRecordRequest request = new RunningRecordRequest(
                 currentUserId,
                 null,
@@ -155,15 +156,17 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 durationSeconds,
                 finalPaceMinPerKm,
                 finalCalories,
-                "", // routeDetail 초기값
+                "",
                 traces
         );
 
-        Log.d("NeoStride_Backend", "=== 서버 데이터 전송 요청 ===");
+        Log.d("NeoStride_Backend", "=== 서버 데이터 전송 요청 (User: " + currentUserId + ") ===");
         if (runningRepository != null) {
             runningRepository.saveRunningRecord(request);
         }
     }
+
+    // ... (onMapReady, getPaceColor, updatePaceThresholds 등 기존 코드는 동일) ...
 
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {

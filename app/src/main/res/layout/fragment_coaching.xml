@@ -8,44 +8,21 @@
 
     <View android:layout_width="match_parent" android:layout_height="100dp" />
 
-    <!-- 월 헤더 -->
-    <LinearLayout
-        android:layout_width="match_parent"
+    <!-- 월 헤더 (클릭하면 날짜 선택 팝업) -->
+    <TextView
+        android:id="@+id/tv_week_label"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="20dp"
-        android:paddingBottom="12dp">
-
-        <ImageView
-            android:id="@+id/btn_prev_week"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/ic_arrow_left"
-            app:tint="#FFFFFF"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true" android:focusable="true" />
-
-        <TextView
-            android:id="@+id/tv_week_label"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="2026년 4월"
-            android:textColor="#FFFFFF"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <ImageView
-            android:id="@+id/btn_next_week"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:src="@drawable/ic_arrow_right"
-            app:tint="#FFFFFF"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true" android:focusable="true" />
-    </LinearLayout>
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:text="2026년 4월"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:paddingVertical="12dp"
+        android:paddingHorizontal="24dp"
+        android:clickable="true"
+        android:focusable="true" />
 
     <!-- 주간 날짜 (스와이프 가능) -->
     <com.neostride.app.feature.coaching.SwipeDetector
