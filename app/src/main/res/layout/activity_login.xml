@@ -86,8 +86,9 @@
         android:layout_marginTop="12dp"
         android:layout_marginStart="40dp"/>
 
-    <!-- 찾기 -->
+    <!-- 찾기기능. 일단 클릭은 안됨. -->
     <TextView
+
         android:id="@+id/tv_find"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -96,7 +97,9 @@
         app:layout_constraintTop_toBottomOf="@id/et_pw"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="12dp"
-        android:layout_marginEnd="40dp"/>
+        android:layout_marginEnd="40dp"
+        android:clickable="false"
+        />
 
     <!-- 하단 형광 배경 -->
     <ImageView

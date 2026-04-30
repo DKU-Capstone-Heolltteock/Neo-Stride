@@ -16,7 +16,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NeoStride">
+        android:theme="@style/Theme.NeoStride"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".feature.auth.FindIdSuccessActivity"
             android:exported="false" />
