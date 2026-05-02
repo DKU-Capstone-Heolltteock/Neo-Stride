@@ -23,6 +23,7 @@ import com.neostride.app.R;
 
 import java.lang.reflect.Field;
 import java.time.YearMonth;
+import android.annotation.SuppressLint;
 
 public class RecordFragment extends Fragment {
 
@@ -44,6 +45,10 @@ public class RecordFragment extends Fragment {
 
         int currentPos = pagerAdapter.getPositionForMonth(YearMonth.now());
         viewPager.setCurrentItem(currentPos, false);
+
+        // 초기 헤더: 현재 월
+        YearMonth now = YearMonth.now();
+        tvMonthYear.setText(String.format("%d년 %d월", now.getYear(), now.getMonthValue()));
 
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override
@@ -171,6 +176,7 @@ public class RecordFragment extends Fragment {
     }
 
     // NumberPicker 텍스트 색상을 흰색으로
+    @SuppressLint("SoonBlockedPrivateApi")
     private void styleNumberPicker(NumberPicker picker) {
         try {
             Field selectorWheelPaintField = NumberPicker.class.getDeclaredField("mSelectorWheelPaint");

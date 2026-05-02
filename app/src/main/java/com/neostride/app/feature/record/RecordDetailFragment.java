@@ -109,8 +109,8 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         TextView tvSelectedTime = view.findViewById(R.id.tv_selected_time);
         TextView tvSelectedPace = view.findViewById(R.id.tv_selected_pace);
 
-        int[] colors = {Color.RED, Color.parseColor("#FF9800"), Color.YELLOW, Color.GREEN};
-        float[] pos = {0f, 0.33f, 0.66f, 1f};
+        int[] colors = {COLOR_VERY_SLOW, COLOR_SLOW, COLOR_NORMAL, COLOR_FAST, COLOR_VERY_FAST};
+        float[] pos = {0f, 0.25f, 0.5f, 0.75f, 1f};
         setGradientTintToIcon(chartIcon, colors, pos);
         setGradientTintToIcon(routeCenterIcon, colors, pos);
 
@@ -220,18 +220,34 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
             canvas.drawText(formatPaceStr(minPace), 10, paddingTop + 10, textPaint);
             canvas.drawText(formatPaceStr(maxPace), 10, paddingTop + h, textPaint);
 
-            // 3. 선 그리기
+            // 3. 선 그리기 (선분을 세분화해서 색상 변화를 부드럽게)
             float stepX = w / (points.size() - 1);
+            int subDivisions = 4; // 각 선분을 4등분
+
             for (int i = 0; i < points.size() - 1; i++) {
                 float p1 = points.get(i).paceValue;
                 float p2 = points.get(i + 1).paceValue;
 
-                // 빠를수록(수치가 작을수록) 위로
                 float y1 = paddingTop + ((p1 - minPace) / range) * h;
                 float y2 = paddingTop + ((p2 - minPace) / range) * h;
 
-                linePaint.setColor(getPaceColor(p1));
-                canvas.drawLine(paddingLeft + (i * stepX), y1, paddingLeft + ((i + 1) * stepX), y2, linePaint);
+                float x1 = paddingLeft + (i * stepX);
+                float x2 = paddingLeft + ((i + 1) * stepX);
+
+                for (int s = 0; s < subDivisions; s++) {
+                    float t1 = (float) s / subDivisions;
+                    float t2 = (float) (s + 1) / subDivisions;
+
+                    float sx1 = x1 + (x2 - x1) * t1;
+                    float sy1 = y1 + (y2 - y1) * t1;
+                    float sx2 = x1 + (x2 - x1) * t2;
+                    float sy2 = y1 + (y2 - y1) * t2;
+
+                    // 중간 페이스로 색상 결정
+                    float midPace = p1 + (p2 - p1) * ((t1 + t2) / 2f);
+                    linePaint.setColor(getPaceColor(midPace));
+                    canvas.drawLine(sx1, sy1, sx2, sy2, linePaint);
+                }
             }
 
             // 4. X축 눈금 (시작, 중간, 끝 시간)
@@ -306,7 +322,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
                 if (recordData != null && recordData.getGpsPath() != null && !recordData.getGpsPath().isEmpty()) {
                     LatLngBounds.Builder b = new LatLngBounds.Builder();
                     for (GpsTraceRequest p : recordData.getGpsPath()) b.include(new LatLng(p.getLatitude(), p.getLongitude()));
-                    mMap.animateCamera(CameraUpdateFactory.newLatLng(b.build().getCenter()));
+                    mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(b.build(), 300));
                 }
             });
         }

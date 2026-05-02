@@ -147,7 +147,7 @@ public class MonthPageFragment extends Fragment {
                 } catch (Exception e) { e.printStackTrace(); }
             }
             if (dailyTotalDistance > 0) {
-                dayItem.setDistance(String.format(Locale.getDefault(), "%.1fkm", dailyTotalDistance));
+                dayItem.setDistance(String.format(Locale.getDefault(), "%.2fkm", dailyTotalDistance));
             }
         }
         calendarAdapter.notifyDataSetChanged();
@@ -174,7 +174,7 @@ public class MonthPageFragment extends Fragment {
         float curPace = (curDist > 0) ? (float)((curSec/60.0)/curDist) : 0;
         float prevPace = (prevDist > 0) ? (float)((prevSec/60.0)/prevDist) : 0;
 
-        tvStatDistance.setText(String.format(Locale.getDefault(), "%.1f km", curDist));
+        tvStatDistance.setText(String.format(Locale.getDefault(), "%.2f km", curDist));
         tvStatCalories.setText(String.format(Locale.getDefault(), "%.0f kcal", curCal));
         if (curPace > 0) {
             int min = (int) curPace; int sec = (int) ((curPace - min) * 60);
@@ -207,10 +207,20 @@ public class MonthPageFragment extends Fragment {
         tvSelectedDate.setVisibility(View.VISIBLE);
         List<RunningRecordItem> filteredItems = new ArrayList<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
+        // 해당 날짜에 코칭 플랜이 있는지 확인
+        String planKey = date.getYear() + "-" + date.getMonthValue() + "-" + date.getDayOfMonth();
+        GoalStorage.PlanData plan = (getContext() != null) ? GoalStorage.getPlan(getContext(), planKey) : null;
+        boolean hasCoachingPlan = (plan != null);
+
         for (RunningRecordResponse res : allServerRecords) {
             try {
                 LocalDate resDate = LocalDate.parse(res.getCreatedAt(), formatter);
-                if (resDate.equals(date)) filteredItems.add(convertToItem(res));
+                if (resDate.equals(date)) {
+                    RunningRecordItem item = convertToItem(res);
+                    if (hasCoachingPlan) item.setAiCoaching(true);
+                    filteredItems.add(item);
+                }
             } catch (Exception e) { e.printStackTrace(); }
         }
         if (filteredItems.isEmpty()) {

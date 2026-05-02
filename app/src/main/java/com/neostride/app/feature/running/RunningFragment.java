@@ -12,12 +12,13 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.cardview.widget.CardView; // 중요: 반드시 이 import가 있어야 함
+import androidx.cardview.widget.CardView;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
@@ -38,6 +39,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 
 import com.neostride.app.R;
 import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.running.api.RunningApi;
 import com.neostride.app.feature.running.model.GpsTraceRequest;
 import com.neostride.app.feature.running.model.RunningRecordRequest;
@@ -57,7 +59,6 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
     private RunningRepository runningRepository;
 
-    // XML의 모든 버튼이 CardView이므로 타입을 CardView로 통일합니다.
     private CardView btnStart, btnStop, btnPause, btnMyLocation, btnResultConfirm;
     private LinearLayout layoutResult;
     private TextView tvElapsedTime, tvDistance, tvPauseLabel;
@@ -93,6 +94,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
     private float paceThresholdVerySlow, paceThresholdSlow, paceThresholdFast, paceThresholdVeryFast;
     private boolean paceThresholdsSet = false;
+    private boolean isCoachingRun = false;
 
     @Nullable
     @Override
@@ -106,13 +108,11 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.map);
         if (mapFragment != null) mapFragment.getMapAsync(this);
 
-        // 뷰 연결: 타입을 CardView로 명확히 캐스팅하여 ClassCastException을 방지합니다.
-        btnStart = (CardView) view.findViewById(R.id.btn_start);
-        btnStop = (CardView) view.findViewById(R.id.btn_stop);
-        btnPause = (CardView) view.findViewById(R.id.btn_pause);
-        btnMyLocation = (CardView) view.findViewById(R.id.btn_my_location);
-        btnResultConfirm = (CardView) view.findViewById(R.id.btn_result_confirm);
-
+        btnStart = view.findViewById(R.id.btn_start);
+        btnStop = view.findViewById(R.id.btn_stop);
+        btnPause = view.findViewById(R.id.btn_pause);
+        btnMyLocation = view.findViewById(R.id.btn_my_location);
+        btnResultConfirm = view.findViewById(R.id.btn_result_confirm);
         layoutResult = view.findViewById(R.id.layout_result);
         tvElapsedTime = view.findViewById(R.id.tv_elapsed_time);
         tvDistance = view.findViewById(R.id.tv_distance);
@@ -121,7 +121,88 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         tvResultTime = view.findViewById(R.id.tv_result_time);
         tvResultPace = view.findViewById(R.id.tv_result_pace);
 
-        btnStart.setOnClickListener(v -> startTracking());
+        // 슬라이드 버튼 관련
+        CardView btnStartCoaching = view.findViewById(R.id.btn_start_coaching);
+        TextView tabCoachingPeek = view.findViewById(R.id.tab_coaching_peek);
+        TextView tabFreePeek = view.findViewById(R.id.tab_free_peek);
+        LinearLayout layoutCoachingGoals = view.findViewById(R.id.layout_coaching_goals);
+        LinearLayout layoutRunningControls = view.findViewById(R.id.layout_running_controls);
+        FrameLayout layoutStartButtons = view.findViewById(R.id.layout_start_buttons);
+
+        // 오늘 코칭 목표 확인
+        java.util.Calendar today = java.util.Calendar.getInstance();
+        String todayKey = today.get(java.util.Calendar.YEAR) + "-" + (today.get(java.util.Calendar.MONTH) + 1) + "-" + today.get(java.util.Calendar.DAY_OF_MONTH);
+        com.neostride.app.feature.coaching.GoalStorage.PlanData todayPlan =
+                com.neostride.app.feature.coaching.GoalStorage.getPlan(requireContext(), todayKey);
+
+        boolean hasTodayCoaching = todayPlan != null && !"completed".equals(todayPlan.status);
+        boolean isCoachingMode = false;
+
+        if (hasTodayCoaching) {
+            tabCoachingPeek.setVisibility(View.VISIBLE);
+
+            // 목표 표시 텍스트 설정
+            TextView tvGoalDistLabel = view.findViewById(R.id.tv_goal_distance_label);
+            TextView tvGoalTimeLabel = view.findViewById(R.id.tv_goal_time_label);
+            FrameLayout frameGoalTime = view.findViewById(R.id.frame_goal_time);
+
+            tvGoalDistLabel.setText("0/" + todayPlan.distanceKm + "km");
+
+            // 원형 테두리 — 거리
+            View circleDistance = view.findViewById(R.id.circle_goal_distance);
+            android.graphics.drawable.GradientDrawable circleBg = new android.graphics.drawable.GradientDrawable();
+            circleBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            circleBg.setColor(0xFF1A1A1A);
+            circleBg.setStroke(4, 0xFFFF9500);
+            circleDistance.setBackground(circleBg);
+
+            if (todayPlan.paceSecPerKm > 0) {
+                frameGoalTime.setVisibility(View.VISIBLE);
+                int targetTime = (int)(todayPlan.distanceKm * todayPlan.paceSecPerKm);
+                tvGoalTimeLabel.setText(String.format("%d:%02d", targetTime / 60, targetTime % 60));
+
+                View circleTime = view.findViewById(R.id.circle_goal_time);
+                android.graphics.drawable.GradientDrawable ctBg = new android.graphics.drawable.GradientDrawable();
+                ctBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                ctBg.setColor(0xFF1A1A1A);
+                ctBg.setStroke(4, 0xFFFF9500);
+                circleTime.setBackground(ctBg);
+            }
+
+            // 코칭 뾰족 탭 클릭 → 코칭 모드로 전환
+            tabCoachingPeek.setOnClickListener(v -> {
+                btnStart.setVisibility(View.GONE);
+                tabCoachingPeek.setVisibility(View.GONE);
+                btnStartCoaching.setVisibility(View.VISIBLE);
+                tabFreePeek.setVisibility(View.VISIBLE);
+                layoutCoachingGoals.setVisibility(View.VISIBLE);
+            });
+
+            // 자유 러닝 뾰족 탭 클릭 → 자유 모드로 복귀
+            tabFreePeek.setOnClickListener(v -> {
+                btnStartCoaching.setVisibility(View.GONE);
+                tabFreePeek.setVisibility(View.GONE);
+                btnStart.setVisibility(View.VISIBLE);
+                tabCoachingPeek.setVisibility(View.VISIBLE);
+                layoutCoachingGoals.setVisibility(View.GONE);
+            });
+
+            // 코칭 시작 버튼
+            btnStartCoaching.setOnClickListener(v -> {
+                isCoachingRun = true;
+                layoutStartButtons.setVisibility(View.GONE);
+                layoutCoachingGoals.setVisibility(View.GONE);
+                layoutRunningControls.setVisibility(View.VISIBLE);
+                startTracking();
+            });
+        }
+
+        btnStart.setOnClickListener(v -> {
+            isCoachingRun = false;
+            layoutStartButtons.setVisibility(View.GONE);
+            layoutRunningControls.setVisibility(View.VISIBLE);
+            startTracking();
+        });
         btnStop.setOnClickListener(v -> stopTracking());
         btnPause.setOnClickListener(v -> togglePause());
         btnMyLocation.setOnClickListener(v -> moveToCurrentLocation(true));
@@ -129,6 +210,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         btnResultConfirm.setOnClickListener(v -> {
             sendDataToBackend();
             resetToReady();
+            // 버튼 영역 복원
+            layoutRunningControls.setVisibility(View.GONE);
+            layoutStartButtons.setVisibility(View.VISIBLE);
         });
 
         setupLocationCallback();
@@ -136,6 +220,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void sendDataToBackend() {
+        // [수정 완료] GpsTraceRequest 리스트 조립
         List<GpsTraceRequest> traces = new ArrayList<>();
         for (int i = 0; i < routePoints.size(); i++) {
             traces.add(new GpsTraceRequest(
@@ -145,10 +230,10 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             ));
         }
 
-        // [수정] 로그인 기능이 없으므로 팀장님이 주신 더미 ID를 직접 사용합니다.
-        int currentUserId = 1000000;
+        int currentUserId = TokenManager.getUserId(requireContext());
         int durationSeconds = (int) (elapsedMillis / 1000);
 
+        // [수정 완료] 명칭 및 생성자 인자 순서 동기화
         RunningRecordRequest request = new RunningRecordRequest(
                 currentUserId,
                 null,
@@ -156,17 +241,15 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 durationSeconds,
                 finalPaceMinPerKm,
                 finalCalories,
-                "",
+                "", // routeDetail 초기값
                 traces
         );
 
-        Log.d("NeoStride_Backend", "=== 서버 데이터 전송 요청 (User: " + currentUserId + ") ===");
+        Log.d("NeoStride_Backend", "=== 서버 데이터 전송 요청 ===");
         if (runningRepository != null) {
             runningRepository.saveRunningRecord(request);
         }
     }
-
-    // ... (onMapReady, getPaceColor, updatePaceThresholds 등 기존 코드는 동일) ...
 
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
@@ -294,7 +377,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         startTime = SystemClock.elapsedRealtime();
         timerHandler.post(timerRunnable);
         startLocationUpdates();
-        btnStart.setVisibility(View.GONE); btnStop.setVisibility(View.VISIBLE); btnPause.setVisibility(View.VISIBLE);
+        btnStop.setVisibility(View.VISIBLE); btnPause.setVisibility(View.VISIBLE);
         tvElapsedTime.setText("00 : 00"); tvDistance.setText("0 m");
     }
 
@@ -312,7 +395,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         finalPaceMinPerKm = (distanceKm >= 0.01f) ? (totalSec / 60f) / distanceKm : 0f;
         finalCalories = 70.0f * distanceKm * 1.036f;
 
-        btnStop.setVisibility(View.GONE); btnPause.setVisibility(View.GONE); layoutResult.setVisibility(View.VISIBLE);
+        btnStop.setVisibility(View.GONE); btnPause.setVisibility(View.GONE);
+        layoutResult.setVisibility(View.VISIBLE);
         tvResultDistance.setText(String.format("%.2f km", distanceKm));
         if (totalSec / 3600 > 0) tvResultTime.setText(String.format("%d:%02d:%02d", totalSec/3600, (totalSec%3600)/60, totalSec%60));
         else tvResultTime.setText(String.format("%02d:%02d", totalSec/60, totalSec%60));
@@ -324,11 +408,12 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     }
 
     private void resetToReady() {
-        layoutResult.setVisibility(View.GONE); btnStart.setVisibility(View.VISIBLE);
+        layoutResult.setVisibility(View.GONE);
         if (mMap != null) mMap.clear();
         totalDistanceMeters = 0f; lastLocation = null;
         routePoints.clear(); routeTimestamps.clear(); segmentPaces.clear();
         elapsedMillis = 0; pausedDuration = 0; isPaused = false; paceThresholdsSet = false;
+        isCoachingRun = false;
     }
 
     private void checkPermissionAndMoveCamera() {
