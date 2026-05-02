@@ -13,11 +13,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 목표/플랜 데이터를 SharedPreferences에 저장
- * 탭 이동해도 데이터 유지됨
- * 백엔드 연동 시 이 클래스를 API 호출로 교체하면 됨
- */
+
+// 목표/플랜 데이터를 SharedPreferences에 저장
+// 탭 이동해도 데이터 유지됨
+// 백엔드 연동 시 이 클래스를 API 호출로 교체하면 됨
+
 public class GoalStorage {
 
     private static final String PREF_NAME = "neo_stride_goals";
@@ -77,6 +77,11 @@ public class GoalStorage {
         }
         String json = gson.toJson(plans);
         getPrefs(context).edit().putString(KEY_PLANS, json).apply();
+    }
+
+    // 모든 플랜 초기화 (서버 동기화 시 사용)
+    public static void clearAllPlans(Context context) {
+        getPrefs(context).edit().putString(KEY_PLANS, "{}").apply();
     }
 
     // ── 히스토리 저장/조회 ──
@@ -185,6 +190,8 @@ public class GoalStorage {
         public List<String> runningDays;
         public String status; // "pending" (주황), "completed" (초록), "missed" (빨강)
         public String paceStr;
+        public String description;         // AI가 생성한 당일 코멘트
+        public String aiFeedbackComment;   // 러닝 완료 후 AI 피드백
     }
 
     public static class GoalInputData {

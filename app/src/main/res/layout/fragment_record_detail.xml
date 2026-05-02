@@ -63,11 +63,11 @@
         android:id="@+id/layout_main_data"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="30dp"
+        android:layout_marginTop="15dp"
         android:orientation="vertical"
         android:paddingHorizontal="30dp"
         app:layout_constraintTop_toBottomOf="@id/tv_detail_title">
-        <TextView android:id="@+id/tv_detail_distance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.00 km" android:textColor="#FFFFFF" android:textSize="48sp" android:textStyle="bold" />
+        <TextView android:id="@+id/tv_detail_distance" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0.00 km" android:textColor="#FFFFFF" android:textSize="40sp" android:textStyle="bold" />
         <GridLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:columnCount="3">
             <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_columnWeight="1" android:orientation="vertical">
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="TIME" android:textColor="#AAFFFFFF" android:textSize="12sp" />

@@ -1,17 +1,21 @@
 package com.neostride.app.feature.coaching;
 
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.NumberPicker;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -20,8 +24,10 @@ import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
 
 import com.neostride.app.R;
+import com.neostride.app.feature.record.RecordDetailFragment;
 
 import java.util.Calendar;
 import java.util.List;
@@ -31,24 +37,31 @@ public class CoachingFragment extends Fragment {
 
     private TextView tvWeekLabel, tvNoPlan, btnToday, tvHistoryEmpty;
     private ImageView ivHistoryArrow;
-    private CardView btnToggleHistory;
-    private SwipeDetector layoutWeekRow;
+    private LinearLayout btnToggleHistory;
+    private ViewPager2 vpWeek;
+    private WeekPagerAdapter weekPagerAdapter;
     private LinearLayout layoutPlanDetail;
     private TextView tvPlanTitle, tvPlanSummary, tvPlanStatus;
     private TextView tvSetPeriod, tvSetDays, tvSetDistance, tvSetPace;
     private TextView tvAiFeedback;
-    private CardView btnAddGoal, btnDeleteGoal;
+    private CardView btnAddGoal;
+    private LinearLayout btnDeleteGoal;
     private RecyclerView rvHistory;
     private boolean historyExpanded = false;
 
-    private Calendar weekStart = Calendar.getInstance();
     private int selectedDay = -1, selectedMonth = -1, selectedYear = -1;
+    private int forceHeaderMonth = -1, forceHeaderYear = -1;
+
+    // WeekPageFragment에서 접근
+    public int getSelectedDay() { return selectedDay; }
+    public int getSelectedMonth() { return selectedMonth; }
+    public int getSelectedYear() { return selectedYear; }
 
     static String dayKeyToKorean(String key) {
         switch (key) { case "sun": return "일"; case "mon": return "월"; case "tue": return "화"; case "wed": return "수"; case "thu": return "목"; case "fri": return "금"; case "sat": return "토"; default: return key; }
     }
 
-    static String daysListToKorean(java.util.List<String> days) {
+    static String daysListToKorean(List<String> days) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < days.size(); i++) { if (i > 0) sb.append(", "); sb.append(dayKeyToKorean(days.get(i))); }
         return sb.toString();
@@ -61,7 +74,7 @@ public class CoachingFragment extends Fragment {
 
         tvWeekLabel = view.findViewById(R.id.tv_week_label);
         tvNoPlan = view.findViewById(R.id.tv_no_plan);
-        layoutWeekRow = view.findViewById(R.id.layout_week_row);
+        vpWeek = view.findViewById(R.id.vp_week);
         layoutPlanDetail = view.findViewById(R.id.layout_plan_detail);
         tvPlanTitle = view.findViewById(R.id.tv_plan_title);
         tvPlanSummary = view.findViewById(R.id.tv_plan_summary);
@@ -79,67 +92,51 @@ public class CoachingFragment extends Fragment {
         tvHistoryEmpty = view.findViewById(R.id.tv_history_empty);
         ivHistoryArrow = view.findViewById(R.id.iv_history_arrow);
 
-        ImageView btnPrev = view.findViewById(R.id.btn_prev_week);
-        ImageView btnNext = view.findViewById(R.id.btn_next_week);
+        // ViewPager2 설정
+        weekPagerAdapter = new WeekPagerAdapter(this);
+        vpWeek.setAdapter(weekPagerAdapter);
+        vpWeek.setCurrentItem(weekPagerAdapter.getCurrentWeekPosition(), false);
 
-        setToStartOfWeek(weekStart);
-        updateWeekView();
+        // 초기 헤더: 오늘 날짜 기준
+        Calendar today = Calendar.getInstance();
+        tvWeekLabel.setText(String.format("%d년 %d월", today.get(Calendar.YEAR), today.get(Calendar.MONTH) + 1));
 
-        // 월 이동 — 다음/전 달의 1일이 속한 주로
-        btnPrev.setOnClickListener(v -> {
-            // 현재 주의 중간 날짜 기준으로 해당 월 구하기
-            Calendar mid = (Calendar) weekStart.clone();
-            mid.add(Calendar.DAY_OF_MONTH, 3); // 주의 중간(수요일쯤)
-            int curMonth = mid.get(Calendar.MONTH);
-            int curYear = mid.get(Calendar.YEAR);
+        // 페이지 변경 시 헤더 업데이트
+        vpWeek.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+            @Override
+            public void onPageSelected(int position) {
+                if (forceHeaderYear > 0) {
+                    tvWeekLabel.setText(String.format("%d년 %d월", forceHeaderYear, forceHeaderMonth));
+                } else if (selectedMonth > 0) {
+                    tvWeekLabel.setText(String.format("%d년 %d월", selectedYear, selectedMonth));
+                } else {
+                    Calendar ws = weekPagerAdapter.getWeekStartForPosition(position);
+                    ws.add(Calendar.DAY_OF_MONTH, 3);
+                    tvWeekLabel.setText(String.format("%d년 %d월", ws.get(Calendar.YEAR), ws.get(Calendar.MONTH) + 1));
+                }
 
-            // 전 달 1일로
-            Calendar target = Calendar.getInstance();
-            target.clear();
-            target.set(curYear, curMonth - 1, 1);
-            setToStartOfWeek(target);
-            weekStart = target;
-            selectedDay = -1;
-            updateWeekView();
+                // 오늘 버튼 표시 여부
+                boolean isCurrent = position == weekPagerAdapter.getCurrentWeekPosition();
+                btnToday.setVisibility(isCurrent ? View.GONE : View.VISIBLE);
+
+                // 스와이프로 이동 시 forceHeader 초기화
+                forceHeaderMonth = -1;
+                forceHeaderYear = -1;
+
+                // 새 목표 버튼 상태 갱신
+                Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+                btnAddGoal.setVisibility(allPlans.isEmpty() ? View.VISIBLE : View.GONE);
+            }
         });
 
-        btnNext.setOnClickListener(v -> {
-            Calendar mid = (Calendar) weekStart.clone();
-            mid.add(Calendar.DAY_OF_MONTH, 3);
-            int curMonth = mid.get(Calendar.MONTH);
-            int curYear = mid.get(Calendar.YEAR);
+        // 월 텍스트 클릭 → 년/월 선택 팝업
+        tvWeekLabel.setOnClickListener(v -> showYearMonthPicker());
 
-            // 다음 달 1일로
-            Calendar target = Calendar.getInstance();
-            target.clear();
-            target.set(curYear, curMonth + 1, 1);
-            setToStartOfWeek(target);
-            weekStart = target;
-            selectedDay = -1;
-            updateWeekView();
-        });
-
+        // 오늘 버튼
         btnToday.setOnClickListener(v -> {
-            weekStart = Calendar.getInstance();
-            setToStartOfWeek(weekStart);
-            selectedDay = -1;
-            updateWeekView();
-        });
-
-        // 스와이프 (주간 이동) — SwipeDetector 사용
-        layoutWeekRow.setSwipeListener(new SwipeDetector.SwipeListener() {
-            @Override
-            public void onSwipeLeft() {
-                weekStart.add(Calendar.WEEK_OF_YEAR, 1);
-                selectedDay = -1;
-                updateWeekView();
-            }
-            @Override
-            public void onSwipeRight() {
-                weekStart.add(Calendar.WEEK_OF_YEAR, -1);
-                selectedDay = -1;
-                updateWeekView();
-            }
+            selectedDay = -1; selectedMonth = -1; selectedYear = -1;
+            forceHeaderMonth = -1; forceHeaderYear = -1;
+            vpWeek.setCurrentItem(weekPagerAdapter.getCurrentWeekPosition(), true);
         });
 
         // 새 목표
@@ -147,7 +144,7 @@ public class CoachingFragment extends Fragment {
             GoalSettingFragment goalFragment = new GoalSettingFragment();
             goalFragment.setOnGoalSavedListener(goalInput -> {
                 GoalStorage.saveGoalToPlanDays(requireContext(), goalInput);
-                updateWeekView();
+                refreshWeekPages();
             });
             getParentFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container, goalFragment)
@@ -175,8 +172,10 @@ public class CoachingFragment extends Fragment {
                         GoalStorage.addHistory(requireContext(), history);
                         GoalStorage.removeAllPlansForGoal(requireContext(), plan.goalId);
                         selectedDay = -1;
-                        updateWeekView();
-                        loadHistory();
+                        tvNoPlan.setVisibility(View.VISIBLE);
+                        layoutPlanDetail.setVisibility(View.GONE);
+                        refreshWeekPages();
+                        if (historyExpanded) loadHistory();
                     })
                     .setNegativeButton("취소", null).show();
         });
@@ -184,14 +183,9 @@ public class CoachingFragment extends Fragment {
         // 히스토리 토글
         btnToggleHistory.setOnClickListener(v -> {
             historyExpanded = !historyExpanded;
-            // 화살표 회전 (접힘: 0도, 펼침: 180도)
             ivHistoryArrow.animate().rotation(historyExpanded ? 180f : 0f).setDuration(200).start();
-            if (historyExpanded) {
-                loadHistory();
-            } else {
-                rvHistory.setVisibility(View.GONE);
-                tvHistoryEmpty.setVisibility(View.GONE);
-            }
+            if (historyExpanded) loadHistory();
+            else { rvHistory.setVisibility(View.GONE); tvHistoryEmpty.setVisibility(View.GONE); }
         });
 
         return view;
@@ -200,8 +194,420 @@ public class CoachingFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        updateWeekView();
+        fetchActiveGoalFromServer();
         if (historyExpanded) loadHistory();
+
+        Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+        btnAddGoal.setVisibility(allPlans.isEmpty() ? View.VISIBLE : View.GONE);
+    }
+
+    // WeekPageFragment에서 호출
+    public void onWeekDayClicked(int day, int month, int year, String dateKey) {
+        selectedDay = day; selectedMonth = month; selectedYear = year;
+        forceHeaderMonth = month; forceHeaderYear = year;
+        tvWeekLabel.setText(String.format("%d년 %d월", year, month));
+        showPlanDetail(dateKey);
+    }
+
+    private void refreshWeekPages() {
+        // 현재 헤더 텍스트 보존
+        String currentHeader = tvWeekLabel.getText().toString();
+        int currentPos = vpWeek.getCurrentItem();
+
+        weekPagerAdapter = new WeekPagerAdapter(this);
+        vpWeek.setAdapter(weekPagerAdapter);
+        vpWeek.setCurrentItem(currentPos, false);
+
+        // 헤더 복원
+        tvWeekLabel.setText(currentHeader);
+    }
+
+    private void showYearMonthPicker() {
+        Calendar ws = weekPagerAdapter.getWeekStartForPosition(vpWeek.getCurrentItem());
+        ws.add(Calendar.DAY_OF_MONTH, 3);
+        int curYear = ws.get(Calendar.YEAR);
+        int curMonth = ws.get(Calendar.MONTH);
+
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(24), dp(20), dp(24), dp(16));
+
+        LinearLayout pickerRow = new LinearLayout(requireContext());
+        pickerRow.setOrientation(LinearLayout.HORIZONTAL);
+        pickerRow.setGravity(Gravity.CENTER);
+        pickerRow.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        NumberPicker yearPicker = new NumberPicker(requireContext());
+        yearPicker.setMinValue(2024); yearPicker.setMaxValue(2030);
+        yearPicker.setValue(curYear); yearPicker.setWrapSelectorWheel(false);
+        String[] yLabels = new String[7];
+        for (int i = 0; i < 7; i++) yLabels[i] = (2024 + i) + "년";
+        yearPicker.setDisplayedValues(yLabels);
+
+        NumberPicker monthPicker = new NumberPicker(requireContext());
+        monthPicker.setMinValue(1); monthPicker.setMaxValue(12);
+        monthPicker.setValue(curMonth + 1); monthPicker.setWrapSelectorWheel(true);
+        String[] mLabels = new String[12];
+        for (int i = 0; i < 12; i++) mLabels[i] = (i + 1) + "월";
+        monthPicker.setDisplayedValues(mLabels);
+
+        LinearLayout.LayoutParams pp = new LinearLayout.LayoutParams(0, dp(160), 1f);
+        pp.setMargins(dp(8), 0, dp(8), 0);
+        yearPicker.setLayoutParams(pp); monthPicker.setLayoutParams(pp);
+        pickerRow.addView(yearPicker); pickerRow.addView(monthPicker);
+        root.addView(pickerRow);
+
+        View divider = new View(requireContext());
+        divider.setBackgroundColor(Color.parseColor("#333333"));
+        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        divP.topMargin = dp(16); divider.setLayoutParams(divP);
+        root.addView(divider);
+
+        LinearLayout btnRow = new LinearLayout(requireContext());
+        btnRow.setOrientation(LinearLayout.HORIZONTAL); btnRow.setGravity(Gravity.END);
+        LinearLayout.LayoutParams brP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        brP.topMargin = dp(12); btnRow.setLayoutParams(brP);
+
+        TextView btnCancel = new TextView(requireContext());
+        btnCancel.setText("취소"); btnCancel.setTextColor(Color.parseColor("#888888"));
+        btnCancel.setTextSize(15); btnCancel.setPadding(dp(20), dp(10), dp(20), dp(10));
+        btnCancel.setOnClickListener(v2 -> dialog.dismiss());
+
+        TextView btnConfirm = new TextView(requireContext());
+        btnConfirm.setText("완료"); btnConfirm.setTextColor(Color.parseColor("#888888"));
+        btnConfirm.setTextSize(15); btnConfirm.setPadding(dp(20), dp(10), dp(20), dp(10));
+        btnConfirm.setOnClickListener(v2 -> {
+            int selYear = yearPicker.getValue();
+            int selMonth = monthPicker.getValue();
+
+            selectedDay = 1; selectedMonth = selMonth; selectedYear = selYear;
+            forceHeaderMonth = selMonth; forceHeaderYear = selYear;
+
+            int pos = weekPagerAdapter.getPositionForDate(selYear, selMonth, 1);
+            vpWeek.setCurrentItem(pos, true);
+            tvWeekLabel.setText(String.format("%d년 %d월", selYear, selMonth));
+
+            // 페이지 전환 후 1일 선택 표시
+            vpWeek.post(() -> {
+                Fragment page = getChildFragmentManager().findFragmentByTag("f" + pos);
+                if (page instanceof WeekPageFragment) {
+                    ((WeekPageFragment) page).selectDay(1, selMonth, selYear);
+                }
+            });
+
+            dialog.dismiss();
+        });
+
+        btnRow.addView(btnCancel); btnRow.addView(btnConfirm);
+        root.addView(btnRow);
+        dialog.setContentView(root);
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.width = dp(280); params.gravity = Gravity.CENTER;
+            window.setAttributes(params);
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(Color.parseColor("#1A1A1A")); bg.setCornerRadius(dp(16));
+            root.setBackground(bg);
+        }
+        dialog.show();
+    }
+
+    private void showPlanDetail(String dateKey) {
+        GoalStorage.PlanData plan = GoalStorage.getPlan(requireContext(), dateKey);
+        if (plan != null) {
+            tvNoPlan.setVisibility(View.GONE);
+            layoutPlanDetail.setVisibility(View.VISIBLE);
+            tvPlanTitle.setText(String.format("%02d/%02d Training Routine", selectedMonth, selectedDay));
+            tvPlanSummary.setVisibility(View.GONE); // summary 숨김
+
+            // 상태별 색상 테마 적용
+            int themeColor;
+            String statusText;
+            int statusBgColor;
+
+            switch (plan.status) {
+                case "completed":
+                    themeColor = 0xFFCCFF00;
+                    statusText = "완료";
+                    statusBgColor = 0xFF1A2A05;
+                    break;
+                case "missed":
+                    themeColor = 0xFFFF3B30;
+                    statusText = "미완료";
+                    statusBgColor = 0xFF2A1010;
+                    break;
+                default:
+                    themeColor = 0xFFFF9500;
+                    statusText = "예정";
+                    statusBgColor = 0xFF2A1A05;
+                    break;
+            }
+
+            tvPlanTitle.setTextColor(themeColor);
+
+            tvPlanStatus.setText(statusText);
+            tvPlanStatus.setTextColor(themeColor);
+            GradientDrawable statusBg = new GradientDrawable();
+            statusBg.setShape(GradientDrawable.RECTANGLE);
+            statusBg.setCornerRadius(dp(13));
+            statusBg.setStroke(dp(1), themeColor);
+            statusBg.setColor(statusBgColor);
+            tvPlanStatus.setBackground(statusBg);
+
+            // 아이콘 tint
+            ImageView ivYourSetIcon = layoutPlanDetail.findViewById(R.id.iv_your_set_icon);
+            ImageView ivAiFeedbackIcon = layoutPlanDetail.findViewById(R.id.iv_ai_feedback_icon);
+            if (ivYourSetIcon != null) ivYourSetIcon.setColorFilter(themeColor);
+            if (ivAiFeedbackIcon != null) ivAiFeedbackIcon.setColorFilter(themeColor);
+
+            // 삭제 버튼 테두리
+            LinearLayout btnDel = layoutPlanDetail.findViewById(R.id.btn_delete_goal);
+            if (btnDel != null) {
+                GradientDrawable delBg = new GradientDrawable();
+                delBg.setShape(GradientDrawable.RECTANGLE);
+                delBg.setCornerRadius(dp(15));
+                delBg.setColor(Color.TRANSPARENT);
+                delBg.setStroke(dp(1), themeColor);
+                btnDel.setBackground(delBg);
+                TextView tvDelLabel = layoutPlanDetail.findViewById(R.id.tv_delete_label);
+                if (tvDelLabel != null) tvDelLabel.setTextColor(themeColor);
+            }
+
+            // 목표 거리/페이스 표시
+            ImageView ivDistStatus = layoutPlanDetail.findViewById(R.id.iv_distance_status);
+            ImageView ivPaceStatus = layoutPlanDetail.findViewById(R.id.iv_pace_status);
+            TextView tvDistStatus = layoutPlanDetail.findViewById(R.id.tv_distance_status);
+            TextView tvPaceStatus = layoutPlanDetail.findViewById(R.id.tv_pace_status);
+
+            tvDistStatus.setText("목표 거리 : " + plan.distanceKm + "km");
+            tvPaceStatus.setText("목표 페이스 : " + plan.paceStr);
+
+            // 완료 배너 + 상세기록 버튼
+            LinearLayout layoutDoneBanner = layoutPlanDetail.findViewById(R.id.layout_done_banner);
+
+            switch (plan.status) {
+                case "completed":
+                    // 거리: 형광 체크, 페이스: 개별 판정 (지금은 둘 다 완료로)
+                    ivDistStatus.setImageResource(R.drawable.ic_check_circle);
+                    ivDistStatus.setColorFilter(0xFFCCFF00);
+                    tvDistStatus.setTextColor(0xFFCCCCCC);
+
+                    // TODO: 실제 결과와 비교해서 페이스 달성 여부 판정
+                    // 지금은 completed면 둘 다 체크
+                    ivPaceStatus.setImageResource(R.drawable.ic_check_circle);
+                    ivPaceStatus.setColorFilter(0xFFCCFF00);
+                    tvPaceStatus.setTextColor(0xFFCCCCCC);
+
+                    if (layoutDoneBanner != null) layoutDoneBanner.setVisibility(View.VISIBLE);
+                    break;
+                case "missed":
+                    ivDistStatus.setImageResource(R.drawable.ic_x_circle);
+                    ivDistStatus.setColorFilter(0xFFFF3B30);
+                    tvDistStatus.setTextColor(0xFFCCCCCC);
+
+                    ivPaceStatus.setImageResource(R.drawable.ic_x_circle);
+                    ivPaceStatus.setColorFilter(0xFFFF3B30);
+                    tvPaceStatus.setTextColor(0xFFCCCCCC);
+
+                    if (layoutDoneBanner != null) layoutDoneBanner.setVisibility(View.GONE);
+                    break;
+                default:
+                    ivDistStatus.setImageResource(R.drawable.ic_just_circle);
+                    ivDistStatus.setColorFilter(0xFF888888);
+                    tvDistStatus.setTextColor(0xFF888888);
+
+                    ivPaceStatus.setImageResource(R.drawable.ic_just_circle);
+                    ivPaceStatus.setColorFilter(0xFF888888);
+                    tvPaceStatus.setTextColor(0xFF888888);
+
+                    if (layoutDoneBanner != null) layoutDoneBanner.setVisibility(View.GONE);
+                    break;
+            }
+
+            // 히스토리 아이콘/화살표
+            ImageView ivHistoryIcon = getView().findViewById(R.id.iv_history_icon);
+            if (ivHistoryIcon != null) ivHistoryIcon.setColorFilter(themeColor);
+            if (ivHistoryArrow != null) ivHistoryArrow.setColorFilter(themeColor);
+
+            // 카드 테두리
+            LinearLayout cardMain = layoutPlanDetail.findViewById(R.id.card_plan_main);
+            if (cardMain != null) {
+                GradientDrawable cardBg = new GradientDrawable();
+                cardBg.setShape(GradientDrawable.RECTANGLE);
+                cardBg.setCornerRadius(dp(16));
+                cardBg.setColor(Color.parseColor("#1A1A1A"));
+                cardBg.setStroke(dp(1), themeColor);
+                cardMain.setBackground(cardBg);
+            }
+
+            // 구분선
+            View divider1 = layoutPlanDetail.findViewById(R.id.divider_1);
+            View divider2 = layoutPlanDetail.findViewById(R.id.divider_2);
+            int dividerColor = (themeColor & 0x00FFFFFF) | 0x33000000;
+            if (divider1 != null) divider1.setBackgroundColor(dividerColor);
+            if (divider2 != null) divider2.setBackgroundColor(dividerColor);
+
+            // 히스토리 테두리
+            LinearLayout historySection = getView().findViewById(R.id.layout_history_section);
+            if (historySection != null) {
+                GradientDrawable histBg = new GradientDrawable();
+                histBg.setShape(GradientDrawable.RECTANGLE);
+                histBg.setCornerRadius(dp(16));
+                histBg.setColor(Color.parseColor("#1A1A1A"));
+                histBg.setStroke(dp(1), themeColor);
+                historySection.setBackground(histBg);
+            }
+
+            // Your Setting
+            tvSetPeriod.setText("설정 기간 : " + plan.durationWeeks + "주");
+            tvSetDays.setText("설정 러닝 데이 : " + daysListToKorean(plan.runningDays));
+            tvSetDistance.setText("최종 목표 거리 : " + plan.distanceKm + "km");
+            tvSetPace.setText("최종 목표 기록 : " + plan.paceStr);
+
+            // AI 피드백
+            if (plan.aiFeedbackComment != null && !plan.aiFeedbackComment.isEmpty()) {
+                tvAiFeedback.setText(plan.aiFeedbackComment);
+                tvAiFeedback.setTextColor(0xFFCCCCCC);
+            } else if (plan.description != null && !plan.description.isEmpty()) {
+                tvAiFeedback.setText(plan.description);
+                tvAiFeedback.setTextColor(0xFF888888);
+            } else {
+                tvAiFeedback.setText("아직 피드백이 없습니다.\n오늘의 러닝을 완료하면 AI가 피드백을 제공합니다.");
+                tvAiFeedback.setTextColor(0xFF888888);
+            }
+
+            // 상세기록 버튼 클릭 → 해당 날짜의 러닝 기록을 찾아서 RecordDetailFragment로 이동
+            TextView btnViewDetail = layoutPlanDetail.findViewById(R.id.btn_view_detail);
+            if (btnViewDetail != null) {
+                btnViewDetail.setOnClickListener(v -> {
+                    // 서버에서 해당 날짜의 기록을 조회
+                    String dateStr = String.format("%d-%02d-%02d", selectedYear, selectedMonth, selectedDay);
+                    com.neostride.app.feature.running.repository.RunningRepository repo =
+                            new com.neostride.app.feature.running.repository.RunningRepository();
+                    int userId = com.neostride.app.common.network.TokenManager.getUserId(requireContext());
+
+                    repo.fetchUserRecords(userId, new com.neostride.app.feature.running.repository.RunningRepository.RecordCallback() {
+                        @Override
+                        public void onSuccess(java.util.List<com.neostride.app.feature.running.model.RunningRecordResponse> records) {
+                            if (!isAdded()) return;
+                            // 해당 날짜의 기록 찾기
+                            com.neostride.app.feature.running.model.RunningRecordResponse found = null;
+                            for (com.neostride.app.feature.running.model.RunningRecordResponse r : records) {
+                                if (r.getCreatedAt() != null && r.getCreatedAt().startsWith(dateStr)) {
+                                    found = r;
+                                    break;
+                                }
+                            }
+
+                            if (found != null) {
+                                com.neostride.app.feature.running.model.RunningRecordResponse finalRecord = found;
+                                requireActivity().runOnUiThread(() -> {
+                                    RecordDetailFragment detailFragment = new RecordDetailFragment();
+                                    Bundle args = new Bundle();
+                                    args.putSerializable("record_data", finalRecord);
+                                    detailFragment.setArguments(args);
+                                    getParentFragmentManager().beginTransaction()
+                                            .replace(R.id.fragment_container, detailFragment)
+                                            .addToBackStack(null)
+                                            .commit();
+                                });
+                            } else {
+                                requireActivity().runOnUiThread(() ->
+                                        android.widget.Toast.makeText(requireContext(), "해당 날짜의 러닝 기록을 찾을 수 없습니다", android.widget.Toast.LENGTH_SHORT).show()
+                                );
+                            }
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                            if (!isAdded()) return;
+                            requireActivity().runOnUiThread(() ->
+                                    android.widget.Toast.makeText(requireContext(), "기록 조회 실패: " + message, android.widget.Toast.LENGTH_SHORT).show()
+                            );
+                        }
+                    });
+                });
+            }
+        } else {
+            tvNoPlan.setVisibility(View.VISIBLE);
+            layoutPlanDetail.setVisibility(View.GONE);
+
+            // 목표 없는 날: 테두리를 기본 형광으로 리셋
+            int defaultColor = 0xFFCCFF00;
+
+            // tv_no_plan 테두리
+            GradientDrawable noPlanBg = new GradientDrawable();
+            noPlanBg.setShape(GradientDrawable.RECTANGLE);
+            noPlanBg.setCornerRadius(dp(16));
+            noPlanBg.setColor(Color.parseColor("#1A1A1A"));
+            noPlanBg.setStroke(dp(1), defaultColor);
+            tvNoPlan.setBackground(noPlanBg);
+
+            // 히스토리 테두리도 형광으로
+            LinearLayout historySection = getView().findViewById(R.id.layout_history_section);
+            if (historySection != null) {
+                GradientDrawable histBg = new GradientDrawable();
+                histBg.setShape(GradientDrawable.RECTANGLE);
+                histBg.setCornerRadius(dp(16));
+                histBg.setColor(Color.parseColor("#1A1A1A"));
+                histBg.setStroke(dp(1), defaultColor);
+                historySection.setBackground(histBg);
+            }
+
+            // 히스토리 아이콘/화살표도 형광으로
+            ImageView ivHistoryIcon = getView().findViewById(R.id.iv_history_icon);
+            if (ivHistoryIcon != null) ivHistoryIcon.setColorFilter(defaultColor);
+            if (ivHistoryArrow != null) ivHistoryArrow.setColorFilter(defaultColor);
+        }
+    }
+
+    private void fetchActiveGoalFromServer() {
+        int userId = com.neostride.app.common.network.TokenManager.getUserId(requireContext());
+        com.neostride.app.feature.coaching.repository.CoachingRepository repo = new com.neostride.app.feature.coaching.repository.CoachingRepository();
+
+        repo.getActiveGoal(userId, new com.neostride.app.feature.coaching.repository.CoachingRepository.OnResultListener<com.neostride.app.feature.coaching.model.GoalResponse>() {
+            @Override
+            public void onSuccess(com.neostride.app.feature.coaching.model.GoalResponse data) {
+                if (!isAdded()) return;
+                if (data.hasActiveGoal() && data.getPlanDays() != null) {
+                    GoalStorage.clearAllPlans(requireContext());
+                    com.neostride.app.feature.coaching.model.GoalResponse.GoalInfo goal = data.getGoal();
+                    String goalId = "goal_server_" + data.getGoalId();
+
+                    for (com.neostride.app.feature.coaching.model.PlanDayResponse planDay : data.getPlanDays()) {
+                        String[] dateParts = planDay.getPlanDate().split("-");
+                        int year = Integer.parseInt(dateParts[0]);
+                        int month = Integer.parseInt(dateParts[1]);
+                        int day = Integer.parseInt(dateParts[2]);
+                        String key = year + "-" + month + "-" + day;
+
+                        GoalStorage.PlanData plan = new GoalStorage.PlanData();
+                        plan.goalId = goalId;
+                        plan.distanceKm = planDay.getDayDistanceKm();
+                        plan.paceSecPerKm = (int) (planDay.getDayPaceMinPerKm() * 60);
+                        plan.durationWeeks = goal != null ? goal.getDurationWeeks() : 4;
+                        plan.runningDays = goal != null ? goal.getRunningDays() : new java.util.ArrayList<>();
+                        plan.status = planDay.getStatus();
+                        plan.paceStr = planDay.getFormattedPace();
+                        plan.description = planDay.getDescription();
+                        plan.aiFeedbackComment = planDay.getAiFeedbackComment();
+                        GoalStorage.savePlan(requireContext(), key, plan);
+                    }
+                }
+                requireActivity().runOnUiThread(() -> refreshWeekPages());
+            }
+
+            @Override
+            public void onError(String message) {
+                android.util.Log.e("CoachingFragment", "서버 동기화 실패: " + message);
+            }
+        });
     }
 
     private void loadHistory() {
@@ -215,201 +621,6 @@ public class CoachingFragment extends Fragment {
             rvHistory.setLayoutManager(new LinearLayoutManager(getContext()));
             HistorySwipeAdapter adapter = new HistorySwipeAdapter(items);
             rvHistory.setAdapter(adapter);
-
-            // 스와이프로 삭제/복원
-            ItemTouchHelper touchHelper = new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
-                @Override public boolean onMove(@NonNull RecyclerView rv, @NonNull RecyclerView.ViewHolder vh, @NonNull RecyclerView.ViewHolder target) { return false; }
-                @Override
-                public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
-                    int pos = viewHolder.getBindingAdapterPosition();
-                    GoalStorage.HistoryItem item = items.get(pos);
-
-                    Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
-                    boolean hasActive = !allPlans.isEmpty();
-
-                    String[] options;
-                    if ("deleted".equals(item.result) && !hasActive) {
-                        options = new String[]{"복원", "영구 삭제", "취소"};
-                    } else {
-                        options = new String[]{"영구 삭제", "취소"};
-                    }
-
-                    new AlertDialog.Builder(requireContext())
-                            .setItems(options, (d, which) -> {
-                                String sel = options[which];
-                                if ("영구 삭제".equals(sel)) {
-                                    GoalStorage.removeHistory(requireContext(), pos);
-                                    loadHistory();
-                                } else if ("복원".equals(sel)) {
-                                    GoalStorage.GoalInputData gi = new GoalStorage.GoalInputData();
-                                    gi.durationWeeks = item.durationWeeks;
-                                    gi.distanceKm = item.distanceKm;
-                                    gi.paceSecPerKm = parsePaceToSec(item.paceStr);
-                                    gi.runningDays = parseDaysFromKorean(item.runningDaysStr);
-                                    GoalStorage.saveGoalToPlanDays(requireContext(), gi);
-                                    GoalStorage.removeHistory(requireContext(), pos);
-                                    Toast.makeText(getContext(), "목표가 복원되었습니다", Toast.LENGTH_SHORT).show();
-                                    updateWeekView();
-                                    loadHistory();
-                                } else {
-                                    adapter.notifyItemChanged(pos);
-                                }
-                            })
-                            .setOnCancelListener(di -> adapter.notifyItemChanged(pos))
-                            .show();
-                }
-            });
-            touchHelper.attachToRecyclerView(rvHistory);
-        }
-    }
-
-    private void setToStartOfWeek(Calendar cal) {
-        cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
-        cal.set(Calendar.HOUR_OF_DAY, 0);
-        cal.set(Calendar.MINUTE, 0);
-        cal.set(Calendar.SECOND, 0);
-    }
-
-    private void updateWeekView() {
-        Calendar today = Calendar.getInstance();
-        Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
-
-        // 새 목표 버튼 — 목표 있으면 숨김
-        btnAddGoal.setVisibility(allPlans.isEmpty() ? View.VISIBLE : View.GONE);
-
-        // 헤더
-        Calendar midWeek = (Calendar) weekStart.clone();
-        midWeek.add(Calendar.DAY_OF_MONTH, 3);
-        tvWeekLabel.setText(String.format("%d년 %d월", midWeek.get(Calendar.YEAR), midWeek.get(Calendar.MONTH) + 1));
-
-        // 오늘 버튼
-        Calendar todayWeekStart = (Calendar) today.clone();
-        setToStartOfWeek(todayWeekStart);
-        boolean isCurrentWeek = weekStart.get(Calendar.YEAR) == todayWeekStart.get(Calendar.YEAR)
-                && weekStart.get(Calendar.WEEK_OF_YEAR) == todayWeekStart.get(Calendar.WEEK_OF_YEAR);
-        btnToday.setVisibility(isCurrentWeek ? View.GONE : View.VISIBLE);
-
-        // 주간 날짜
-        layoutWeekRow.removeAllViews();
-        String[] dayLabels = {"일", "월", "화", "수", "목", "금", "토"};
-
-        Calendar dayCal = (Calendar) weekStart.clone();
-        for (int i = 0; i < 7; i++) {
-            int dayNum = dayCal.get(Calendar.DAY_OF_MONTH);
-            int dayMonth = dayCal.get(Calendar.MONTH) + 1;
-            int dayYear = dayCal.get(Calendar.YEAR);
-            String dateKey = dayYear + "-" + dayMonth + "-" + dayNum;
-            GoalStorage.PlanData plan = allPlans.get(dateKey);
-
-            boolean isToday = dayCal.get(Calendar.YEAR) == today.get(Calendar.YEAR)
-                    && dayCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR);
-            boolean isSelected = dayNum == selectedDay && dayMonth == selectedMonth && dayYear == selectedYear;
-
-            LinearLayout cell = new LinearLayout(getContext());
-            cell.setOrientation(LinearLayout.VERTICAL);
-            cell.setGravity(Gravity.CENTER);
-            cell.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            cell.setPadding(0, 8, 0, 8);
-            cell.setClickable(true); cell.setFocusable(true);
-
-            TextView tvLabel = new TextView(getContext());
-            tvLabel.setText(dayLabels[i]); tvLabel.setTextSize(12); tvLabel.setGravity(Gravity.CENTER);
-            if (i == 0) tvLabel.setTextColor(Color.parseColor("#FF4444"));
-            else if (i == 6) tvLabel.setTextColor(Color.parseColor("#4488FF"));
-            else tvLabel.setTextColor(Color.parseColor("#888888"));
-            cell.addView(tvLabel);
-
-            TextView tvDay = new TextView(getContext());
-            tvDay.setText(String.valueOf(dayNum)); tvDay.setTextSize(16); tvDay.setGravity(Gravity.CENTER);
-            tvDay.setTextColor(Color.WHITE);
-
-            float density = getResources().getDisplayMetrics().density;
-            int circleSize = (int) (36 * density); // 36dp 원형
-
-            if (isSelected) {
-                tvDay.setTextColor(Color.BLACK);
-                LinearLayout.LayoutParams dayParams = new LinearLayout.LayoutParams(circleSize, circleSize);
-                dayParams.gravity = Gravity.CENTER;
-                dayParams.topMargin = (int) (4 * density);
-                tvDay.setLayoutParams(dayParams);
-
-                // 상태별 색상으로 원형 배경
-                GradientDrawable circle = new GradientDrawable();
-                circle.setShape(GradientDrawable.OVAL);
-                if (plan != null && "completed".equals(plan.status)) circle.setColor(Color.parseColor("#34C759"));
-                else if (plan != null && "missed".equals(plan.status)) circle.setColor(Color.parseColor("#FF3B30"));
-                else if (plan != null) circle.setColor(Color.parseColor("#FF9500"));
-                else circle.setColor(Color.parseColor("#CCFF00"));
-                tvDay.setBackground(circle);
-            } else {
-                LinearLayout.LayoutParams dayParams = new LinearLayout.LayoutParams(circleSize, circleSize);
-                dayParams.gravity = Gravity.CENTER;
-                dayParams.topMargin = (int) (4 * density);
-                tvDay.setLayoutParams(dayParams);
-
-                if (isToday) { tvDay.setTextColor(Color.parseColor("#CCFF00")); tvDay.setTextSize(18); }
-            }
-            cell.addView(tvDay);
-
-            View dot = new View(getContext());
-            int dotSize = (int) (6 * getResources().getDisplayMetrics().density); // 6dp
-            LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(dotSize, dotSize);
-            dp.topMargin = 4; dp.gravity = Gravity.CENTER; dot.setLayoutParams(dp);
-            if (!isSelected && plan != null) {
-                dot.setVisibility(View.VISIBLE);
-                switch (plan.status) {
-                    case "completed": dot.setBackgroundResource(R.drawable.bg_calendar_selected); break;
-                    case "missed": dot.setBackgroundResource(R.drawable.bg_calendar_missed); break;
-                    default: dot.setBackgroundResource(R.drawable.bg_calendar_pending); break;
-                }
-            } else dot.setVisibility(View.INVISIBLE);
-            cell.addView(dot);
-
-            int fDay = dayNum, fMonth = dayMonth, fYear = dayYear;
-            cell.setOnClickListener(v -> { selectedDay = fDay; selectedMonth = fMonth; selectedYear = fYear; updateWeekView(); showPlanDetail(dateKey); });
-
-            layoutWeekRow.addView(cell);
-            dayCal.add(Calendar.DAY_OF_MONTH, 1);
-        }
-
-        if (selectedDay != -1) showPlanDetail(selectedYear + "-" + selectedMonth + "-" + selectedDay);
-        else { tvNoPlan.setVisibility(View.VISIBLE); layoutPlanDetail.setVisibility(View.GONE); }
-    }
-
-    private void showPlanDetail(String dateKey) {
-        GoalStorage.PlanData plan = GoalStorage.getPlan(requireContext(), dateKey);
-        if (plan != null) {
-            tvNoPlan.setVisibility(View.GONE);
-            layoutPlanDetail.setVisibility(View.VISIBLE);
-            tvPlanTitle.setText(String.format("%02d/%02d Training Routine", selectedMonth, selectedDay));
-            tvPlanSummary.setText(String.format("%.0fkm · 목표 페이스 %s/km", plan.distanceKm, plan.paceStr));
-
-            View dot = layoutPlanDetail.findViewById(R.id.view_your_set_dot);
-            switch (plan.status) {
-                case "completed":
-                    tvPlanStatus.setText("완료"); tvPlanStatus.setTextColor(0xFF34C759);
-                    tvPlanTitle.setTextColor(0xFFCCFF00);
-                    if (dot != null) dot.setBackgroundColor(0xFFCCFF00);
-                    break;
-                case "missed":
-                    tvPlanStatus.setText("미완료"); tvPlanStatus.setTextColor(0xFFFF3B30);
-                    tvPlanTitle.setTextColor(0xFFFF9500);
-                    if (dot != null) dot.setBackgroundColor(0xFFFF9500);
-                    break;
-                default:
-                    tvPlanStatus.setText("예정"); tvPlanStatus.setTextColor(0xFFFF9500);
-                    tvPlanTitle.setTextColor(0xFFFF9500);
-                    if (dot != null) dot.setBackgroundColor(0xFFFF9500);
-                    break;
-            }
-            tvSetPeriod.setText("설정 기간 : " + plan.durationWeeks + "주");
-            tvSetDays.setText("설정 러닝 데이 : " + daysListToKorean(plan.runningDays));
-            tvSetDistance.setText("최종 목표 거리 : " + plan.distanceKm + "km");
-            tvSetPace.setText("최종 목표 기록 : " + plan.paceStr + "/km");
-            tvAiFeedback.setText("아직 피드백이 없습니다.\n오늘의 러닝을 완료하면 AI가 피드백을 제공합니다.");
-        } else {
-            tvNoPlan.setVisibility(View.VISIBLE);
-            layoutPlanDetail.setVisibility(View.GONE);
         }
     }
 
@@ -421,7 +632,9 @@ public class CoachingFragment extends Fragment {
         if (r.isEmpty()) { r.add("mon"); r.add("wed"); r.add("fri"); } return r;
     }
 
-    // 히스토리 어댑터 (스와이프 지원)
+    private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density); }
+
+    // 히스토리 어댑터
     class HistorySwipeAdapter extends RecyclerView.Adapter<HistorySwipeAdapter.VH> {
         List<GoalStorage.HistoryItem> items;
         HistorySwipeAdapter(List<GoalStorage.HistoryItem> items) { this.items = items; }
@@ -430,18 +643,160 @@ public class CoachingFragment extends Fragment {
         }
         @Override public void onBindViewHolder(@NonNull VH h, int pos) {
             GoalStorage.HistoryItem item = items.get(pos);
-            h.tvTitle.setText(String.format("%.0fkm · %s/km", item.distanceKm, item.paceStr));
+            h.tvTitle.setText(String.format("%.0fkm · %s", item.distanceKm, item.paceStr));
             h.tvPeriod.setText(String.format("%d주 · %s", item.durationWeeks, item.runningDaysStr));
-            if ("completed".equals(item.result)) {
-                h.tvStatus.setText("완료"); h.tvStatus.setTextColor(Color.parseColor("#34C759")); h.viewDot.setBackgroundColor(Color.parseColor("#34C759"));
-            } else {
-                h.tvStatus.setText("삭제됨"); h.tvStatus.setTextColor(Color.parseColor("#FF3B30")); h.viewDot.setBackgroundColor(Color.parseColor("#FF3B30"));
+
+            boolean isCompleted = "completed".equals(item.result);
+            int statusColor = isCompleted ? 0xFFCCFF00 : 0xFFFF3B30;
+
+            // dot
+            GradientDrawable dotBg = new GradientDrawable();
+            dotBg.setShape(GradientDrawable.OVAL);
+            dotBg.setColor(statusColor);
+            h.viewDot.setBackground(dotBg);
+
+            // 복원 버튼 (삭제된 것만 + 활성 목표 없을 때)
+            boolean hasActive = !GoalStorage.getAllPlans(h.itemView.getContext()).isEmpty();
+            boolean canRestore = !isCompleted && !hasActive;
+            h.btnRestore.setVisibility(canRestore ? View.VISIBLE : View.GONE);
+
+            // 복원 버튼 스타일 (형광 테두리)
+            if (canRestore) {
+                h.btnRestore.setTextColor(0xFFCCFF00);
+                GradientDrawable restoreBg = new GradientDrawable();
+                restoreBg.setCornerRadius(dp(14)); restoreBg.setColor(Color.TRANSPARENT);
+                restoreBg.setStroke(dp(1), 0xFFCCFF00);
+                h.btnRestore.setBackground(restoreBg);
             }
+
+            // 삭제 버튼 스타일 (빨강 테두리)
+            h.btnDelete.setTextColor(0xFFFF3B30);
+            GradientDrawable delBg = new GradientDrawable();
+            delBg.setCornerRadius(dp(14)); delBg.setColor(Color.TRANSPARENT);
+            delBg.setStroke(dp(1), 0xFFFF3B30);
+            h.btnDelete.setBackground(delBg);
+
+            // 삭제 클릭 → 팝업
+            h.btnDelete.setOnClickListener(v -> showHistoryDialog(
+                    "목표 영구 삭제",
+                    "이 목표 기록을 영구적으로 삭제합니다.\n삭제된 기록은 복구할 수 없습니다.",
+                    "삭제",
+                    0xFFFF3B30,
+                    () -> { GoalStorage.removeHistory(requireContext(), pos); loadHistory(); }
+            ));
+
+            // 복원 클릭 → 팝업
+            h.btnRestore.setOnClickListener(v -> showHistoryDialog(
+                    "목표 복원",
+                    "이 목표를 다시 활성화합니다.\n이전 설정 그대로 새 플랜이 생성됩니다.",
+                    "복원",
+                    0xFFCCFF00,
+                    () -> {
+                        GoalStorage.GoalInputData gi = new GoalStorage.GoalInputData();
+                        gi.durationWeeks = item.durationWeeks;
+                        gi.distanceKm = item.distanceKm;
+                        gi.paceSecPerKm = parsePaceToSec(item.paceStr);
+                        gi.runningDays = parseDaysFromKorean(item.runningDaysStr);
+                        GoalStorage.saveGoalToPlanDays(requireContext(), gi);
+                        GoalStorage.removeHistory(requireContext(), pos);
+                        refreshWeekPages(); loadHistory();
+                    }
+            ));
         }
         @Override public int getItemCount() { return items.size(); }
         class VH extends RecyclerView.ViewHolder {
-            View viewDot; TextView tvTitle, tvPeriod, tvStatus;
-            VH(View v) { super(v); viewDot = v.findViewById(R.id.view_status_dot); tvTitle = v.findViewById(R.id.tv_history_title); tvPeriod = v.findViewById(R.id.tv_history_period); tvStatus = v.findViewById(R.id.tv_history_status); }
+            View viewDot; TextView tvTitle, tvPeriod, btnRestore, btnDelete;
+            VH(View v) { super(v); viewDot = v.findViewById(R.id.view_status_dot); tvTitle = v.findViewById(R.id.tv_history_title); tvPeriod = v.findViewById(R.id.tv_history_period); btnRestore = v.findViewById(R.id.btn_history_restore); btnDelete = v.findViewById(R.id.btn_history_delete); }
         }
+    }
+
+    private void showHistoryDialog(String title, String message, String actionText, int actionColor, Runnable onConfirm) {
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(24), dp(24), dp(24), dp(20));
+
+        // 제목
+        TextView tvTitle = new TextView(requireContext());
+        tvTitle.setText(title);
+        tvTitle.setTextColor(actionColor);
+        tvTitle.setTextSize(18);
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        root.addView(tvTitle);
+
+        // 메시지
+        TextView tvMsg = new TextView(requireContext());
+        tvMsg.setText(message);
+        tvMsg.setTextColor(0xFF999999);
+        tvMsg.setTextSize(14);
+        LinearLayout.LayoutParams msgP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        msgP.topMargin = dp(12);
+        tvMsg.setLayoutParams(msgP);
+        tvMsg.setLineSpacing(dp(4), 1f);
+        root.addView(tvMsg);
+
+        // 구분선
+        View divider = new View(requireContext());
+        divider.setBackgroundColor(0xFF333333);
+        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        divP.topMargin = dp(20);
+        divider.setLayoutParams(divP);
+        root.addView(divider);
+
+        // 버튼 행
+        LinearLayout btnRow = new LinearLayout(requireContext());
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(Gravity.END);
+        LinearLayout.LayoutParams brP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        brP.topMargin = dp(16);
+        btnRow.setLayoutParams(brP);
+
+        // 취소
+        TextView btnCancel = new TextView(requireContext());
+        btnCancel.setText("취소");
+        btnCancel.setTextColor(0xFF888888);
+        btnCancel.setTextSize(15);
+        btnCancel.setPadding(dp(16), dp(10), dp(16), dp(10));
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnRow.addView(btnCancel);
+
+        // 확인
+        TextView btnConfirm = new TextView(requireContext());
+        btnConfirm.setText(actionText);
+        btnConfirm.setTextColor(Color.BLACK);
+        btnConfirm.setTextSize(15);
+        btnConfirm.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnConfirm.setPadding(dp(20), dp(10), dp(20), dp(10));
+        GradientDrawable confirmBg = new GradientDrawable();
+        confirmBg.setCornerRadius(dp(20));
+        confirmBg.setColor(actionColor);
+        btnConfirm.setBackground(confirmBg);
+        LinearLayout.LayoutParams confirmP = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        confirmP.setMarginStart(dp(8));
+        btnConfirm.setLayoutParams(confirmP);
+        btnConfirm.setOnClickListener(v -> { dialog.dismiss(); onConfirm.run(); });
+        btnRow.addView(btnConfirm);
+
+        root.addView(btnRow);
+
+        // 다이얼로그 스타일
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.parseColor("#1A1A1A"));
+        bg.setCornerRadius(dp(20));
+        bg.setStroke(dp(1), actionColor);
+        root.setBackground(bg);
+
+        dialog.setContentView(root);
+        android.view.Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            android.view.WindowManager.LayoutParams params = window.getAttributes();
+            params.width = dp(300);
+            params.gravity = Gravity.CENTER;
+            window.setAttributes(params);
+        }
+        dialog.show();
     }
 }

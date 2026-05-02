@@ -16,6 +16,7 @@
         android:gravity="center_vertical">
 
         <View
+            android:id="@+id/view_accent_bar"
             android:layout_width="4dp"
             android:layout_height="40dp"
             android:background="#CCFF00"
@@ -26,6 +27,17 @@
             android:layout_height="wrap_content"
             android:layout_weight="1.1"
             android:orientation="vertical">
+            <TextView
+                android:id="@+id/tv_ai_coaching_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="AI Coaching"
+                android:textColor="#CCFF00"
+                android:textSize="7sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05"
+                android:visibility="gone"
+                android:includeFontPadding="false" />
             <TextView
                 android:id="@+id/tv_item_distance"
                 android:layout_width="wrap_content"

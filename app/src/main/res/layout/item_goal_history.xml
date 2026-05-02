@@ -12,14 +12,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="16dp"
+        android:padding="14dp"
         android:gravity="center_vertical">
 
-        <!-- 상태 아이콘 (초록=완료, 빨강=삭제) -->
         <View
             android:id="@+id/view_status_dot"
-            android:layout_width="12dp"
-            android:layout_height="12dp"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
             android:layout_marginEnd="12dp"
             android:background="@drawable/bg_plan_dot" />
 
@@ -33,28 +32,39 @@
                 android:id="@+id/tv_history_title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="5km · 6:00/km"
                 android:textColor="#FFFFFF"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_history_period"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="3개월 · 월수금"
                 android:textColor="#AAAAAA"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:layout_marginTop="2dp" />
         </LinearLayout>
 
         <TextView
-            android:id="@+id/tv_history_status"
+            android:id="@+id/btn_history_restore"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="완료"
-            android:textColor="#34C759"
-            android:textSize="13sp"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:paddingHorizontal="10dp"
+            android:text="복원"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="6dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/btn_history_delete"
+            android:layout_width="wrap_content"
+            android:layout_height="28dp"
+            android:gravity="center"
+            android:paddingHorizontal="10dp"
+            android:text="삭제"
+            android:textSize="11sp"
             android:textStyle="bold" />
 
     </LinearLayout>
