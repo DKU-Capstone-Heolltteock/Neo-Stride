@@ -1,0 +1,25 @@
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 눌렸을 때 -->
+    <item android:state_pressed="true">
+        <shape>
+            <solid android:color="#2A2A2A"/>
+            <corners android:radius="999dp"/>
+            <stroke
+                android:width="3dp"
+                android:color="#CCFF00"/>
+        </shape>
+    </item>
+
+    <!-- 기본 -->
+    <item>
+        <shape>
+            <solid android:color="#1A1A1A"/>
+            <corners android:radius="999dp"/>
+            <stroke
+                android:width="3dp"
+                android:color="#CCFF00"/>
+        </shape>
+    </item>
+
+</selector>
