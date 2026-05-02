@@ -1,28 +1,14 @@
 package com.neostride.app.feature.auth;
 
-import android.content.Intent;
-import android.os.Bundle;
-import android.util.Log;
-import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.EditText;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.content.Intent;import android.os.Bundle;import android.util.Log;import android.widget.Button;import android.widget.CheckBox;import android.widget.EditText;import android.widget.TextView;import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+import androidx.appcompat.app.AppCompatActivity;import androidx.core.graphics.Insets;import androidx.core.view.ViewCompat;import androidx.core.view.WindowInsetsCompat;
 
-import com.neostride.app.R;
-import com.neostride.app.activity.MainActivity;
-import com.neostride.app.feature.auth.model.LoginRequest;
-import com.neostride.app.feature.auth.model.LoginResponse;
-import com.neostride.app.feature.auth.repository.AuthRepository;
+import com.neostride.app.R;import com.neostride.app.activity.MainActivity;import com.neostride.app.feature.auth.model.LoginRequest;import com.neostride.app.feature.auth.model.LoginResponse;import com.neostride.app.feature.auth.repository.AuthRepository;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
+import retrofit2.Call;import retrofit2.Callback;import retrofit2.Response;
+
+import android.content.SharedPreferences;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -39,6 +25,17 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
+        // 로그인 유지 상태라면 로그인 화면을 건너뛰고 메인 화면으로 이동
+        SharedPreferences preferences = getSharedPreferences("auth", MODE_PRIVATE);
+        String accessToken = preferences.getString("access_token", null);
+
+        if (accessToken != null) {
+            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+            return;
+        }
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -71,12 +68,12 @@ public class LoginActivity extends AppCompatActivity {
         tvFindAccount.setClickable(false);
         tvFindAccount.setAlpha(0.5f);
 
-        /*
-        tvFindAccount.setOnClickListener(v -> {
-            Intent intent = new Intent(LoginActivity.this, ResetPasswordActivity.class);
-            startActivity(intent);
-        });
-        */
+    /*
+    tvFindAccount.setOnClickListener(v -> {
+        Intent intent = new Intent(LoginActivity.this, ResetPasswordActivity.class);
+        startActivity(intent);
+    });
+    */
     }
 
     private void login() {
