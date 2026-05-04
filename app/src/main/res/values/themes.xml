@@ -67,4 +67,10 @@
         <item name="android:background">@drawable/bg_code_box</item>
     </style>
 
+    <style name="Theme.NeoStride.Transparent" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
 </resources>
