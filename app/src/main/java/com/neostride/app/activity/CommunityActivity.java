@@ -20,7 +20,7 @@ import com.neostride.app.feature.notification.NotificationFragment;
 import com.neostride.app.feature.tip.TipFragment;
 import com.neostride.app.feature.search.SearchFragment;
 import com.neostride.app.feature.event.EventFragment;
-import com.neostride.app.feature.mypage.MyPageActivity;
+//import com.neostride.app.feature.mypage.MyPageActivity;
 
 public class CommunityActivity extends AppCompatActivity {
 
@@ -65,8 +65,8 @@ public class CommunityActivity extends AppCompatActivity {
         tvSearch = findViewById(R.id.tv_search);
         tvEvent = findViewById(R.id.tv_event);
 
-        btnNotification = findViewById(R.id.btn_notification);
-        btnMyPage = findViewById(R.id.btn_mypage);
+//        btnNotification = findViewById(R.id.btn_notification);
+//        btnMyPage = findViewById(R.id.btn_mypage);
     }
 
     private void setTabListeners() {
@@ -80,13 +80,13 @@ public class CommunityActivity extends AppCompatActivity {
                 updateTabUI("none"); // 하단 탭들의 하이라이트를 모두 끔
             });
         }
-        // 마이페이지 버튼 클릭 시 액티비티 교체
-        if (btnMyPage != null) {
-            btnMyPage.setOnClickListener(v -> {
-                Intent intent = new Intent(this, MyPageActivity.class);
-                startActivity(intent);
-            });
-        }
+//        // 마이페이지 버튼 클릭 시 액티비티 교체
+//        if (btnMyPage != null) {
+//            btnMyPage.setOnClickListener(v -> {
+//                Intent intent = new Intent(this, MyPageActivity.class);
+//                startActivity(intent);
+//            });
+//        }
 
         if (tabFeed != null) tabFeed.setOnClickListener(v -> {
             replaceFragment(new FeedFragment());
