@@ -109,6 +109,14 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout menuLogout = menuView.findViewById(R.id.menu_logout);
 
         menuLogout.setOnClickListener(v -> {
+            // 로그인 유지용으로 저장된 토큰 삭제
+            getSharedPreferences("auth", MODE_PRIVATE)
+                    .edit()
+                    .remove("access_token")
+                    .remove("refresh_token")
+                    .apply();
+
+            // 로그인 화면으로 이동
             Intent intent = new Intent(MainActivity.this, LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);

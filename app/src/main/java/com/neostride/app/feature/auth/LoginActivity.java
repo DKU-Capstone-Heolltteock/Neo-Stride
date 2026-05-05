@@ -41,6 +41,17 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
+        // 로그인 유지 상태라면 로그인 화면을 건너뛰고 메인 화면으로 이동
+        SharedPreferences preferences = getSharedPreferences("auth", MODE_PRIVATE);
+        String accessToken = preferences.getString("access_token", null);
+
+        if (accessToken != null) {
+            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+            startActivity(intent);
+            finish();
+            return;
+        }
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
