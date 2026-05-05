@@ -10,21 +10,19 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.Fragment;
 
 import com.neostride.app.R;
-import com.neostride.app.feature.running.RunningFragment;
-import com.neostride.app.feature.record.RecordFragment;
+import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.auth.LoginActivity;
 import com.neostride.app.feature.coaching.CoachingFragment;
 import com.neostride.app.feature.notification.NotificationFragment;
-
-import android.content.Intent;
-import android.widget.LinearLayout;
-import com.neostride.app.feature.auth.LoginActivity;
+import com.neostride.app.feature.record.RecordFragment;
+import com.neostride.app.feature.running.RunningFragment;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -38,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        ApiClient.init(this);
 
         initViews();
 
@@ -70,11 +70,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setTabListeners() {
-        tabRunning.setOnClickListener(v -> { replaceFragment(new RunningFragment()); updateTabUI("running"); });
-        tabRecord.setOnClickListener(v -> { replaceFragment(new RecordFragment()); updateTabUI("record"); });
-        tabCoaching.setOnClickListener(v -> { replaceFragment(new CoachingFragment()); updateTabUI("coaching"); });
+        tabRunning.setOnClickListener(v -> {
+            replaceFragment(new RunningFragment());
+            updateTabUI("running");
+        });
 
-        // 메인 하단 탭의 커뮤니티는 기존처럼 액티비티 이동 유지
+        tabRecord.setOnClickListener(v -> {
+            replaceFragment(new RecordFragment());
+            updateTabUI("record");
+        });
+
+        tabCoaching.setOnClickListener(v -> {
+            replaceFragment(new CoachingFragment());
+            updateTabUI("coaching");
+        });
+
         tabCommunity.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, CommunityActivity.class);
             startActivity(intent);
@@ -92,31 +102,27 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 프로필 메뉴 팝업 생성 및 표시
     private void showProfileMenu(View anchorView) {
         View menuView = LayoutInflater.from(this).inflate(R.layout.layout_profile_menu, null);
 
         int width = (int) (220 * getResources().getDisplayMetrics().density);
-        final PopupWindow popupWindow = new PopupWindow(menuView, width, LinearLayout.LayoutParams.WRAP_CONTENT, true);
+        final PopupWindow popupWindow = new PopupWindow(
+                menuView,
+                width,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                true
+        );
 
         popupWindow.setOutsideTouchable(true);
         popupWindow.setElevation(25);
-
-        // 팝업 표시 위치 설정
         popupWindow.showAsDropDown(anchorView, -width + anchorView.getWidth(), 15);
 
-        // 로그아웃 버튼 연동
         LinearLayout menuLogout = menuView.findViewById(R.id.menu_logout);
 
         menuLogout.setOnClickListener(v -> {
-            // 로그인 유지용으로 저장된 토큰 삭제
-            getSharedPreferences("auth", MODE_PRIVATE)
-                    .edit()
-                    .remove("access_token")
-                    .remove("refresh_token")
-                    .apply();
+            TokenManager.clearTokens(MainActivity.this);
+            ApiClient.resetInstance();
 
-            // 로그인 화면으로 이동
             Intent intent = new Intent(MainActivity.this, LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
@@ -138,10 +144,15 @@ public class MainActivity extends AppCompatActivity {
         setTabColor(ivCoaching, tvCoaching, defaultColor);
         setTabColor(ivCommunity, tvCommunity, defaultColor);
 
-        if (selectedTab.equals("running")) setTabColor(ivRunning, tvRunning, activeColor);
-        else if (selectedTab.equals("record")) setTabColor(ivRecord, tvRecord, activeColor);
-        else if (selectedTab.equals("coaching")) setTabColor(ivCoaching, tvCoaching, activeColor);
-        else if (selectedTab.equals("community")) setTabColor(ivCommunity, tvCommunity, activeColor);
+        if (selectedTab.equals("running")) {
+            setTabColor(ivRunning, tvRunning, activeColor);
+        } else if (selectedTab.equals("record")) {
+            setTabColor(ivRecord, tvRecord, activeColor);
+        } else if (selectedTab.equals("coaching")) {
+            setTabColor(ivCoaching, tvCoaching, activeColor);
+        } else if (selectedTab.equals("community")) {
+            setTabColor(ivCommunity, tvCommunity, activeColor);
+        }
     }
 
     private void setTabColor(ImageView iv, TextView tv, int color) {

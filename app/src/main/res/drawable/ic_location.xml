@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="42dp"
+    android:height="42dp"
+    android:viewportWidth="42"
+    android:viewportHeight="42">
+
+    <!-- 바깥 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#CCFF00"
+        android:strokeWidth="3"
+        android:pathData="M10,2.5H32C36.2,2.5 39.5,5.8 39.5,10V32C39.5,36.2 36.2,39.5 32,39.5H10C5.8,39.5 2.5,36.2 2.5,32V10C2.5,5.8 5.8,2.5 10,2.5Z" />
+
+    <!-- 위치 핀 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#CCFF00"
+        android:strokeWidth="3"
+        android:pathData="M21,12c-3,0 -5,2.4 -5,5c0,4 5,10 5,10c0,0 5,-6 5,-10c0,-2.6 -2,-5 -5,-5z" />
+
+    <!-- 가운데 점 -->
+    <path
+        android:fillColor="#CCFF00"
+        android:pathData="M21,16a2.3,2.3 0,1 0,0.1,0z" />
+
+</vector>
