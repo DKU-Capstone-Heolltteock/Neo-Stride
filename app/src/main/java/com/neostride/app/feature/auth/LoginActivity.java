@@ -16,7 +16,6 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.neostride.app.R;
 import com.neostride.app.activity.MainActivity;
-import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.auth.model.LoginRequest;
 import com.neostride.app.feature.auth.model.LoginResponse;
@@ -41,9 +40,10 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        ApiClient.init(this);
+        // 로그인 유지 상태라면 로그인 화면을 건너뛰고 메인 화면으로 이동함
+        String accessToken = TokenManager.getAccessToken(this);
 
-        if (TokenManager.isLoggedIn(this)) {
+        if (accessToken != null && !accessToken.isEmpty()) {
             Intent intent = new Intent(LoginActivity.this, MainActivity.class);
             startActivity(intent);
             finish();
@@ -58,6 +58,7 @@ public class LoginActivity extends AppCompatActivity {
             return insets;
         });
 
+        // 화면 요소 연결함
         etId = findViewById(R.id.et_id);
         etPw = findViewById(R.id.et_pw);
         cbKeepLogin = findViewById(R.id.cb_keep_login);
@@ -65,15 +66,19 @@ public class LoginActivity extends AppCompatActivity {
         tvRegister = findViewById(R.id.tv_register);
         tvFindAccount = findViewById(R.id.tv_find);
 
+        // Repository 생성함
         authRepository = new AuthRepository();
 
+        // 로그인 버튼 클릭 시 로그인 함수 실행함
         btnLogin.setOnClickListener(v -> login());
 
+        // 회원가입 화면으로 이동함
         tvRegister.setOnClickListener(v -> {
             Intent intent = new Intent(LoginActivity.this, SignupActivity.class);
             startActivity(intent);
         });
 
+        // 아이디/비밀번호 찾기 기능은 임시 비활성화함
         tvFindAccount.setEnabled(false);
         tvFindAccount.setClickable(false);
         tvFindAccount.setAlpha(0.5f);
@@ -82,12 +87,15 @@ public class LoginActivity extends AppCompatActivity {
     private void login() {
         String email = etId.getText().toString().trim();
         String password = etPw.getText().toString().trim();
+        boolean keepLogin = cbKeepLogin.isChecked();
 
+        // 이메일 입력 여부 검사함
         if (email.isEmpty()) {
             Toast.makeText(this, "이메일을 입력하세요.", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // 비밀번호 입력 여부 검사함
         if (password.isEmpty()) {
             Toast.makeText(this, "비밀번호를 입력하세요.", Toast.LENGTH_SHORT).show();
             return;
@@ -96,8 +104,10 @@ public class LoginActivity extends AppCompatActivity {
         Log.d("LOGIN", "로그인 요청");
         Log.d("LOGIN", "email: " + email);
 
+        // 서버로 보낼 로그인 요청 객체 생성함
         LoginRequest request = new LoginRequest(email, password);
 
+        // 로그인 API 호출함
         authRepository.login(request, new Callback<LoginResponse>() {
             @Override
             public void onResponse(Call<LoginResponse> call, Response<LoginResponse> response) {
@@ -107,30 +117,28 @@ public class LoginActivity extends AppCompatActivity {
                     LoginResponse loginResponse = response.body();
 
                     Log.d("LOGIN", "로그인 성공");
-                    Log.d("LOGIN", "message: " + loginResponse.getMessage());
-                    Log.d("LOGIN", "accessToken: " + loginResponse.getAccessToken());
+                    Log.d("LOGIN", "User ID: " + loginResponse.getUserId());
 
-                    if (loginResponse.getAccessToken() == null || loginResponse.getAccessToken().isEmpty()) {
-                        Toast.makeText(LoginActivity.this, "로그인 실패: 토큰 없음", Toast.LENGTH_SHORT).show();
-                        return;
+                    // 로그인 유지 체크 시에만 토큰과 유저 정보를 저장함
+                    if (keepLogin) {
+                        TokenManager.saveTokens(
+                                LoginActivity.this,
+                                loginResponse.getAccessToken(),
+                                loginResponse.getRefreshToken()
+                        );
+
+                        TokenManager.saveUserInfo(
+                                LoginActivity.this,
+                                loginResponse.getUserId(),
+                                loginResponse.getNickname()
+                        );
+
+                        Log.d("LOGIN", "TokenManager 저장 완료");
                     }
-
-                    TokenManager.saveTokens(
-                            LoginActivity.this,
-                            loginResponse.getAccessToken(),
-                            loginResponse.getRefreshToken()
-                    );
-
-                    TokenManager.saveUserInfo(
-                            LoginActivity.this,
-                            loginResponse.getUserId(),
-                            loginResponse.getNickname()
-                    );
-
-                    Log.d("LOGIN", "TokenManager에 토큰 저장 완료");
 
                     Toast.makeText(LoginActivity.this, "로그인 성공", Toast.LENGTH_SHORT).show();
 
+                    // 메인 화면으로 이동함
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                     startActivity(intent);
                     finish();
@@ -142,10 +150,6 @@ public class LoginActivity extends AppCompatActivity {
                 } else if (response.code() == 401) {
                     Log.d("LOGIN", "이메일 또는 비밀번호 불일치");
                     Toast.makeText(LoginActivity.this, "이메일 또는 비밀번호가 올바르지 않습니다.", Toast.LENGTH_SHORT).show();
-
-                } else if (response.code() == 500) {
-                    Log.d("LOGIN", "서버 내부 오류");
-                    Toast.makeText(LoginActivity.this, "오류코드 500: 서버내부오류", Toast.LENGTH_SHORT).show();
 
                 } else {
                     Log.d("LOGIN", "로그인 실패");
