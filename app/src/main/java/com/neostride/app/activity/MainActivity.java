@@ -20,6 +20,7 @@ import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.auth.LoginActivity;
 import com.neostride.app.feature.coaching.CoachingFragment;
+import com.neostride.app.feature.mypage.MyPageActivity;
 import com.neostride.app.feature.notification.NotificationFragment;
 import com.neostride.app.feature.record.RecordFragment;
 import com.neostride.app.feature.running.RunningFragment;
@@ -126,6 +127,16 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
+        });
+
+        // XML에서 마이페이지 레이아웃 아이디(menu_mypage)를 찾습니다.
+        LinearLayout menuMyPage = menuView.findViewById(R.id.menu_mypage);
+
+        // 클릭 시 실행될 동작을 설정합니다.
+        menuMyPage.setOnClickListener(v -> {
+            popupWindow.dismiss(); // 팝업을 먼저 닫고
+            Intent intent = new Intent(MainActivity.this, MyPageActivity.class);
+            startActivity(intent); // 화면 이동
         });
     }
 

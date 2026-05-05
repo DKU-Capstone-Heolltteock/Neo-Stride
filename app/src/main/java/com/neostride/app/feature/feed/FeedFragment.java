@@ -78,22 +78,6 @@ public class FeedFragment extends Fragment {
                 Toast.makeText(requireContext(), "피드 작성 화면으로 이동 예정", Toast.LENGTH_SHORT).show();
             });
         }
-
-        ImageView ivNotification = view.findViewById(R.id.iv_feed_notification);
-
-        if (ivNotification != null) {
-            ivNotification.setOnClickListener(v -> {
-                Toast.makeText(requireContext(), "알림 화면으로 이동", Toast.LENGTH_SHORT).show();
-            });
-        }
-
-        ImageView ivMyPage = view.findViewById(R.id.iv_feed_mypage);
-
-        if (ivMyPage != null) {
-            ivMyPage.setOnClickListener(v -> {
-                Toast.makeText(requireContext(), "마이페이지 이동", Toast.LENGTH_SHORT).show();
-            });
-        }
     }
 
     private void loadDummyFeedData() {

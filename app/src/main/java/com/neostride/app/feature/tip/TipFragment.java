@@ -91,20 +91,6 @@ public class TipFragment extends Fragment {
                 startActivity(intent);
             });
         }
-
-        ImageView ivNotification = view.findViewById(R.id.iv_tip_notification);
-        if (ivNotification != null) {
-            ivNotification.setOnClickListener(v ->
-                    Toast.makeText(requireContext(), "알림 화면으로 이동", Toast.LENGTH_SHORT).show()
-            );
-        }
-
-        TextView btnGoMy = view.findViewById(R.id.btn_go_my);
-        if (btnGoMy != null) {
-            btnGoMy.setOnClickListener(v ->
-                    Toast.makeText(requireContext(), "마이페이지 배지 확인으로 이동 예정", Toast.LENGTH_SHORT).show()
-            );
-        }
     }
 
     private void selectCategory(TextView selectedButton) {
