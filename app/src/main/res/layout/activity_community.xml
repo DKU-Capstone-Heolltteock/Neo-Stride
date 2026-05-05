@@ -7,10 +7,44 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
+<!--    &lt;!&ndash; 1. 상단 바: 알림과 마이페이지 버튼 &ndash;&gt;-->
+<!--    <RelativeLayout-->
+<!--        android:id="@+id/layout_top_bar"-->
+<!--        android:layout_width="match_parent"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_marginTop="40dp"-->
+<!--        android:paddingHorizontal="20dp">-->
+
+<!--        <ImageView-->
+<!--            android:id="@+id/btn_notification"-->
+<!--            android:layout_width="50dp"-->
+<!--            android:layout_height="50dp"-->
+<!--            android:layout_alignParentStart="true"-->
+<!--            android:src="@drawable/ic_notification"-->
+<!--            app:tint="#FFD400"-->
+<!--            android:background="?attr/selectableItemBackgroundBorderless"-->
+<!--            android:clickable="true"-->
+<!--            android:focusable="true"-->
+<!--            android:padding="8dp" />-->
+
+<!--        <ImageView-->
+<!--            android:id="@+id/btn_mypage"-->
+<!--            android:layout_width="50dp"-->
+<!--            android:layout_height="50dp"-->
+<!--            android:layout_alignParentEnd="true"-->
+<!--            android:src="@drawable/ic_mypage"-->
+<!--            android:background="?attr/selectableItemBackgroundBorderless"-->
+<!--            android:clickable="true"-->
+<!--            android:focusable="true"-->
+<!--            android:padding="8dp" />-->
+<!--    </RelativeLayout>-->
+
+    <!-- 컨텐츠 영역 수정 (layout_below 추가) -->
     <FrameLayout
         android:id="@+id/community_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:layout_below="@+id/layout_top_bar"
         android:layout_above="@+id/bottom_layout" />
 
     <LinearLayout

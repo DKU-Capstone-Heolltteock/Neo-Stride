@@ -51,7 +51,7 @@
         android:background="#1A1A1A"
         android:layout_marginHorizontal="20dp" />
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -116,7 +116,7 @@
                     android:padding="18dp"
                     android:layout_marginBottom="8dp">
 
-                    <!-- Training Routine -->
+                    <!-- Training Routine 제목 영역 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -151,49 +151,71 @@
                         android:layout_marginTop="6dp"
                         android:fontFamily="sans-serif" />
 
-                    <!-- 목표 거리 달성 여부 -->
+                    <!-- 🌟 1. AI 미션 정보 바구니 (서버 데이터가 있을 때만 자바에서 VISIBLE 처리) -->
                     <LinearLayout
-                        android:layout_width="wrap_content"
+                        android:id="@+id/layout_daily_mission_info"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginTop="10dp">
-                        <ImageView
-                            android:id="@+id/iv_distance_status"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:src="@drawable/ic_just_circle"
-                            android:layout_marginEnd="6dp" />
-                        <TextView
-                            android:id="@+id/tv_distance_status"
+                        android:orientation="vertical"
+                        android:visibility="visible">
+
+                        <!-- 목표 거리 달성 여부 -->
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textColor="#CCCCCC"
-                            android:textSize="14sp"
-                            android:fontFamily="sans-serif" />
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="10dp">
+                            <ImageView
+                                android:id="@+id/iv_distance_status"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_just_circle"
+                                android:layout_marginEnd="6dp" />
+                            <TextView
+                                android:id="@+id/tv_distance_status"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="#CCCCCC"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif" />
+                        </LinearLayout>
+
+                        <!-- 목표 페이스 달성 여부 -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="4dp">
+                            <ImageView
+                                android:id="@+id/iv_pace_status"
+                                android:layout_width="18dp"
+                                android:layout_height="18dp"
+                                android:src="@drawable/ic_just_circle"
+                                android:layout_marginEnd="6dp" />
+                            <TextView
+                                android:id="@+id/tv_pace_status"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="#CCCCCC"
+                                android:textSize="14sp"
+                                android:fontFamily="sans-serif" />
+                        </LinearLayout>
                     </LinearLayout>
 
-                    <!-- 목표 페이스 달성 여부 -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
+                    <!--  2. AI 미션이 없을 때 보여줄 안내 문구 (서버 데이터가 없을 때 자바에서 VISIBLE 처리) -->
+                    <TextView
+                        android:id="@+id/tv_no_mission_message"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginTop="4dp">
-                        <ImageView
-                            android:id="@+id/iv_pace_status"
-                            android:layout_width="18dp"
-                            android:layout_height="18dp"
-                            android:src="@drawable/ic_just_circle"
-                            android:layout_marginEnd="6dp" />
-                        <TextView
-                            android:id="@+id/tv_pace_status"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="#CCCCCC"
-                            android:textSize="14sp"
-                            android:fontFamily="sans-serif" />
-                    </LinearLayout>
+                        android:layout_marginTop="12dp"
+                        android:textColor="#888888"
+                        android:textSize="13sp"
+                        android:lineSpacingExtra="4dp"
+                        android:fontFamily="sans-serif"
+                        android:visibility="gone"
+                        android:text="AI 목표를 준비 중입니다." />
 
                     <!-- 훈련 완료 배너 (completed일 때만 표시) -->
                     <LinearLayout
@@ -314,9 +336,23 @@
                     <ImageView android:id="@+id/iv_history_arrow" android:layout_width="18dp" android:layout_height="18dp" android:src="@drawable/ic_arrow_down" app:tint="#CCFF00" />
                 </LinearLayout>
 
-                <androidx.recyclerview.widget.RecyclerView android:id="@+id/rv_history" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone" android:paddingHorizontal="8dp" android:paddingBottom="8dp" android:nestedScrollingEnabled="false" />
+                <View
+                    android:id="@+id/view_history_header_divider"
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="#CCFF00"
+                    android:layout_marginHorizontal="16dp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_history"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    android:paddingHorizontal="8dp"
+                    android:paddingBottom="8dp"
+                    android:nestedScrollingEnabled="false" />
                 <TextView android:id="@+id/tv_history_empty" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="히스토리가 없습니다" android:textColor="#444444" android:textSize="13sp" android:gravity="center" android:paddingVertical="16dp" android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 </LinearLayout>

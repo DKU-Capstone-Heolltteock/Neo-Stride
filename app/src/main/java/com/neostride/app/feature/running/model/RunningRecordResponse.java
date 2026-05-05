@@ -21,6 +21,11 @@ public class RunningRecordResponse implements Serializable {
     private int runRecordId;
 
     // ── 조회 응답 (RUNNING_RECORDS 테이블) ──
+
+    // 🔥 추가된 필드: Integer를 사용하여 null(일반러닝) 허용
+    @SerializedName("plan_id")
+    private Integer planId;
+
     @SerializedName("created_at")
     private String createdAt;              // "2026-04-28T14:30:00"
 
@@ -42,10 +47,14 @@ public class RunningRecordResponse implements Serializable {
     @SerializedName("segment_paces")
     private List<Float> segmentPaces;      // 구간별 페이스
 
-    // ── Getter (MonthPageFragment + RecordDetailFragment에서 사용하는 이름 그대로) ──
+    // ── Getter ──
     public String getStatus() { return status; }
     public String getMessage() { return message; }
     public int getRunRecordId() { return runRecordId; }
+
+    // 🔥 planId Getter
+    public Integer getPlanId() { return planId; }
+
     public String getCreatedAt() { return createdAt; }
     public float getDistance() { return distance; }
     public float getTime() { return time; }
@@ -53,4 +62,12 @@ public class RunningRecordResponse implements Serializable {
     public float getCalories() { return calories; }
     public List<GpsTraceRequest> getGpsPath() { return gpsPath; }
     public List<Float> getSegmentPaces() { return segmentPaces; }
+
+    /**
+     * 편의 메서드: 코칭 기록인지 확인
+     * planId가 null이 아니면 코칭 러닝으로 판단합니다.
+     */
+    public boolean isCoachingRun() {
+        return planId != null;
+    }
 }

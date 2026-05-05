@@ -16,9 +16,11 @@ import androidx.fragment.app.Fragment;
 
 import com.neostride.app.R;
 import com.neostride.app.feature.feed.FeedFragment;
+import com.neostride.app.feature.notification.NotificationFragment;
 import com.neostride.app.feature.tip.TipFragment;
 import com.neostride.app.feature.search.SearchFragment;
 import com.neostride.app.feature.event.EventFragment;
+//import com.neostride.app.feature.mypage.MyPageActivity;
 
 public class CommunityActivity extends AppCompatActivity {
 
@@ -26,6 +28,8 @@ public class CommunityActivity extends AppCompatActivity {
     private LinearLayout tabFeed, tabTip, tabSearch, tabEvent;
     private ImageView ivFeed, ivTip, ivSearch, ivEvent;
     private TextView tvFeed, tvTip, tvSearch, tvEvent;
+    private ImageView btnNotification; //알림버튼 변수 선언
+    private ImageView btnMyPage; //마이페이지 변수 선언
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,11 +64,29 @@ public class CommunityActivity extends AppCompatActivity {
         tvTip = findViewById(R.id.tv_tip);
         tvSearch = findViewById(R.id.tv_search);
         tvEvent = findViewById(R.id.tv_event);
+
+//        btnNotification = findViewById(R.id.btn_notification);
+//        btnMyPage = findViewById(R.id.btn_mypage);
     }
 
     private void setTabListeners() {
         // 뒤로가기 버튼 기능 (현재 액티비티 종료 -> 메인으로 돌아감)
         if (tabBackToMain != null) tabBackToMain.setOnClickListener(v -> finish());
+
+        // 알림 버튼 클릭 시 프래그먼트 교체
+        if (btnNotification != null) {
+            btnNotification.setOnClickListener(v -> {
+                replaceFragment(new NotificationFragment());
+                updateTabUI("none"); // 하단 탭들의 하이라이트를 모두 끔
+            });
+        }
+//        // 마이페이지 버튼 클릭 시 액티비티 교체
+//        if (btnMyPage != null) {
+//            btnMyPage.setOnClickListener(v -> {
+//                Intent intent = new Intent(this, MyPageActivity.class);
+//                startActivity(intent);
+//            });
+//        }
 
         if (tabFeed != null) tabFeed.setOnClickListener(v -> {
             replaceFragment(new FeedFragment());

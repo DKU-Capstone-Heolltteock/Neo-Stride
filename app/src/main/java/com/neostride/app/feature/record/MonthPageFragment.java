@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -46,6 +47,11 @@ public class MonthPageFragment extends Fragment {
     private List<CalendarDayItem> currentDays;
     private RunningRepository recordRepository;
     private List<RunningRecordResponse> allServerRecords = new ArrayList<>();
+    // AI 목표 달성도 그래프 관련 변수 추가
+    private LinearLayout layoutAiGoalAchievement, layoutAiGraphContent;
+    private TextView tvGraphGoalInfo;
+    private ImageView ivAiGraphArrow;
+    private View btnToggleAiGraph;
 
     public static MonthPageFragment newInstance(YearMonth month) {
         MonthPageFragment fragment = new MonthPageFragment();
@@ -76,6 +82,24 @@ public class MonthPageFragment extends Fragment {
         ivCompareDistance = view.findViewById(R.id.iv_compare_distance);
         ivComparePace = view.findViewById(R.id.iv_compare_pace);
         ivCompareCalories = view.findViewById(R.id.iv_compare_calories);
+        // AI 달성도 그래프 섹션 뷰 연결
+        layoutAiGoalAchievement = view.findViewById(R.id.layout_ai_goal_achievement);
+        layoutAiGraphContent = view.findViewById(R.id.layout_ai_graph_content);
+        tvGraphGoalInfo = view.findViewById(R.id.tv_graph_goal_info);
+        ivAiGraphArrow = view.findViewById(R.id.iv_ai_graph_arrow);
+        btnToggleAiGraph = view.findViewById(R.id.btn_toggle_ai_graph);
+        ivAiGraphArrow.setRotation(180f);
+
+        // AI 달성도 그래프 펼치기/접기 리스너 설정
+        btnToggleAiGraph.setOnClickListener(v -> {
+            if (layoutAiGraphContent.getVisibility() == View.VISIBLE) {
+                layoutAiGraphContent.setVisibility(View.GONE);
+                ivAiGraphArrow.animate().rotation(180f).setDuration(200).start(); // 화살표 아래로
+            } else {
+                layoutAiGraphContent.setVisibility(View.VISIBLE);
+                ivAiGraphArrow.animate().rotation(0f).setDuration(200).start();   // 화살표 위로
+            }
+        });
 
         dailyAdapter = new DailyRecordAdapter(new ArrayList<>(), item -> {
             RunningRecordResponse selectedFullData = null;
@@ -105,6 +129,13 @@ public class MonthPageFragment extends Fragment {
         return view;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        // 🌟 화면에 다시 돌아올 때마다(코칭 탭을 갔다가 와도) 즉시 10.0km를 띄웁니다.
+        updateAiGoalSection(LocalDate.now());
+    }
+
     private void setupPage() {
         currentDays = generateDaysList(displayMonth);
         calendarAdapter = new CalendarAdapter(currentDays, day -> {
@@ -126,11 +157,13 @@ public class MonthPageFragment extends Fragment {
                     getActivity().runOnUiThread(() -> {
                         updateMonthlyStatistics(records);
                         updateCalendarDistances(records);
+
+                        // 🌟 [추가] 차트 데이터를 필터링해서 그려주는 함수를 호출합니다!
+                        updateLineChart(records);
                     });
                 }
             }
-            @Override
-            public void onError(String message) { Log.e("NeoStride", message); }
+            @Override public void onError(String message) { Log.e("NeoStride", message); }
         });
     }
 
@@ -205,30 +238,54 @@ public class MonthPageFragment extends Fragment {
         String formattedDate = date.getYear() + "년 " + date.getMonthValue() + "월 " + date.getDayOfMonth() + "일 " + date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.KOREAN);
         tvSelectedDate.setText(formattedDate);
         tvSelectedDate.setVisibility(View.VISIBLE);
+        updateAiGoalSection(date);
         List<RunningRecordItem> filteredItems = new ArrayList<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
 
-        // 해당 날짜에 코칭 플랜이 있는지 확인
-        String planKey = date.getYear() + "-" + date.getMonthValue() + "-" + date.getDayOfMonth();
-        GoalStorage.PlanData plan = (getContext() != null) ? GoalStorage.getPlan(getContext(), planKey) : null;
-        boolean hasCoachingPlan = (plan != null);
+        // 수정됨: 날짜 기준 Coaching 체크 로직 삭제
+        // 각 개별 기록(res)에 포함된 plan_id 유무로 AI Coaching 여부를 직접 판단합니다.
 
         for (RunningRecordResponse res : allServerRecords) {
             try {
                 LocalDate resDate = LocalDate.parse(res.getCreatedAt(), formatter);
                 if (resDate.equals(date)) {
                     RunningRecordItem item = convertToItem(res);
-                    if (hasCoachingPlan) item.setAiCoaching(true);
+
+                    // 🔥 핵심 수정 사항: 개별 기록의 planId가 null이 아니면 AI Coaching으로 표시
+                    if (res.getPlanId() != null) {
+                        item.setAiCoaching(true);
+                    } else {
+                        item.setAiCoaching(false);
+                    }
+
                     filteredItems.add(item);
                 }
             } catch (Exception e) { e.printStackTrace(); }
         }
+
         if (filteredItems.isEmpty()) {
             tvNoRecord.setVisibility(View.VISIBLE);
             dailyAdapter.updateData(new ArrayList<>());
         } else {
             tvNoRecord.setVisibility(View.GONE);
             dailyAdapter.updateData(filteredItems);
+        }
+    }
+
+    private void updateAiGoalSection(LocalDate date) {
+        Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+
+        if (allPlans != null && !allPlans.isEmpty()) {
+            layoutAiGoalAchievement.setVisibility(View.VISIBLE);
+            GoalStorage.PlanData baseGoal = allPlans.values().iterator().next();
+            tvGraphGoalInfo.setText(String.format(Locale.KOREA, "• 설정한 목표 거리 : %.1fkm", baseGoal.totalGoalDistanceKm));
+            setupPaceChart(baseGoal.totalGoalPaceStr);
+
+            if (!allServerRecords.isEmpty()) {
+                updateLineChart(allServerRecords);
+            }
+        } else {
+            layoutAiGoalAchievement.setVisibility(View.GONE);
         }
     }
 
@@ -257,5 +314,67 @@ public class MonthPageFragment extends Fragment {
             days.add(calDay);
         }
         return days;
+    }
+
+    // 파라미터를 double에서 String으로 변경합니다!
+    private void setupPaceChart(String targetPaceStr) {
+        if (getView() != null && targetPaceStr != null) {
+            AiLineChartView chartView = getView().findViewById(R.id.ai_line_chart);
+            if (chartView != null) {
+                try {
+                    // "5:30/km" -> "5:30" 추출
+                    String timePart = targetPaceStr.split("/")[0];
+                    String[] parts = timePart.split(":");
+                    float min = Float.parseFloat(parts[0]);
+                    float sec = Float.parseFloat(parts[1]);
+
+                    // 분 단위 소수점으로 변환 (5 + 30/60 = 5.5)
+                    float paceValue = min + (sec / 60f);
+
+                    chartView.setTargetPace(paceValue); // 🌟 그래프에 목표치 전달
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private void updateLineChart(List<RunningRecordResponse> records) {
+        if (records == null || getView() == null) return;
+
+        List<RunningRecordResponse> coachingRecords = new ArrayList<>();
+        List<Float> targetList = new ArrayList<>();
+        float finalGoalDist = 0f; // 🌟 최종 목표 거리를 담을 변수
+
+        Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+
+        // 🌟 저장소에서 최종 목표 거리를 미리 하나 뽑아둡니다.
+        if (allPlans != null && !allPlans.isEmpty()) {
+            finalGoalDist = allPlans.values().iterator().next().totalGoalDistanceKm;
+        }
+
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
+        for (RunningRecordResponse res : records) {
+            if (res.getPlanId() != null) {
+                coachingRecords.add(res);
+
+                float dailyTarget = 0f;
+                try {
+                    java.time.LocalDate resDate = java.time.LocalDate.parse(res.getCreatedAt(), formatter);
+                    String dateKey = resDate.getYear() + "-" + resDate.getMonthValue() + "-" + resDate.getDayOfMonth();
+                    GoalStorage.PlanData plan = allPlans.get(dateKey);
+                    if (plan != null) dailyTarget = plan.distanceKm;
+                } catch (Exception e) { e.printStackTrace(); }
+                targetList.add(dailyTarget);
+            }
+        }
+
+        AiLineChartView chartView = getView().findViewById(R.id.ai_line_chart);
+        if (chartView != null) {
+            // 🌟 최종 목표 거리와 데이터를 모두 주입합니다.
+            chartView.setFinalGoalDistance(finalGoalDist);
+            chartView.setData(coachingRecords, targetList);
+        }
     }
 }

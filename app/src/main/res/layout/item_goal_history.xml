@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<!-- 1. CardView를 제거하고 투명한 LinearLayout으로 변경하여 불필요한 마진을 없앱니다 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
-    app:cardBackgroundColor="#1A1A1A"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="0dp">
+    android:orientation="vertical">
 
+    <!-- 2. 실제 데이터가 들어가는 영역 (상단과 양옆에만 패딩을 줍니다) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:padding="14dp"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:paddingTop="16dp"
+        android:paddingHorizontal="14dp">
 
+        <!-- 상태 점 (Dot) -->
         <View
             android:id="@+id/view_status_dot"
             android:layout_width="8dp"
@@ -22,6 +22,7 @@
             android:layout_marginEnd="12dp"
             android:background="@drawable/bg_plan_dot" />
 
+        <!-- 목표 텍스트 정보 -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -45,6 +46,7 @@
                 android:layout_marginTop="2dp" />
         </LinearLayout>
 
+        <!-- 복원 버튼 -->
         <TextView
             android:id="@+id/btn_history_restore"
             android:layout_width="wrap_content"
@@ -57,6 +59,7 @@
             android:layout_marginEnd="6dp"
             android:visibility="gone" />
 
+        <!-- 삭제 버튼 -->
         <TextView
             android:id="@+id/btn_history_delete"
             android:layout_width="wrap_content"
@@ -68,4 +71,14 @@
             android:textStyle="bold" />
 
     </LinearLayout>
-</androidx.cardview.widget.CardView>
+
+    <!-- 3. 구분선 (여기서 marginTop을 주어 텍스트와의 간격을 조절하고, 아래쪽 패딩은 주지 않습니다) -->
+    <View
+        android:id="@+id/view_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginHorizontal="12dp"
+        android:background="#333333" />
+
+</LinearLayout>

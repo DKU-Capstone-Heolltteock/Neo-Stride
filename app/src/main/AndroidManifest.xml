@@ -18,10 +18,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NeoStride"
         android:usesCleartextTraffic="true">
-        <activity
-            android:name=".feature.tip.TipUploadActivity"
-            android:theme="@style/Theme.NeoStride.Transparent"
-            android:exported="false" />
+
         <!-- 인증 관련 액티비티 -->
         <activity
             android:name=".feature.auth.FindIdSuccessActivity"
