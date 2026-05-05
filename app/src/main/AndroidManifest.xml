@@ -18,7 +18,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NeoStride"
         android:usesCleartextTraffic="true">
-
+        <activity
+            android:name=".feature.tip.TipUploadActivity"
+            android:theme="@style/Theme.NeoStride.Transparent"
+            android:exported="false" />
         <!-- 인증 관련 액티비티 -->
         <activity android:name=".feature.auth.FindIdSuccessActivity" android:exported="false" />
         <activity android:name=".feature.auth.FindIdCodeVerifyActivity" android:exported="false" />
@@ -43,14 +46,56 @@
 
         <!-- 메인 액티비티 (런처) -->
         <activity
-            android:name=".activity.MainActivity"
+            android:name=".feature.auth.FindIdSuccessActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.FindIdCodeVerifyActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.FindIdActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.ResetSuccessActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.NewPasswordActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.ResetCodeVerifyActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.ResetPasswordActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.SuccessActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.CodeVerifyActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.EmailAuthActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.auth.SignupActivity"
+            android:exported="false" /> <!-- 로그인 액티비티: 앱 실행 시 첫 화면 -->
+        <activity
+            android:name=".feature.auth.LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
+        </activity> <!-- 앱 내부 화면 -->
+        <activity
+            android:name=".activity.MainActivity"
+            android:exported="false" />
+        <activity
+            android:name=".activity.CommunityActivity"
+            android:exported="false" /> <!-- 구글 지도 API 키 -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyBK52DjufNEbeLsSf4cVNO3UIq5ZeJb2RQ" />
     </application>
 
 </manifest>
