@@ -1,14 +1,29 @@
 package com.neostride.app.feature.auth;
 
-import android.content.Intent;import android.os.Bundle;import android.util.Log;import android.widget.Button;import android.widget.CheckBox;import android.widget.EditText;import android.widget.TextView;import android.widget.Toast;
+import android.content.Intent;
+import android.os.Bundle;
+import android.util.Log;
+import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;import androidx.core.graphics.Insets;import androidx.core.view.ViewCompat;import androidx.core.view.WindowInsetsCompat;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
-import com.neostride.app.R;import com.neostride.app.activity.MainActivity;import com.neostride.app.feature.auth.model.LoginRequest;import com.neostride.app.feature.auth.model.LoginResponse;import com.neostride.app.feature.auth.repository.AuthRepository;
+import com.neostride.app.R;
+import com.neostride.app.activity.MainActivity;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.auth.model.LoginRequest;
+import com.neostride.app.feature.auth.model.LoginResponse;
+import com.neostride.app.feature.auth.repository.AuthRepository;
 
-import retrofit2.Call;import retrofit2.Callback;import retrofit2.Response;
-
-import android.content.SharedPreferences;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -24,18 +39,18 @@ public class LoginActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_login);
 
-        // 로그인 유지 상태라면 로그인 화면을 건너뛰고 메인 화면으로 이동
-        SharedPreferences preferences = getSharedPreferences("auth", MODE_PRIVATE);
-        String accessToken = preferences.getString("access_token", null);
+        // 로그인 유지 상태라면 로그인 화면을 건너뛰고 메인 화면으로 이동함
+        String accessToken = TokenManager.getAccessToken(this);
 
-        if (accessToken != null) {
+        if (accessToken != null && !accessToken.isEmpty()) {
             Intent intent = new Intent(LoginActivity.this, MainActivity.class);
             startActivity(intent);
             finish();
             return;
         }
+
+        setContentView(R.layout.activity_login);
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -43,7 +58,7 @@ public class LoginActivity extends AppCompatActivity {
             return insets;
         });
 
-        // 화면 요소 연결
+        // 화면 요소 연결함
         etId = findViewById(R.id.et_id);
         etPw = findViewById(R.id.et_pw);
         cbKeepLogin = findViewById(R.id.cb_keep_login);
@@ -51,29 +66,22 @@ public class LoginActivity extends AppCompatActivity {
         tvRegister = findViewById(R.id.tv_register);
         tvFindAccount = findViewById(R.id.tv_find);
 
-        // Repository 생성
+        // Repository 생성함
         authRepository = new AuthRepository();
 
-        // 로그인 버튼 클릭
+        // 로그인 버튼 클릭 시 로그인 함수 실행함
         btnLogin.setOnClickListener(v -> login());
 
-        // 회원가입 화면 이동
+        // 회원가입 화면으로 이동함
         tvRegister.setOnClickListener(v -> {
             Intent intent = new Intent(LoginActivity.this, SignupActivity.class);
             startActivity(intent);
         });
 
-        // ID/비밀번호 찾기 기능 임시 비활성화
+        // 아이디/비밀번호 찾기 기능은 임시 비활성화함
         tvFindAccount.setEnabled(false);
         tvFindAccount.setClickable(false);
         tvFindAccount.setAlpha(0.5f);
-
-    /*
-    tvFindAccount.setOnClickListener(v -> {
-        Intent intent = new Intent(LoginActivity.this, ResetPasswordActivity.class);
-        startActivity(intent);
-    });
-    */
     }
 
     private void login() {
@@ -81,25 +89,25 @@ public class LoginActivity extends AppCompatActivity {
         String password = etPw.getText().toString().trim();
         boolean keepLogin = cbKeepLogin.isChecked();
 
-        // 입력값 검사
+        // 이메일 입력 여부 검사함
         if (email.isEmpty()) {
             Toast.makeText(this, "이메일을 입력하세요.", Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // 비밀번호 입력 여부 검사함
         if (password.isEmpty()) {
             Toast.makeText(this, "비밀번호를 입력하세요.", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // 로그 출력 (비밀번호는 출력하지 않음)
         Log.d("LOGIN", "로그인 요청");
         Log.d("LOGIN", "email: " + email);
 
-        // 서버로 보낼 로그인 요청 객체 생성
+        // 서버로 보낼 로그인 요청 객체 생성함
         LoginRequest request = new LoginRequest(email, password);
 
-        // 로그인 API 호출
+        // 로그인 API 호출함
         authRepository.login(request, new Callback<LoginResponse>() {
             @Override
             public void onResponse(Call<LoginResponse> call, Response<LoginResponse> response) {
@@ -109,22 +117,28 @@ public class LoginActivity extends AppCompatActivity {
                     LoginResponse loginResponse = response.body();
 
                     Log.d("LOGIN", "로그인 성공");
-                    Log.d("LOGIN", "message: " + loginResponse.getMessage());
+                    Log.d("LOGIN", "User ID: " + loginResponse.getUserId());
+
+                    // 로그인 유지 체크 시에만 토큰과 유저 정보를 저장함
+                    if (keepLogin) {
+                        TokenManager.saveTokens(
+                                LoginActivity.this,
+                                loginResponse.getAccessToken(),
+                                loginResponse.getRefreshToken()
+                        );
+
+                        TokenManager.saveUserInfo(
+                                LoginActivity.this,
+                                loginResponse.getUserId(),
+                                loginResponse.getNickname()
+                        );
+
+                        Log.d("LOGIN", "TokenManager 저장 완료");
+                    }
 
                     Toast.makeText(LoginActivity.this, "로그인 성공", Toast.LENGTH_SHORT).show();
 
-                    // 로그인 유지 체크 시 access token 저장
-                    if (keepLogin && loginResponse.getAccessToken() != null) {
-                        getSharedPreferences("auth", MODE_PRIVATE)
-                                .edit()
-                                .putString("access_token", loginResponse.getAccessToken())
-                                .putString("refresh_token", loginResponse.getRefreshToken())
-                                .apply();
-
-                        Log.d("LOGIN", "토큰 저장 완료");
-                    }
-
-                    // 메인 화면으로 이동
+                    // 메인 화면으로 이동함
                     Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                     startActivity(intent);
                     finish();
