@@ -31,6 +31,10 @@
         <activity android:name=".feature.auth.CodeVerifyActivity" android:exported="false" />
         <activity android:name=".feature.auth.EmailAuthActivity" android:exported="false" />
         <activity android:name=".feature.auth.SignupActivity" android:exported="false" />
+        <activity android:name=".feature.auth.LoginActivity" android:exported="false" />
+        <activity android:name=".activity.CommunityActivity" android:exported="false" />
+        <!-- 타 액티비티 관련 -->
+        <activity android:name=".feature.mypage.MyPageActivity" android:exported="false" />
 
         <!-- 로그인 액티비티: 앱 실행 시 첫 화면 -->
         <activity

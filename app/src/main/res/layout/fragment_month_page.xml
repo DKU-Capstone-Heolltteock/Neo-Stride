@@ -25,6 +25,87 @@
             android:paddingHorizontal="20dp"
             android:paddingBottom="120dp">
 
+            <!-- 🌟 AI 목표 달성도 섹션 (CardView 바로 위에 삽입) -->
+            <LinearLayout
+                android:id="@+id/layout_ai_goal_achievement"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginBottom="5dp"
+                android:background="@drawable/bg_detail_btn"
+                android:visibility="visible">
+
+                <!-- 헤더: 클릭 시 접고 펴기 -->
+                <LinearLayout
+                    android:id="@+id/btn_toggle_ai_graph"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="16dp"
+                    android:clickable="true"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_chart"
+                        app:tint="#CCFF00"
+                        android:layout_marginEnd="10dp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="AI 목표 달성도"
+                        android:textColor="#CCFF00"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <ImageView
+                        android:id="@+id/iv_ai_graph_arrow"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:src="@drawable/ic_arrow_up"
+                        app:tint="#CCFF00" />
+                </LinearLayout>
+
+                <!-- 내용: 그래프 영역 -->
+                <LinearLayout
+                    android:id="@+id/layout_ai_graph_content"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="16dp"
+                    android:paddingBottom="20dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tv_graph_goal_info"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="• 설정한 목표 거리 : 5km"
+                        android:textColor="#CCFF00"
+                        android:textSize="12sp"
+                        android:layout_marginBottom="16dp" />
+
+                    <!-- 기존 ai_pace_chart_view 대신 사용할 그래프 레이아웃 -->
+                    <RelativeLayout
+                        android:id="@+id/layout_chart_container"
+                        android:layout_width="match_parent"
+                        android:layout_height="180dp"
+                        android:background="#121212">
+
+                        <com.neostride.app.feature.record.AiLineChartView
+                            android:id="@+id/ai_line_chart"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:layout_marginHorizontal="0dp" />
+
+                    </RelativeLayout>
+                </LinearLayout>
+            </LinearLayout>
+
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -88,7 +169,7 @@
                                         android:layout_marginStart="4dp"
                                         android:layout_marginBottom="4dp"
                                         android:visibility="gone"
-                                        android:src="@drawable/ic_double_arrow_up" />
+                                        android:src="@drawable/ic_double_arrow_down" />
                                 </LinearLayout>
                                 <TextView
                                     android:layout_width="wrap_content"

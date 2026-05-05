@@ -1,0 +1,54 @@
+package com.neostride.app.feature.running;
+
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.TextView;
+import androidx.annotation.NonNull;
+import androidx.cardview.widget.CardView;
+import androidx.recyclerview.widget.RecyclerView;
+import com.neostride.app.R;
+import java.util.List;
+
+public class RunningModeAdapter extends RecyclerView.Adapter<RunningModeAdapter.ViewHolder> {
+    private List<RunningModeItem> items;
+    private OnItemClickListener listener;
+
+    public interface OnItemClickListener {
+        void onItemClick(RunningModeItem item, int position);
+    }
+
+    public RunningModeAdapter(List<RunningModeItem> items, OnItemClickListener listener) {
+        this.items = items;
+        this.listener = listener;
+    }
+
+    @NonNull
+    @Override
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        return new ViewHolder(LayoutInflater.from(parent.getContext()).inflate(R.layout.item_running_mode, parent, false));
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
+        RunningModeItem item = items.get(position);
+        holder.tvTitle.setText(item.title);
+        holder.tvSubtitle.setText(item.subtitle);
+        holder.cardMode.setCardBackgroundColor(item.bgColor);
+        holder.cardMode.setOnClickListener(v -> listener.onItemClick(item, position));
+    }
+
+    @Override
+    public int getItemCount() { return items.size(); }
+
+    static class ViewHolder extends RecyclerView.ViewHolder {
+        CardView cardMode;
+        TextView tvTitle, tvSubtitle;
+        ViewHolder(View v) {
+            super(v);
+            cardMode = v.findViewById(R.id.card_mode);
+            tvTitle = v.findViewById(R.id.tv_mode_title);
+            tvSubtitle = v.findViewById(R.id.tv_mode_subtitle);
+        }
+    }
+}
