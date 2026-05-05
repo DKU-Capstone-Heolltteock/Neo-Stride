@@ -33,6 +33,8 @@
         <activity android:name=".feature.auth.SignupActivity" android:exported="false" />
         <activity android:name=".feature.auth.LoginActivity" android:exported="false" />
         <activity android:name=".activity.CommunityActivity" android:exported="false" />
+        <!-- 타 액티비티 관련 -->
+        <activity android:name=".feature.mypage.MyPageActivity" android:exported="false" />
 
         <!-- 구글 지도 API 키 -->
         <meta-data

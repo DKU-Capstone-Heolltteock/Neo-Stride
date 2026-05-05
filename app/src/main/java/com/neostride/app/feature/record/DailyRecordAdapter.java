@@ -7,6 +7,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.neostride.app.R;
+import com.neostride.app.feature.coaching.GoalStorage;
 
 import java.util.List;
 
@@ -38,33 +39,45 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
         holder.tvPace.setText(record.getPace());
         holder.tvCalories.setText(record.getCalories());
 
-        // AI Coaching 라벨 + accent bar 색상
+        // 🔥 AI Coaching 판별 로직 (isAiCoaching 값에 전적으로 의존)
         if (record.isAiCoaching()) {
-            holder.tvAiLabel.setVisibility(android.view.View.VISIBLE);
-            // GoalStorage에서 상태 확인하여 색상 결정
-            String dateStr = record.getDate(); // created_at
-            int barColor = 0xFFCCFF00; // 기본 형광
+            // 1. 라벨 보이기
+            holder.tvAiLabel.setVisibility(View.VISIBLE);
+
+            // 2. 코칭 상태에 따른 색상 결정 (기본 주황)
+            int barColor = 0xFFFF9500;
             try {
+                String dateStr = record.getDate(); // 예: "2026-05-03T11:00:00"
                 String[] parts = dateStr.split("T")[0].split("-");
                 int y = Integer.parseInt(parts[0]);
                 int m = Integer.parseInt(parts[1]);
                 int d = Integer.parseInt(parts[2]);
                 String key = y + "-" + m + "-" + d;
-                com.neostride.app.feature.coaching.GoalStorage.PlanData plan =
-                        com.neostride.app.feature.coaching.GoalStorage.getPlan(holder.itemView.getContext(), key);
+
+                GoalStorage.PlanData plan = GoalStorage.getPlan(holder.itemView.getContext(), key);
                 if (plan != null) {
                     switch (plan.status) {
-                        case "completed": barColor = 0xFFCCFF00; break; // 형광
-                        case "missed": barColor = 0xFFFF3B30; break;    // 빨강
-                        default: barColor = 0xFFFF9500; break;          // 주황
+                        case "completed":
+                            barColor = 0xFFCCFF00; // 완료 시 형광 연두
+                            break;
+                        case "missed":
+                            barColor = 0xFFFF3B30; // 실패 시 빨강
+                            break;
+                        default:
+                            barColor = 0xFFFF9500; // 대기/진행 시 주황
+                            break;
                     }
                 }
-            } catch (Exception e) { /* 파싱 실패시 형광 유지 */ }
+            } catch (Exception e) {
+                // 파싱 오류 시 안전하게 주황색 유지
+            }
+
             holder.accentBar.setBackgroundColor(barColor);
             holder.tvAiLabel.setTextColor(barColor);
         } else {
-            holder.tvAiLabel.setVisibility(android.view.View.GONE);
-            holder.accentBar.setBackgroundColor(0xFFCCFF00);
+            // 🔥 일반 러닝: 라벨 숨기고 바 색상을 기본 형광색으로 고정
+            holder.tvAiLabel.setVisibility(View.GONE);
+            holder.accentBar.setBackgroundColor(0xFFCCFF00); // 기본 형광 연두 (#CCFF00)
         }
 
         holder.itemView.setOnClickListener(v -> listener.onRecordClick(record));
@@ -80,7 +93,8 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvDistance, tvTime, tvPace, tvCalories, tvAiLabel;
-        android.view.View accentBar;
+        View accentBar;
+
         ViewHolder(View view) {
             super(view);
             tvDistance = view.findViewById(R.id.tv_item_distance);

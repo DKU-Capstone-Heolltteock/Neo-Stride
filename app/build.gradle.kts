@@ -10,8 +10,8 @@ val propertiesFile = project.rootProject.file("local.properties")
 if (propertiesFile.exists()) {
     properties.load(propertiesFile.inputStream())
 }
-// 파일에 BASE_URL이 없으면 기본 포스트맨 주소를 쓰도록 설정
-val baseUrl = properties.getProperty("BASE_URL") ?: "\"https://6b068f2e-91de-4c62-be70-f8302ba5e407.mock.pstmn.io/\""
+// local.properties에 주소가 입력되지 않았다면 일단 로컬 서버 주소를 기본값으로 설정
+val baseUrl = properties.getProperty("BASE_URL") ?: "\"http://10.0.2.2:8080/\""
 
 android {
     namespace = "com.neostride.app"
@@ -30,15 +30,9 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        buildConfigField(
-            "String",
-            "BASE_URL",
-            "\"${project.findProperty("BASE_URL") ?: "http://10.0.2.2:8080/"}\""
-        )
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // ── [중요] 변수를 자바 코드에서 쓸 수 있게 등록 ──
+        // ── baseUrl 변수를 자바 코드에서 쓸 수 있게 등록 ──
         buildConfigField("String", "BASE_URL", baseUrl)
     }
 

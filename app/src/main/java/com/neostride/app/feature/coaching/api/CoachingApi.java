@@ -5,6 +5,7 @@ import com.neostride.app.feature.coaching.model.FeedbackResponse;
 import com.neostride.app.feature.coaching.model.GoalRequest;
 import com.neostride.app.feature.coaching.model.GoalResponse;
 import com.neostride.app.feature.coaching.model.TodayPlanResponse;
+import com.neostride.app.feature.coaching.model.GoalStatusUpdateRequest;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
@@ -13,6 +14,7 @@ import retrofit2.http.GET;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
+import retrofit2.http.PATCH; // 서버의 DB 값을 바꿀 수 있도록(goal 테이블 is_achived 항목
 
 import java.util.Map;
 
@@ -40,4 +42,11 @@ public interface CoachingApi {
     // 목표 삭제
     @DELETE("/api/coaching/goals/{goal_id}")
     Call<Map<String, String>> deleteGoal(@Path("goal_id") int goalId);
+
+    // Goal 달성했는지 여부에 따라 DB 내용 변경(조기 졸업 및 기간 만료 처리용)
+    @PATCH("/api/coaching/goals/{goal_id}/status")
+    Call<GoalResponse> updateGoalStatus(
+            @Path("goal_id") int goalId,
+            @Body GoalStatusUpdateRequest request
+    );
 }
