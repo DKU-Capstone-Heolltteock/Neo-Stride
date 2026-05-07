@@ -46,10 +46,18 @@ import java.util.Locale;
 
 import com.neostride.app.feature.feed.FeedUploadDialog;
 
+import android.net.Uri;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import com.neostride.app.feature.feed.FeedUploadDialog;
+
 public class RecordDetailFragment extends Fragment implements OnMapReadyCallback {
 
     private GoogleMap mMap;
     private RunningRecordResponse recordData;
+
+    private ActivityResultLauncher<String[]> feedPhotoPickerLauncher;
+    private FeedUploadDialog feedUploadDialog;
     private boolean isAnalysisExpanded = false;
 
     private static final int COLOR_VERY_SLOW = Color.parseColor("#FF3B30");
@@ -74,6 +82,20 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         args.putSerializable("record_data", record);
         fragment.setArguments(args);
         return fragment;
+    }
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        feedPhotoPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.OpenMultipleDocuments(),
+                uris -> {
+                    if (uris != null && feedUploadDialog != null) {
+                        feedUploadDialog.addSelectedImages(uris);
+                    }
+                }
+        );
     }
 
     @Nullable
@@ -358,10 +380,13 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
             // 오른쪽 하단 형광 공유/업로드 버튼
             getView().findViewById(R.id.btn_share_circle).setOnClickListener(v -> {
-                FeedUploadDialog dialog =
-                        new FeedUploadDialog(requireContext(), recordData);
+                feedUploadDialog = new FeedUploadDialog(
+                        requireContext(),
+                        recordData,
+                        () -> feedPhotoPickerLauncher.launch(new String[]{"image/*"})
+                );
 
-                dialog.show();
+                feedUploadDialog.show();
             });
         }
 
