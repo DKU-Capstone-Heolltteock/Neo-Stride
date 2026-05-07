@@ -44,6 +44,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import com.neostride.app.feature.feed.FeedUploadDialog;
+
 public class RecordDetailFragment extends Fragment implements OnMapReadyCallback {
 
     private GoogleMap mMap;
@@ -312,22 +314,68 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         mMap = googleMap;
         mMap.getUiSettings().setAllGesturesEnabled(true);
         mMap.getUiSettings().setMyLocationButtonEnabled(false);
-        try { mMap.setMyLocationEnabled(true); } catch (SecurityException e) { e.printStackTrace(); }
+
+        try {
+            mMap.setMyLocationEnabled(true);
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
+
         if (getView() != null) {
+
+            // 현재 위치 버튼
             getView().findViewById(R.id.btn_my_location).setOnClickListener(v -> {
-                @SuppressLint("MissingPermission") Location loc = mMap.getMyLocation();
-                if (loc != null) mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(loc.getLatitude(), loc.getLongitude()), 16f));
-            });
-            getView().findViewById(R.id.btn_route_center).setOnClickListener(v -> {
-                if (recordData != null && recordData.getGpsPath() != null && !recordData.getGpsPath().isEmpty()) {
-                    LatLngBounds.Builder b = new LatLngBounds.Builder();
-                    for (GpsTraceRequest p : recordData.getGpsPath()) b.include(new LatLng(p.getLatitude(), p.getLongitude()));
-                    mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(b.build(), 300));
+                @SuppressLint("MissingPermission")
+                Location loc = mMap.getMyLocation();
+
+                if (loc != null) {
+                    mMap.animateCamera(
+                            CameraUpdateFactory.newLatLngZoom(
+                                    new LatLng(loc.getLatitude(), loc.getLongitude()),
+                                    16f
+                            )
+                    );
                 }
             });
+
+            // 경로 중앙 이동 버튼
+            getView().findViewById(R.id.btn_route_center).setOnClickListener(v -> {
+                if (recordData != null
+                        && recordData.getGpsPath() != null
+                        && !recordData.getGpsPath().isEmpty()) {
+
+                    LatLngBounds.Builder b = new LatLngBounds.Builder();
+
+                    for (GpsTraceRequest p : recordData.getGpsPath()) {
+                        b.include(new LatLng(p.getLatitude(), p.getLongitude()));
+                    }
+
+                    mMap.animateCamera(
+                            CameraUpdateFactory.newLatLngBounds(b.build(), 300)
+                    );
+                }
+            });
+
+            // 오른쪽 하단 형광 공유/업로드 버튼
+            getView().findViewById(R.id.btn_share_circle).setOnClickListener(v -> {
+                FeedUploadDialog dialog =
+                        new FeedUploadDialog(requireContext(), recordData);
+
+                dialog.show();
+            });
         }
-        try { mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(requireContext(), R.raw.map_style)); } catch (Exception e) { e.printStackTrace(); }
-        if (recordData != null && recordData.getGpsPath() != null) drawFullRoute(recordData.getGpsPath());
+
+        try {
+            mMap.setMapStyle(
+                    MapStyleOptions.loadRawResourceStyle(requireContext(), R.raw.map_style)
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if (recordData != null && recordData.getGpsPath() != null) {
+            drawFullRoute(recordData.getGpsPath());
+        }
     }
 
     private void drawFullRoute(List<GpsTraceRequest> path) {

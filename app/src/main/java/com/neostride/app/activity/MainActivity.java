@@ -43,8 +43,22 @@ public class MainActivity extends AppCompatActivity {
         initViews();
 
         if (savedInstanceState == null) {
-            replaceFragment(new RunningFragment());
-            updateTabUI("running");
+            String moveTo = getIntent().getStringExtra("move_to");
+            String recordMode = getIntent().getStringExtra("record_mode");
+
+            if ("record".equals(moveTo)) {
+                RecordFragment recordFragment = new RecordFragment();
+
+                Bundle bundle = new Bundle();
+                bundle.putString("record_mode", recordMode);
+                recordFragment.setArguments(bundle);
+
+                replaceFragment(recordFragment);
+                updateTabUI("record");
+            } else {
+                replaceFragment(new RunningFragment());
+                updateTabUI("running");
+            }
         }
 
         setTabListeners();
