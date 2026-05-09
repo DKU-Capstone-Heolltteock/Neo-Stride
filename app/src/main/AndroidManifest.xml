@@ -7,6 +7,13 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 해당 앱을 실행할 때 카메라가 무조건 달려야하는 폰이어야만 실행 가능한 앱인지 -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -52,7 +59,7 @@
             android:exported="false" />
         <activity
             android:name=".feature.auth.SignupActivity"
-            android:exported="false" /> <!-- 로그인 액티비티: 앱 실행 시 첫 화면 -->
+            android:exported="false" />
         <activity
             android:name=".feature.auth.LoginActivity"
             android:exported="true">
@@ -68,9 +75,23 @@
         <activity
             android:name=".activity.CommunityActivity"
             android:exported="false" />
+
         <!-- mypage화면_Activity -->
         <activity
             android:name=".feature.mypage.MyPageActivity"
+            android:exported="false" />
+        <!-- badge화면_Activity -->
+        <activity
+            android:name=".feature.badge.BadgeActivity"
+            android:exported="false" />
+        <!-- friend화면_Activity -->
+        <activity android:name=".feature.friend.FriendActivity"
+            android:exported="false" />
+
+        <!-- GPS 포그라운드 서비스 (화면 꺼져도 기록 유지) -->
+        <service
+            android:name=".feature.running.LocationTrackingService"
+            android:foregroundServiceType="location"
             android:exported="false" />
 
         <!-- 장영재님의 Google API 키 일단 사용 -->

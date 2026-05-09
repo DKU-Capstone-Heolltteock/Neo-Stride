@@ -1,9 +1,14 @@
 package com.neostride.app.activity;
 
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ImageView;
@@ -12,7 +17,11 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.neostride.app.R;
@@ -32,6 +41,13 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvRunning, tvRecord, tvCoaching, tvCommunity;
     private ImageView btnNotification, btnProfile;
 
+    // 알림 권한 요청 런처 (Android 13+)
+    private final ActivityResultLauncher<String> notificationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                // 알림 권한 처리 후 배터리 최적화 확인
+                requestBatteryOptimizationIfNeeded();
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
         ApiClient.init(this);
 
         initViews();
+        requestInitialPermissions(); // 앱 최초 실행 시 권한 일괄 요청
 
         if (savedInstanceState == null) {
             replaceFragment(new RunningFragment());
@@ -138,6 +155,32 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, MyPageActivity.class);
             startActivity(intent); // 화면 이동
         });
+    }
+
+    // 앱 실행 시 필요한 권한 일괄 요청
+    private void requestInitialPermissions() {
+        // 1. 알림 권한 (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS);
+                return; // 알림 권한 요청 후 콜백에서 배터리 최적화 요청
+            }
+        }
+        // 알림 권한이 이미 있으면 바로 배터리 최적화 확인
+        requestBatteryOptimizationIfNeeded();
+    }
+
+    // 배터리 최적화 제외 요청 (아직 제외되지 않은 경우만)
+    private void requestBatteryOptimizationIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            }
+        }
     }
 
     private void replaceFragment(Fragment fragment) {
