@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="320dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_tip_upload_box"
+    android:padding="20dp">
+
+    <!-- 상단 -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <ImageView
+            android:id="@+id/btn_back"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_arrow_left"
+            android:tint="#CCFF00" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Privacy"
+            android:textColor="#FFFFFF"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:layout_centerHorizontal="true" />
+
+        <TextView
+            android:id="@+id/btn_done"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="완료"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:layout_alignParentEnd="true" />
+    </RelativeLayout>
+
+    <!-- 나만 보기 -->
+    <RadioGroup
+        android:id="@+id/radio_group_privacy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp">
+
+        <RadioButton
+            android:id="@+id/radio_private"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="나만 보기"
+            android:textColor="#FFFFFF"
+            android:buttonTint="#CCFF00"
+            android:textSize="18sp"
+            android:padding="10dp" />
+
+        <RadioButton
+            android:id="@+id/radio_friend"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="친구에게 공개"
+            android:textColor="#FFFFFF"
+            android:buttonTint="#CCFF00"
+            android:textSize="18sp"
+            android:padding="10dp" />
+
+        <RadioButton
+            android:id="@+id/radio_badge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="배지홀더에게 공개"
+            android:textColor="#FFFFFF"
+            android:buttonTint="#CCFF00"
+            android:textSize="18sp"
+            android:padding="10dp" />
+
+        <RadioButton
+            android:id="@+id/radio_public"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="모두에게 공개"
+            android:textColor="#FFFFFF"
+            android:buttonTint="#CCFF00"
+            android:textSize="18sp"
+            android:padding="10dp" />
+
+    </RadioGroup>
+
+</LinearLayout>

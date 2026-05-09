@@ -18,6 +18,15 @@ import com.neostride.app.feature.feed.model.FeedItem;
 import java.util.ArrayList;
 import java.util.List;
 import android.content.Intent;
+import com.neostride.app.common.network.MockFeedStorage;
+
+import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.feature.feed.api.FeedApi;
+import com.neostride.app.feature.feed.model.FeedUploadResponse;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class FeedFragment extends Fragment {
 
@@ -56,7 +65,37 @@ public class FeedFragment extends Fragment {
         rvFeedList = view.findViewById(R.id.rv_feed_list);
 
         // 피드 데이터를 담을 리스트를 초기화함
+        //feedItemList = MockFeedStorage.getFeedItemList();
+        //FeedApi feedApi = ApiClient.getInstance().create(FeedApi.class);
+
+
+
+        // 실제 서버 연결 전/응답 전에는 빈 리스트로 초기화함
         feedItemList = new ArrayList<>();
+
+        FeedApi feedApi = ApiClient.getInstance().create(FeedApi.class);
+
+        feedApi.getFeedList().enqueue(new Callback<List<FeedUploadResponse>>() {
+            @Override
+            public void onResponse(
+                    Call<List<FeedUploadResponse>> call,
+                    Response<List<FeedUploadResponse>> response
+            ) {
+
+                if (response.isSuccessful() && response.body() != null) {
+
+                    // 여기서 RecyclerView 데이터 갱신
+                }
+            }
+
+            @Override
+            public void onFailure(
+                    Call<List<FeedUploadResponse>> call,
+                    Throwable t
+            ) {
+
+            }
+        });
 
         // 서버 연결 전까지는 더미 데이터를 넣지 않음
         // 나중에 서버 API가 완성되면 여기에서 피드 목록을 불러오면 됨

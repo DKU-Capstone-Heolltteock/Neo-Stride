@@ -68,6 +68,9 @@
         <activity
             android:name=".activity.CommunityActivity"
             android:exported="false" />
+        <activity
+            android:name=".feature.tip.TipUploadActivity"
+            android:exported="false" />
         <!-- mypage화면_Activity -->
         <activity
             android:name=".feature.mypage.MyPageActivity"

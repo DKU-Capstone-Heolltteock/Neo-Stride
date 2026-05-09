@@ -1,39 +1,64 @@
 package com.neostride.app.feature.feed.model;
 
+import java.util.List;
+
 // 피드 카드 1개의 데이터를 담는 클래스임
 public class FeedItem {
 
-    private String username;      // 사용자 이름
-    private String time;          // 작성 시간
-    private String title;         // 피드 제목
+    private String profileImageUrl;
+    private String username;
+    private String time;
 
-    private int tagCount;         // 태그 수
-    private int likeCount;        // 좋아요 수
-    private int commentCount;     // 댓글 수
+    private String title;
+    private String content;
 
-    private String distance;      // 러닝 거리
-    private String duration;      // 러닝 시간
-    private String pace;          // 평균 페이스
+    private int tagCount;
+    private int likeCount;
+    private int commentCount;
 
-    private int photoResId;       // 사용자가 올린 사진 이미지
-    private int routeMapResId;    // GPS 경로를 이미지처럼 보여주는 지도 이미지
+    private String distance;
+    private String duration;
+    private String pace;
 
-    public FeedItem(String username, String time, String title,
-                    int tagCount, int likeCount, int commentCount,
-                    String distance, String duration, String pace,
-                    int photoResId, int routeMapResId) {
+    private boolean mapVisible;          // 지도 표시 여부임
+    private String routeMapImageUri;     // 실제 기록 지도 캡처 이미지 URI임
 
+    private List<String> imageUrls;
+
+    public FeedItem(
+            String profileImageUrl,
+            String username,
+            String time,
+            String title,
+            String content,
+            int tagCount,
+            int likeCount,
+            int commentCount,
+            String distance,
+            String duration,
+            String pace,
+            boolean mapVisible,
+            String routeMapImageUri,
+            List<String> imageUrls
+    ) {
+        this.profileImageUrl = profileImageUrl;
         this.username = username;
         this.time = time;
         this.title = title;
+        this.content = content;
         this.tagCount = tagCount;
         this.likeCount = likeCount;
         this.commentCount = commentCount;
         this.distance = distance;
         this.duration = duration;
         this.pace = pace;
-        this.photoResId = photoResId;
-        this.routeMapResId = routeMapResId;
+        this.mapVisible = mapVisible;
+        this.routeMapImageUri = routeMapImageUri;
+        this.imageUrls = imageUrls;
+    }
+
+    public String getProfileImageUrl() {
+        return profileImageUrl;
     }
 
     public String getUsername() {
@@ -46,6 +71,10 @@ public class FeedItem {
 
     public String getTitle() {
         return title;
+    }
+
+    public String getContent() {
+        return content;
     }
 
     public int getTagCount() {
@@ -72,11 +101,15 @@ public class FeedItem {
         return pace;
     }
 
-    public int getPhotoResId() {
-        return photoResId;
+    public boolean isMapVisible() {
+        return mapVisible;
     }
 
-    public int getRouteMapResId() {
-        return routeMapResId;
+    public String getRouteMapImageUri() {
+        return routeMapImageUri;
+    }
+
+    public List<String> getImageUrls() {
+        return imageUrls;
     }
 }
