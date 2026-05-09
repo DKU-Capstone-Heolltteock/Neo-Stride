@@ -1,15 +1,165 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:background="#1A1A1A"
+    android:fillViewport="true"
+    android:paddingTop="30dp">
 
-    <TextView
-        android:layout_width="wrap_content"
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="마이페이지 작업 예정"
-        android:textColor="#FFFFFF"
-        android:textSize="20sp" />
+        android:paddingBottom="20dp">
 
-</FrameLayout>
+        <!-- 상단 헤더 -->
+        <ImageButton
+            android:id="@+id/btn_back"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_arrow_left"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="#CCFF00" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="마이페이지"
+            android:textColor="#CCFF00"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:layout_constraintBottom_toBottomOf="@+id/btn_back"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/btn_back" />
+
+        <!-- 프로필 섹션 -->
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/iv_profile"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_marginStart="20dp"
+            android:layout_marginTop="32dp"
+            android:padding="2dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_profile"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/tv_title"
+            app:shapeAppearanceOverlay="@style/CircleImage"
+            app:strokeColor="#CCFF00"
+            app:strokeWidth="2dp" />
+
+        <LinearLayout
+            android:id="@+id/layout_username_group"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="4dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            app:layout_constraintStart_toEndOf="@+id/iv_profile"
+            app:layout_constraintTop_toTopOf="@+id/iv_profile">
+
+            <TextView
+                android:id="@+id/tv_username"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nickname Nul"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/iv_badge"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="6dp"
+                android:src="@drawable/ic_badge"
+                app:tint="#AAAAAA" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_friends"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="친구 Nul"
+            android:textColor="#AAAAAA"
+            android:textSize="14sp"
+            app:layout_constraintStart_toStartOf="@+id/layout_username_group"
+            app:layout_constraintTop_toBottomOf="@+id/layout_username_group" />
+
+        <LinearLayout
+            android:id="@+id/layout_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            app:layout_constraintStart_toStartOf="@+id/iv_profile"
+            app:layout_constraintTop_toBottomOf="@+id/iv_profile">
+
+            <TextView
+                android:id="@+id/tv_status_message"  android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="상태메세지"             android:textColor="#FFFFFF"
+                android:textSize="14sp" />
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="8dp"
+                android:src="@drawable/ic_write_feed"
+                app:tint="#FFFFFF" />
+        </LinearLayout>
+
+        <!-- 탭 레이아웃 -->
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:background="#000000"
+            app:tabMode="fixed"
+            app:tabGravity="fill"
+            app:tabTextAppearance="@style/CustomTabTextAppearance"
+            app:tabTextColor="#888888"
+            app:tabSelectedTextColor="#CCFF00"
+            app:tabIndicatorColor="#CCFF00"
+            app:tabIndicatorHeight="3dp"
+            app:tabPaddingStart="0dp"
+            app:tabPaddingEnd="0dp"
+            app:tabMaxWidth="0dp"
+            app:layout_constraintTop_toBottomOf="@+id/layout_status">
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="내가 쓴 피드 Nul" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="나를 태그한 피드 Nul" />
+
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="내 활동" />
+        </com.google.android.material.tabs.TabLayout>
+
+        <!-- 피드 리사이클러뷰 -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_my_feeds"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false"
+            app:layout_constraintTop_toBottomOf="@+id/tab_layout" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.core.widget.NestedScrollView>

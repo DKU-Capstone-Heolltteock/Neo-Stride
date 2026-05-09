@@ -20,7 +20,7 @@ public class GoalCompletionEvaluator {
         // [조건 1] 조기 졸업 (Early Graduation)
         // 설정한 목표 거리와 페이스를 모두 뛰어넘었는가?
         if (latestRun.getDistance() >= goalInfo.getGoalDistanceKm() &&
-                latestRun.getPace() <= goalInfo.getGoalPaceMinPerKm()) {
+                (latestRun.getPace() < 60 ? latestRun.getPace() : latestRun.getPace() / 60f) <= goalInfo.getGoalPaceMinPerKm()) {
             return CoachingStatus.COMPLETED_SUCCESS;
         }
 

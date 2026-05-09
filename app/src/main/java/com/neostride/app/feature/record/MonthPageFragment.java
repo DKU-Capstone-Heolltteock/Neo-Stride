@@ -25,7 +25,10 @@ import com.neostride.app.feature.running.model.RunningRecordResponse;
 import com.neostride.app.feature.running.repository.RunningRepository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
@@ -173,14 +176,25 @@ public class MonthPageFragment extends Fragment {
         for (CalendarDayItem dayItem : currentDays) {
             if (dayItem == null) continue;
             float dailyTotalDistance = 0f;
+            boolean hasCoachingRecord = false;
             for (RunningRecordResponse res : records) {
                 try {
-                    LocalDate resDate = LocalDate.parse(res.getCreatedAt(), formatter);
-                    if (resDate.equals(dayItem.getDate())) dailyTotalDistance += res.getDistance();
+                    LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
+                            .atZone(ZoneOffset.UTC)
+                            .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
+                            .toLocalDate();
+                    if (resDate.equals(dayItem.getDate())) {
+                        dailyTotalDistance += res.getDistance();
+                        // KST 변환 기준으로 코칭 완료 기록 있으면 dot 덮어쓰기
+                        if (res.getPlanId() != null) hasCoachingRecord = true;
+                    }
                 } catch (Exception e) { e.printStackTrace(); }
             }
             if (dailyTotalDistance > 0) {
                 dayItem.setDistance(String.format(Locale.getDefault(), "%.2fkm", dailyTotalDistance));
+            }
+            if (hasCoachingRecord) {
+                dayItem.setCoachingStatus("completed");
             }
         }
         calendarAdapter.notifyDataSetChanged();
@@ -194,7 +208,7 @@ public class MonthPageFragment extends Fragment {
 
         for (RunningRecordResponse res : records) {
             try {
-                LocalDate resDate = LocalDate.parse(res.getCreatedAt(), formatter);
+                LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate();
                 YearMonth resMonth = YearMonth.from(resDate);
                 if (resMonth.equals(displayMonth)) {
                     curDist += res.getDistance(); curCal += res.getCalories(); curSec += res.getTime();
@@ -247,7 +261,7 @@ public class MonthPageFragment extends Fragment {
 
         for (RunningRecordResponse res : allServerRecords) {
             try {
-                LocalDate resDate = LocalDate.parse(res.getCreatedAt(), formatter);
+                LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate();
                 if (resDate.equals(date)) {
                     RunningRecordItem item = convertToItem(res);
 
@@ -292,7 +306,10 @@ public class MonthPageFragment extends Fragment {
     private RunningRecordItem convertToItem(RunningRecordResponse res) {
         int totalSeconds = (int) res.getTime();
         String timeStr = String.format("%02d:%02d", totalSeconds / 60, totalSeconds % 60);
-        return new RunningRecordItem(res.getCreatedAt(), String.format("%.2fkm", res.getDistance()), timeStr, String.format("%.2f/km", res.getPace()), (int)res.getCalories() + "kcal");
+        // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위)
+        int paceSeconds = res.getPace() < 60 ? (int)(res.getPace() * 60) : (int) res.getPace();
+        String paceStr = String.format(Locale.getDefault(), "%d:%02d/km", paceSeconds / 60, paceSeconds % 60);
+        return new RunningRecordItem(res.getCreatedAt(), String.format("%.2fkm", res.getDistance()), timeStr, paceStr, (int)res.getCalories() + "kcal");
     }
 
     private List<CalendarDayItem> generateDaysList(YearMonth month) {
@@ -361,7 +378,7 @@ public class MonthPageFragment extends Fragment {
 
                 float dailyTarget = 0f;
                 try {
-                    java.time.LocalDate resDate = java.time.LocalDate.parse(res.getCreatedAt(), formatter);
+                    java.time.LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate();
                     String dateKey = resDate.getYear() + "-" + resDate.getMonthValue() + "-" + resDate.getDayOfMonth();
                     GoalStorage.PlanData plan = allPlans.get(dateKey);
                     if (plan != null) dailyTarget = plan.distanceKm;

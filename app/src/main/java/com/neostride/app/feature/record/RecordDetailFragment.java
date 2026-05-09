@@ -92,8 +92,9 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         ((TextView) view.findViewById(R.id.tv_detail_distance)).setText(String.format(Locale.KOREA, "%.2f km", recordData.getDistance()));
         ((TextView) view.findViewById(R.id.tv_detail_time)).setText(formatTime((int)recordData.getTime()));
         ((TextView) view.findViewById(R.id.tv_detail_calories)).setText(String.valueOf((int) recordData.getCalories()));
-        double paceVal = recordData.getPace();
-        ((TextView) view.findViewById(R.id.tv_detail_pace)).setText(String.format(Locale.KOREA, "%d'%02d\"", (int)paceVal, (int)((paceVal-(int)paceVal)*60)));
+        // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위)
+        int paceSeconds = recordData.getPace() < 60 ? (int)(recordData.getPace() * 60) : (int) recordData.getPace();
+        ((TextView) view.findViewById(R.id.tv_detail_pace)).setText(String.format(Locale.KOREA, "%d'%02d\"", paceSeconds / 60, paceSeconds % 60));
     }
 
     private void setupExpandableCard(View view) {
@@ -156,12 +157,41 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
             if (dist > 0.001 && diffSec > 0) {
                 float pace = (float) ((diffSec / 60.0) / dist);
-                // 진행 시간 계산 (mm:ss)
                 long elapsed = (currentMillis - startMillis) / 1000;
                 String timeLabel = String.format(Locale.KOREA, "%02d:%02d", elapsed / 60, elapsed % 60);
                 points.add(new PacePoint(timeLabel, Math.min(pace, 15f)));
             }
         }
+
+        if (points.size() < 3) return points;
+
+        // 1단계: 고립된 GPS 노이즈 스파이크만 제거
+        // 인터벌 러닝 보호: 앞뒤 양쪽 이웃 모두와 크게 다를 때만 노이즈로 판정
+        // → 인터벌처럼 연속된 구간 변화는 앞뒤 중 한쪽은 비슷하므로 살아남음
+        for (int i = 1; i < points.size() - 1; i++) {
+            float v    = points.get(i).paceValue;
+            float prev = points.get(i - 1).paceValue;
+            float next = points.get(i + 1).paceValue;
+            // 앞뒤 모두 대비 1.8배 초과(이상하게 느림) or 0.55배 미만(이상하게 빠름) → 단독 스파이크
+            boolean isSpikeHigh = v > prev * 1.8f && v > next * 1.8f;
+            boolean isSpikeLow  = v < prev * 0.55f && v < next * 0.55f;
+            if (isSpikeHigh || isSpikeLow) {
+                points.get(i).paceValue = (prev + next) / 2f;
+            }
+        }
+
+        // 2단계: 5포인트 이동평균 1회
+        // 7포인트 2회 대신 가볍게 → 인터벌 경계(급격한 페이스 전환)의 형태 보존
+        float[] smoothed = new float[points.size()];
+        for (int i = 0; i < points.size(); i++) {
+            int from = Math.max(0, i - 2);
+            int to   = Math.min(points.size() - 1, i + 2);
+            float sum = 0;
+            for (int j = from; j <= to; j++) sum += points.get(j).paceValue;
+            smoothed[i] = sum / (to - from + 1);
+        }
+        for (int i = 0; i < points.size(); i++) points.get(i).paceValue = smoothed[i];
+
         return points;
     }
 
@@ -288,7 +318,8 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
     // --- 색상 및 유틸 (기존 동일) ---
     private void updatePaceThresholds() {
         if (recordData == null) return;
-        float avgPace = (float) recordData.getPace();
+        // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위) → 차트 비교용 분/km로 통일
+        float avgPace = recordData.getPace() < 60 ? recordData.getPace() : recordData.getPace() / 60f;
         paceThresVS = avgPace * 1.20f; paceThresS = avgPace * 1.08f;
         paceThresF = avgPace * 0.92f; paceThresVF = avgPace * 0.80f;
         thresSet = true;
@@ -310,6 +341,10 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
+
+        // GPS 경로 로드 전 기본 위치: 대한민국 중심
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(35.9, 127.7), 7.0f));
+
         mMap.getUiSettings().setAllGesturesEnabled(true);
         mMap.getUiSettings().setMyLocationButtonEnabled(false);
         try { mMap.setMyLocationEnabled(true); } catch (SecurityException e) { e.printStackTrace(); }

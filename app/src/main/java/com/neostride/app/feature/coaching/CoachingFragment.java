@@ -63,8 +63,14 @@ public class CoachingFragment extends Fragment {
     }
 
     static String daysListToKorean(List<String> days) {
+        final java.util.List<String> ORDER = java.util.Arrays.asList("sun", "mon", "tue", "wed", "thu", "fri", "sat");
+        java.util.List<String> sorted = new java.util.ArrayList<>(days);
+        sorted.sort((a, b) -> {
+            int ia = ORDER.indexOf(a); int ib = ORDER.indexOf(b);
+            return Integer.compare(ia < 0 ? 99 : ia, ib < 0 ? 99 : ib);
+        });
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < days.size(); i++) { if (i > 0) sb.append(", "); sb.append(dayKeyToKorean(days.get(i))); }
+        for (int i = 0; i < sorted.size(); i++) { if (i > 0) sb.append(", "); sb.append(dayKeyToKorean(sorted.get(i))); }
         return sb.toString();
     }
 
@@ -147,8 +153,46 @@ public class CoachingFragment extends Fragment {
         btnAddGoal.setOnClickListener(v -> {
             GoalSettingFragment goalFragment = new GoalSettingFragment();
             goalFragment.setOnGoalSavedListener(goalInput -> {
+                // 1. 로컬 임시 저장 (서버 응답 전 UI 즉시 반영용)
                 GoalStorage.saveGoalToPlanDays(requireContext(), goalInput);
                 refreshWeekPages();
+
+                // 2. 백엔드 전송
+                int userId = com.neostride.app.common.network.TokenManager.getUserId(requireContext());
+                String startDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+                        .format(new java.util.Date());
+                String periodType;
+                switch (goalInput.durationWeeks) {
+                    case 4:  periodType = "1month";  break;
+                    case 12: periodType = "3month";  break;
+                    case 24: periodType = "6month";  break;
+                    case 52: periodType = "1year";   break;
+                    default: periodType = "custom";  break;
+                }
+                float goalPaceMinPerKm = goalInput.paceSecPerKm / 60f;
+                com.neostride.app.feature.coaching.model.GoalRequest request =
+                        new com.neostride.app.feature.coaching.model.GoalRequest(
+                                userId, periodType, goalInput.durationWeeks,
+                                goalInput.runningDays, goalInput.distanceKm,
+                                goalPaceMinPerKm, startDate);
+
+                com.neostride.app.feature.coaching.repository.CoachingRepository repo =
+                        new com.neostride.app.feature.coaching.repository.CoachingRepository();
+                repo.createGoal(request, new com.neostride.app.feature.coaching.repository.CoachingRepository.OnResultListener<com.neostride.app.feature.coaching.model.GoalResponse>() {
+                    @Override
+                    public void onSuccess(com.neostride.app.feature.coaching.model.GoalResponse data) {
+                        android.util.Log.d("CoachingFragment", "목표 생성 서버 전송 성공 goal_id=" + data.getGoalId());
+                        // 서버에서 받은 플랜으로 로컬 갱신
+                        if (isAdded()) {
+                            GoalStorage.clearAllPlans(requireContext());
+                            fetchActiveGoalFromServer();
+                        }
+                    }
+                    @Override
+                    public void onError(String message) {
+                        android.util.Log.e("CoachingFragment", "목표 생성 서버 전송 실패: " + message);
+                    }
+                });
             });
             getParentFragmentManager().beginTransaction()
                     .replace(R.id.fragment_container, goalFragment)
@@ -159,9 +203,13 @@ public class CoachingFragment extends Fragment {
         btnDeleteGoal.setOnClickListener(v -> {
             String dateKey = selectedYear + "-" + selectedMonth + "-" + selectedDay;
             GoalStorage.PlanData plan = GoalStorage.getPlan(requireContext(), dateKey);
+            if (plan == null) {
+                // 휴식일: 해당 날짜에 플랜이 없지만 활성 목표가 있을 수 있음 → 임의의 플랜에서 goalId 가져오기
+                Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+                if (!allPlans.isEmpty()) plan = allPlans.values().iterator().next();
+            }
             if (plan == null) return;
 
-            // 투박한 AlertDialog는 지우고, 우리가 만든 커스텀 다이얼로그 호출!
             showDeleteConfirmDialog(plan.goalId, plan);
         });
 
@@ -439,8 +487,14 @@ public class CoachingFragment extends Fragment {
             View divider1 = layoutPlanDetail.findViewById(R.id.divider_1);
             View divider2 = layoutPlanDetail.findViewById(R.id.divider_2);
             int dividerColor = (themeColor & 0x00FFFFFF) | 0x33000000;
-            if (divider1 != null) divider1.setBackgroundColor(dividerColor);
-            if (divider2 != null) divider2.setBackgroundColor(dividerColor);
+            if (divider1 != null) { divider1.setVisibility(View.VISIBLE); divider1.setBackgroundColor(dividerColor); }
+            if (divider2 != null) { divider2.setVisibility(View.VISIBLE); divider2.setBackgroundColor(dividerColor); }
+
+            // AI Feedback 섹션 복원 (휴식일에서 숨겼을 수 있으므로)
+            if (tvAiFeedback != null) tvAiFeedback.setVisibility(View.VISIBLE);
+            ImageView ivAiFeedbackIconRestore = layoutPlanDetail.findViewById(R.id.iv_ai_feedback_icon);
+            if (ivAiFeedbackIconRestore != null && ivAiFeedbackIconRestore.getParent() instanceof View)
+                ((View) ivAiFeedbackIconRestore.getParent()).setVisibility(View.VISIBLE);
 
             LinearLayout historySection = getView().findViewById(R.id.layout_history_section);
             if (historySection != null) {
@@ -461,11 +515,8 @@ public class CoachingFragment extends Fragment {
             if (plan.aiFeedbackComment != null && !plan.aiFeedbackComment.isEmpty()) {
                 tvAiFeedback.setText(plan.aiFeedbackComment);
                 tvAiFeedback.setTextColor(0xFFCCCCCC);
-            } else if (plan.description != null && !plan.description.isEmpty()) {
-                tvAiFeedback.setText(plan.description);
-                tvAiFeedback.setTextColor(0xFF888888);
             } else {
-                tvAiFeedback.setText("아직 피드백이 없습니다.\n오늘의 러닝을 완료하면 AI가 피드백을 제공합니다.");
+                tvAiFeedback.setText("당일 목표를 끝내면 AI가 피드백을 제공합니다.");
                 tvAiFeedback.setTextColor(0xFF888888);
             }
 
@@ -497,31 +548,152 @@ public class CoachingFragment extends Fragment {
                 });
             }
         } else {
-            // 목표 없는 날 처리 (기존 로직 보존)
-            tvNoPlan.setVisibility(View.VISIBLE);
-            layoutPlanDetail.setVisibility(View.GONE);
             int defaultColor = 0xFFCCFF00;
-            if (historyHeaderDivider != null) {
-                historyHeaderDivider.setBackgroundColor(defaultColor);
+            Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+
+            // 선택한 날짜가 오늘보다 과거인지 확인
+            Calendar selectedCal = Calendar.getInstance();
+            selectedCal.set(selectedYear, selectedMonth - 1, selectedDay, 0, 0, 0);
+            selectedCal.set(Calendar.MILLISECOND, 0);
+            Calendar todayCal = Calendar.getInstance();
+            todayCal.set(Calendar.HOUR_OF_DAY, 0);
+            todayCal.set(Calendar.MINUTE, 0);
+            todayCal.set(Calendar.SECOND, 0);
+            todayCal.set(Calendar.MILLISECOND, 0);
+            boolean isPastDate = selectedCal.before(todayCal);
+
+            if (!allPlans.isEmpty()) {
+                // 활성 목표는 있지만 이 날은 훈련 없는 날 → Your Setting + 삭제 버튼 표시
+                GoalStorage.PlanData anyPlan = allPlans.values().iterator().next();
+
+                tvNoPlan.setVisibility(View.GONE);
+                layoutPlanDetail.setVisibility(View.VISIBLE);
+
+                // 제목 & 상태
+                tvPlanTitle.setText(String.format("%02d/%02d Training Routine", selectedMonth, selectedDay));
+                tvPlanTitle.setTextColor(defaultColor);
+                tvPlanSummary.setVisibility(View.GONE);
+
+                // 미션 영역: 과거면 안내 메시지 없음, 오늘/미래면 휴식일 표시
+                View layoutDailyMissionInfo = layoutPlanDetail.findViewById(R.id.layout_daily_mission_info);
+                TextView tvNoMissionMessage = layoutPlanDetail.findViewById(R.id.tv_no_mission_message);
+                if (layoutDailyMissionInfo != null) layoutDailyMissionInfo.setVisibility(View.GONE);
+                if (isPastDate) {
+                    // 과거 훈련 없는 날: 상태 칩·메시지 숨김
+                    tvPlanStatus.setVisibility(View.GONE);
+                    if (tvNoMissionMessage != null) tvNoMissionMessage.setVisibility(View.GONE);
+                } else {
+                    // 오늘 or 미래 훈련 없는 날: 휴식일 칩 + 안내 메시지
+                    tvPlanStatus.setVisibility(View.VISIBLE);
+                    tvPlanStatus.setText("휴식일");
+                    tvPlanStatus.setTextColor(0xFF888888);
+                    GradientDrawable statusBg = new GradientDrawable();
+                    statusBg.setShape(GradientDrawable.RECTANGLE);
+                    statusBg.setCornerRadius(dp(13));
+                    statusBg.setStroke(dp(1), 0xFF888888);
+                    statusBg.setColor(Color.TRANSPARENT);
+                    tvPlanStatus.setBackground(statusBg);
+                    if (tvNoMissionMessage != null) {
+                        tvNoMissionMessage.setVisibility(View.VISIBLE);
+                        tvNoMissionMessage.setText("오늘은 훈련 없는 날이에요.\n충분한 휴식을 취하세요.");
+                    }
+                }
+
+                // Your Setting 채우기
+                tvSetPeriod.setText("설정 기간 : " + anyPlan.durationWeeks + "주");
+                tvSetDays.setText("설정 러닝 데이 : " + daysListToKorean(anyPlan.runningDays));
+                tvSetDistance.setText("최종 목표 거리 : " + anyPlan.totalGoalDistanceKm + "km");
+                tvSetPace.setText("최종 목표 기록 : " + anyPlan.totalGoalPaceStr);
+
+                // AI Feedback 섹션 숨김 (휴식일엔 불필요)
+                View divider1 = layoutPlanDetail.findViewById(R.id.divider_1);
+                View divider2 = layoutPlanDetail.findViewById(R.id.divider_2);
+                ImageView ivAiFeedbackIcon = layoutPlanDetail.findViewById(R.id.iv_ai_feedback_icon);
+                if (divider1 != null) divider1.setVisibility(View.GONE);
+                if (tvAiFeedback != null) tvAiFeedback.setVisibility(View.GONE);
+                if (ivAiFeedbackIcon != null) {
+                    // AI Feedback 아이콘의 부모(헤더 LinearLayout) 통째로 숨김
+                    if (ivAiFeedbackIcon.getParent() instanceof View)
+                        ((View) ivAiFeedbackIcon.getParent()).setVisibility(View.GONE);
+                }
+
+                // divider_2 색상만 적용 (Your Setting 위 구분선)
+                int dividerColor = (defaultColor & 0x00FFFFFF) | 0x33000000;
+                if (divider2 != null) {
+                    divider2.setVisibility(View.VISIBLE);
+                    divider2.setBackgroundColor(dividerColor);
+                }
+
+                // Your Setting 아이콘 색상
+                ImageView ivYourSetIcon = layoutPlanDetail.findViewById(R.id.iv_your_set_icon);
+                if (ivYourSetIcon != null) ivYourSetIcon.setColorFilter(defaultColor);
+
+                // 완료 배너 숨김
+                LinearLayout layoutDoneBanner = layoutPlanDetail.findViewById(R.id.layout_done_banner);
+                if (layoutDoneBanner != null) layoutDoneBanner.setVisibility(View.GONE);
+
+                // 삭제 버튼 표시 (스타일 적용)
+                LinearLayout btnDel = layoutPlanDetail.findViewById(R.id.btn_delete_goal);
+                if (btnDel != null) {
+                    btnDel.setVisibility(View.VISIBLE);
+                    GradientDrawable delBg = new GradientDrawable();
+                    delBg.setShape(GradientDrawable.RECTANGLE);
+                    delBg.setCornerRadius(dp(15));
+                    delBg.setColor(Color.TRANSPARENT);
+                    delBg.setStroke(dp(1), defaultColor);
+                    btnDel.setBackground(delBg);
+                    TextView tvDelLabel = layoutPlanDetail.findViewById(R.id.tv_delete_label);
+                    if (tvDelLabel != null) tvDelLabel.setTextColor(defaultColor);
+                }
+
+                // 카드 테두리
+                if (historyHeaderDivider != null) historyHeaderDivider.setBackgroundColor(defaultColor);
+                LinearLayout cardMain = layoutPlanDetail.findViewById(R.id.card_plan_main);
+                if (cardMain != null) {
+                    GradientDrawable cardBg = new GradientDrawable();
+                    cardBg.setShape(GradientDrawable.RECTANGLE);
+                    cardBg.setCornerRadius(dp(16));
+                    cardBg.setColor(Color.parseColor("#1A1A1A"));
+                    cardBg.setStroke(dp(1), defaultColor);
+                    cardMain.setBackground(cardBg);
+                }
+                LinearLayout historySection = getView().findViewById(R.id.layout_history_section);
+                if (historySection != null) {
+                    GradientDrawable histBg = new GradientDrawable();
+                    histBg.setShape(GradientDrawable.RECTANGLE);
+                    histBg.setCornerRadius(dp(16));
+                    histBg.setColor(Color.parseColor("#1A1A1A"));
+                    histBg.setStroke(dp(1), defaultColor);
+                    historySection.setBackground(histBg);
+                }
+                ImageView ivHistoryIcon = getView().findViewById(R.id.iv_history_icon);
+                if (ivHistoryIcon != null) ivHistoryIcon.setColorFilter(defaultColor);
+                if (ivHistoryArrow != null) ivHistoryArrow.setColorFilter(defaultColor);
+
+            } else {
+                // 활성 목표 자체가 없는 경우 (기존 로직 유지)
+                tvNoPlan.setVisibility(View.VISIBLE);
+                layoutPlanDetail.setVisibility(View.GONE);
+                if (historyHeaderDivider != null) historyHeaderDivider.setBackgroundColor(defaultColor);
+                GradientDrawable noPlanBg = new GradientDrawable();
+                noPlanBg.setShape(GradientDrawable.RECTANGLE);
+                noPlanBg.setCornerRadius(dp(16));
+                noPlanBg.setColor(Color.parseColor("#1A1A1A"));
+                noPlanBg.setStroke(dp(1), defaultColor);
+                tvNoPlan.setBackground(noPlanBg);
+                LinearLayout historySection = getView().findViewById(R.id.layout_history_section);
+                if (historySection != null) {
+                    GradientDrawable histBg = new GradientDrawable();
+                    histBg.setShape(GradientDrawable.RECTANGLE);
+                    histBg.setCornerRadius(dp(16));
+                    histBg.setColor(Color.parseColor("#1A1A1A"));
+                    histBg.setStroke(dp(1), defaultColor);
+                    historySection.setBackground(histBg);
+                }
+                ImageView ivHistoryIcon = getView().findViewById(R.id.iv_history_icon);
+                if (ivHistoryIcon != null) ivHistoryIcon.setColorFilter(defaultColor);
+                if (ivHistoryArrow != null) ivHistoryArrow.setColorFilter(defaultColor);
             }
-            GradientDrawable noPlanBg = new GradientDrawable();
-            noPlanBg.setShape(GradientDrawable.RECTANGLE);
-            noPlanBg.setCornerRadius(dp(16));
-            noPlanBg.setColor(Color.parseColor("#1A1A1A"));
-            noPlanBg.setStroke(dp(1), defaultColor);
-            tvNoPlan.setBackground(noPlanBg);
-            LinearLayout historySection = getView().findViewById(R.id.layout_history_section);
-            if (historySection != null) {
-                GradientDrawable histBg = new GradientDrawable();
-                histBg.setShape(GradientDrawable.RECTANGLE);
-                histBg.setCornerRadius(dp(16));
-                histBg.setColor(Color.parseColor("#1A1A1A"));
-                histBg.setStroke(dp(1), defaultColor);
-                historySection.setBackground(histBg);
-            }
-            ImageView ivHistoryIcon = getView().findViewById(R.id.iv_history_icon);
-            if (ivHistoryIcon != null) ivHistoryIcon.setColorFilter(defaultColor);
-            if (ivHistoryArrow != null) ivHistoryArrow.setColorFilter(defaultColor);
         }
     }
 
@@ -778,33 +950,61 @@ public class CoachingFragment extends Fragment {
         btnConfirm.setLayoutParams(confirmP);
 
         btnConfirm.setOnClickListener(v -> {
-            // 1. 데이터 처리: 히스토리에 '삭제됨' 상태로 기록
-            GoalStorage.HistoryItem history = new GoalStorage.HistoryItem();
-            history.goalId = plan.goalId;
-            history.distanceKm = plan.distanceKm;
-            history.paceStr = plan.paceStr;
-            history.durationWeeks = plan.durationWeeks;
-            history.runningDaysStr = daysListToKorean(plan.runningDays);
-            history.result = "deleted"; //
-            history.timestamp = System.currentTimeMillis();
-            GoalStorage.addHistory(context, history);
-
-            // 2. 현재 활성화된 모든 플랜 삭제
-            GoalStorage.removeAllPlansForGoal(context, goalId);
-
-            // 🌟 3. [핵심 수정] UI 테마 즉시 리셋
-            selectedDay = -1; // 선택된 날짜 초기화
-
-            // null을 전달하여 테두리(Border)와 아이콘 색상을
-            // 즉시 기본 형광 초록색(#CCFF00)으로 되돌립니다.
-            // showPlanDetail 메서드 하단의 'else' 블록이 실행되면서 색상이 갱신됩니다.
-            showPlanDetail(null);
-
-            refreshWeekPages(); // 주간 달력 갱신
-            if (historyExpanded) loadHistory(); // 하단 과거 목록 리사이클러뷰 갱신
-
             dialog.dismiss();
-            Toast.makeText(context, "목표가 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+
+            // goalId가 "goal_server_123" 형태이면 숫자 파싱, 로컬 생성이면 -1
+            int numericGoalId = -1;
+            if (goalId != null && goalId.startsWith("goal_server_")) {
+                try { numericGoalId = Integer.parseInt(goalId.replace("goal_server_", "")); }
+                catch (NumberFormatException ignored) {}
+            }
+
+            final int finalNumericGoalId = numericGoalId;
+
+            Runnable doDeleteLocally = () -> {
+                // 히스토리에 '삭제됨' 상태로 기록
+                GoalStorage.HistoryItem history = new GoalStorage.HistoryItem();
+                history.goalId = plan.goalId;
+                history.distanceKm = plan.distanceKm;
+                history.paceStr = plan.paceStr;
+                history.durationWeeks = plan.durationWeeks;
+                history.runningDaysStr = daysListToKorean(plan.runningDays);
+                history.result = "deleted";
+                history.timestamp = System.currentTimeMillis();
+                GoalStorage.addHistory(context, history);
+
+                // 로컬 플랜 전체 삭제
+                GoalStorage.clearAllPlans(context);
+
+                selectedDay = -1;
+                showPlanDetail(null);
+                refreshWeekPages();
+                if (historyExpanded) loadHistory();
+                Toast.makeText(context, "목표가 삭제되었습니다.", Toast.LENGTH_SHORT).show();
+            };
+
+            if (finalNumericGoalId != -1) {
+                // 백엔드 DELETE 호출
+                com.neostride.app.feature.coaching.repository.CoachingRepository repo =
+                        new com.neostride.app.feature.coaching.repository.CoachingRepository();
+                repo.deleteGoal(finalNumericGoalId, new com.neostride.app.feature.coaching.repository.CoachingRepository.OnResultListener<String>() {
+                    @Override
+                    public void onSuccess(String data) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(doDeleteLocally);
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        if (!isAdded()) return;
+                        requireActivity().runOnUiThread(() ->
+                                Toast.makeText(context, "삭제 실패: " + message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+            } else {
+                // 로컬 전용 목표(서버 ID 없음)는 바로 삭제
+                doDeleteLocally.run();
+            }
         });
 
         btnRow.addView(btnConfirm);

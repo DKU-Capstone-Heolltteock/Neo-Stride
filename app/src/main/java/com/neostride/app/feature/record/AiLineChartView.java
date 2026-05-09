@@ -101,7 +101,8 @@ public class AiLineChartView extends View {
                 RunningRecordResponse res = records.get(i);
                 float x = (records.size() > 1) ? paddingLeft + (xStep * i) : paddingLeft + (chartWidth / 2);
 
-                float currPace = (float) res.getPace();
+                // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위) → 분/km로 통일
+                float currPace = res.getPace() < 60 ? res.getPace() : res.getPace() / 60f;
                 if (currPace < minPace) currPace = minPace;
                 if (currPace > maxPace) currPace = maxPace;
                 float y = (height - paddingBottom) - ((maxPace - currPace) / paceRange * chartHeight);
@@ -120,9 +121,10 @@ public class AiLineChartView extends View {
                 textPaint.setColor(Color.WHITE);
                 textPaint.setTextAlign(Paint.Align.CENTER);
 
-                // 1. 소수점 페이스를 분(min)과 초(sec)로 분리합니다.
-                int pMin = (int) res.getPace();
-                int pSec = (int) Math.round((res.getPace() - pMin) * 60);
+                // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위)
+                int paceSeconds = res.getPace() < 60 ? (int)(res.getPace() * 60) : (int) res.getPace();
+                int pMin = paceSeconds / 60;
+                int pSec = paceSeconds % 60;
 
                 // 2. 분:초 형식으로 문자열을 조립합니다.
                 String formattedPace = String.format(Locale.KOREA, "%d:%02d", pMin, pSec);

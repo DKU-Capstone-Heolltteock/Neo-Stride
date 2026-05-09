@@ -17,7 +17,7 @@ public class RunningRecordRequest {
     private int duration; // 초 단위
 
     @SerializedName("pace")
-    private float pace;
+    private int pace;
 
     @SerializedName("calories")
     private float calories;
@@ -28,9 +28,13 @@ public class RunningRecordRequest {
     @SerializedName("gps_traces")
     private List<GpsTraceRequest> gpsTraces; // 명칭 통일 완료
 
+    @SerializedName("badge")
+    private String badge;
+
     public RunningRecordRequest(int userId, Integer planId, float totalDistance,
-                                int duration, float pace, float calories,
-                                String routeDetail, List<GpsTraceRequest> gpsTraces) {
+                                int duration, int pace, float calories,
+                                String routeDetail, List<GpsTraceRequest> gpsTraces,
+                                String badge) {
         this.userId = userId;
         this.planId = planId;
         this.totalDistance = totalDistance;
@@ -39,5 +43,6 @@ public class RunningRecordRequest {
         this.calories = calories;
         this.routeDetail = routeDetail;
         this.gpsTraces = gpsTraces;
+        this.badge = badge;
     }
 }
