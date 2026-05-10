@@ -17,8 +17,6 @@ import com.neostride.app.feature.feed.model.FeedItem;
 
 import java.util.ArrayList;
 import java.util.List;
-import android.content.Intent;
-import com.neostride.app.common.network.MockFeedStorage;
 
 import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.feature.feed.api.FeedApi;
