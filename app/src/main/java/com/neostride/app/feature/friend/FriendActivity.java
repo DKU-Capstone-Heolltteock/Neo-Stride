@@ -1,5 +1,7 @@
 package com.neostride.app.feature.friend;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
@@ -34,16 +36,19 @@ public class FriendActivity extends AppCompatActivity {
         adapter = new FriendAdapter();
         rvFriends.setAdapter(adapter);
 
-        // 3. UI 컴포넌트 설정
+        // 3. UI 컴포넌트 설정 (뒤로가기 버튼 및 탭 초기화)
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
         initTabs();
 
-        // 4. 초기 실행 시 '친구목록' 데이터 로드
+        // 4. 초기 진입 시 스타일 즉시 적용 (0번 인덱스: 친구목록)
+        updateTabUI(0);
+
+        // 5. 초기 데이터 로드
         loadData("friends");
     }
 
     /**
-     * 상단 탭 버튼들을 초기화하고 클릭 리스너를 설정합니다.
+     * 상단 탭 버튼들을 리스트에 담고 클릭 리스너를 설정합니다.
      */
     private void initTabs() {
         tabs.add(findViewById(R.id.tab_friend_list));
@@ -54,31 +59,35 @@ public class FriendActivity extends AppCompatActivity {
         for (int i = 0; i < tabs.size(); i++) {
             final int index = i;
             tabs.get(i).setOnClickListener(v -> {
-                updateTabUI(index);       // 선택된 탭 강조
-                loadData(statusKeys[index]); // 해당 상태의 데이터 로드
+                updateTabUI(index);       // UI 변경
+                loadData(statusKeys[index]); // 데이터 갱신
             });
         }
     }
 
     /**
-     * 선택된 탭의 배경색과 글자색을 변경합니다.
+     * 선택된 탭은 검정색(형광색 배경), 나머지는 흰색(배경 없음)으로 스타일을 업데이트합니다.
      */
     private void updateTabUI(int selectedIndex) {
         for (int i = 0; i < tabs.size(); i++) {
+            TextView tab = tabs.get(i);
+
             if (i == selectedIndex) {
-                // 선택됨: bg_badge_btn (초록색 배경) 적용 및 검은색 글자
-                tabs.get(i).setBackgroundResource(R.drawable.bg_badge_btn);
-                tabs.get(i).setTextColor(0xFF000000);
+                // 선택됨: 형광색 배경 + 검정색 글자 & 아이콘
+                tab.setBackgroundResource(R.drawable.bg_badge_btn);
+                tab.setTextColor(Color.BLACK);
+                tab.setCompoundDrawableTintList(ColorStateList.valueOf(Color.BLACK));
             } else {
-                // 미선택: 배경 제거 및 흰색 글자
-                tabs.get(i).setBackground(null);
-                tabs.get(i).setTextColor(0xFFFFFFFF);
+                // 미선택: 배경 제거 + 흰색 글자 & 아이콘
+                tab.setBackground(null);
+                tab.setTextColor(Color.WHITE);
+                tab.setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));
             }
         }
     }
 
     /**
-     * 서버(혹은 MockServer)로부터 친구 리스트 데이터를 가져와 어댑터에 전달합니다.
+     * 서버로부터 상태별 데이터를 가져옵니다.
      */
     private void loadData(String status) {
         repository.fetchFriendList(status, list -> {

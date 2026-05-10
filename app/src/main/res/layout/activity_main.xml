@@ -33,7 +33,6 @@
         android:layout_height="50dp"
         android:layout_alignParentEnd="true"
         android:src="@drawable/ic_profile"
-        app:tint="#FFFFFF"
         android:background="?attr/selectableItemBackgroundBorderless"
         android:clickable="true"
         android:focusable="true"

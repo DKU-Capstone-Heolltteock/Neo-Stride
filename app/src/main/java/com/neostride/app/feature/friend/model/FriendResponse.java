@@ -2,6 +2,7 @@ package com.neostride.app.feature.friend.model;
 
 import com.google.gson.annotations.SerializedName;
 
+// FriendResponse.java
 public class FriendResponse {
     @SerializedName("user_id")
     public int userId;
@@ -9,7 +10,7 @@ public class FriendResponse {
     @SerializedName("nickname")
     public String nickname;
 
-    @SerializedName("badge_tier") // 유저가 획득한 티어 (ex: challenger)
+    @SerializedName("badge_tier")
     public String badgeTier;
 
     @SerializedName("friend_count")
@@ -18,6 +19,6 @@ public class FriendResponse {
     @SerializedName("profile_image_url")
     public String profileImageUrl;
 
-    @SerializedName("status") // 관계 상태 (friend, sent, received, blocked)
+    @SerializedName("status")
     public String status;
 }

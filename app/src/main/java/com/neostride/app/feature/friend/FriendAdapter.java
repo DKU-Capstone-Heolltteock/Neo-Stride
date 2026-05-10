@@ -1,5 +1,8 @@
 package com.neostride.app.feature.friend;
 
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,33 +39,64 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
     public void onBindViewHolder(@NonNull FriendViewHolder holder, int position) {
         FriendResponse item = friendList.get(position);
 
-        // 1. 기본 정보 세팅
+        // 1. 데이터 및 기본 UI 초기화 (정렬 및 잔상 제거)
         holder.tvNickname.setText(item.nickname);
         holder.tvFriendCount.setText("친구 " + item.friendCount);
 
-        // 2. 배지 티어 색상 적용 (BadgeTier Enum 활용)
-        BadgeTier tier = BadgeTier.fromString(item.badgeTier);
-        holder.ivBadge.setColorFilter(tier.getColor());
+        holder.btnAction.setIncludeFontPadding(false); // 텍스트 상단 쏠림 방지
+        holder.btnAction.setGravity(Gravity.CENTER);  // 수직/수평 중앙 정렬
+        holder.btnAction.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0); // 아이콘 초기화
+        holder.btnAction.setCompoundDrawablePadding(0);
 
-        // 3. 현재 탭 상태에 따라 우측 버튼 텍스트 변경
+        // 2. 배지 티어 색상 적용
+        BadgeTier tier = BadgeTier.fromString(item.badgeTier);
+        if (tier != null) {
+            holder.ivBadge.setColorFilter(tier.getColor());
+        } else {
+            holder.ivBadge.setColorFilter(Color.GRAY);
+        }
+
+        // 3. 현재 탭 상태에 따라 우측 버튼 설정
         switch (currentStatus) {
             case "sent":
                 holder.btnAction.setText("- 요청 취소");
+                holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
+                holder.btnAction.setBackgroundTintList(null); // 원래 형광색으로 복원
+                holder.btnAction.setTextColor(Color.BLACK);
                 break;
+
             case "received":
                 holder.btnAction.setText("+ 수락");
+                holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
+                holder.btnAction.setBackgroundTintList(null);
+                holder.btnAction.setTextColor(Color.BLACK);
                 break;
+
             case "blocked":
                 holder.btnAction.setText("차단 해제");
+                holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
+                holder.btnAction.setBackgroundTintList(null);
+                holder.btnAction.setTextColor(Color.BLACK);
                 break;
-            default: // "friends" 탭
-                holder.btnAction.setText("프로필 보기");
+
+            default: // "friends" (친구 목록) 탭
+                holder.btnAction.setText("친구 삭제");
+
+                // 빨간색 배경 적용
+                holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
+                holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF4444")));
+
+                // 흰색 텍스트 및 흰색 아이콘 설정
+                holder.btnAction.setTextColor(Color.WHITE);
+                holder.btnAction.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_friend_remove, 0, 0, 0);
+                holder.btnAction.setCompoundDrawablePadding(8);
+                holder.btnAction.setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));
                 break;
         }
 
-        // 4. 버튼 클릭 리스너 (필요시 구현)
+        // 4. 버튼 클릭 리스너
         holder.btnAction.setOnClickListener(v -> {
-            // 여기에 친구 요청 취소/수락 등의 로직 연결 가능
+            // 현재 status에 따른 액션 처리 (예: 삭제 확인 팝업)
         });
     }
 

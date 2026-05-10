@@ -53,30 +53,42 @@
             android:orientation="horizontal"
             android:paddingHorizontal="16dp">
 
+            <!-- 친구목록: ic_friend_list 연결 -->
             <TextView
                 android:id="@+id/tab_friend_list"
                 style="@style/FriendTabStyle"
                 android:background="@drawable/bg_badge_btn"
-                android:text="👥 친구목록"
-                android:textColor="#000000"/>
+                android:drawableStart="@drawable/ic_friend_list"
+                android:drawablePadding="6dp"
+                android:text="친구목록"
+                android:textColor="#000000" />
 
+            <!-- 보낸 요청: ic_friend_sent_requests 연결 -->
             <TextView
                 android:id="@+id/tab_sent_requests"
                 style="@style/FriendTabStyle"
                 android:layout_marginStart="8dp"
-                android:text="👤↑ 보낸 요청" />
+                android:drawableStart="@drawable/ic_friend_sent_requests"
+                android:drawablePadding="6dp"
+                android:text="보낸 요청" />
 
+            <!-- 받은 요청: ic_friend_requests 연결 -->
             <TextView
                 android:id="@+id/tab_received_requests"
                 style="@style/FriendTabStyle"
                 android:layout_marginStart="8dp"
-                android:text="👤↓ 받은 요청" />
+                android:drawableStart="@drawable/ic_friend_requests"
+                android:drawablePadding="6dp"
+                android:text="받은 요청" />
 
+            <!-- 차단목록: ic_friend_blocked 연결 -->
             <TextView
                 android:id="@+id/tab_blocked_list"
                 style="@style/FriendTabStyle"
                 android:layout_marginStart="8dp"
-                android:text="🚫 차단목록" />
+                android:drawableStart="@drawable/ic_friend_blocked"
+                android:drawablePadding="6dp"
+                android:text="차단목록" />
         </LinearLayout>
     </HorizontalScrollView>
 
