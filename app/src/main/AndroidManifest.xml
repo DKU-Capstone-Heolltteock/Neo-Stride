@@ -59,7 +59,7 @@
             android:exported="false" />
         <activity
             android:name=".feature.auth.SignupActivity"
-            android:exported="false" />
+            android:exported="false" /> <!-- 로그인 액티비티: 앱 실행 시 첫 화면 -->
         <activity
             android:name=".feature.auth.LoginActivity"
             android:exported="true">
@@ -75,7 +75,9 @@
         <activity
             android:name=".activity.CommunityActivity"
             android:exported="false" />
-
+        <activity
+            android:name=".feature.tip.TipUploadActivity"
+            android:exported="false" />
         <!-- mypage화면_Activity -->
         <activity
             android:name=".feature.mypage.MyPageActivity"

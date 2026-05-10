@@ -1,0 +1,46 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="42dp"
+    android:height="42dp"
+    android:viewportWidth="42"
+    android:viewportHeight="42">
+
+    <!-- 바깥 원 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#CCFF00"
+        android:strokeWidth="2.8"
+        android:pathData="M21,4
+                          A17,17 0 1,1 20.9,4" />
+
+    <!-- 세로 중심선 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#CCFF00"
+        android:strokeWidth="2.4"
+        android:pathData="M21,4
+                          C15,9 15,33 21,38
+                          C27,33 27,9 21,4" />
+
+    <!-- 가로선 위 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#CCFF00"
+        android:strokeWidth="2.4"
+        android:pathData="M7,14
+                          C14,18 28,18 35,14" />
+
+    <!-- 가로 중심선 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#CCFF00"
+        android:strokeWidth="2.4"
+        android:pathData="M4,21 L38,21" />
+
+    <!-- 가로선 아래 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#CCFF00"
+        android:strokeWidth="2.4"
+        android:pathData="M7,28
+                          C14,24 28,24 35,28" />
+</vector>
