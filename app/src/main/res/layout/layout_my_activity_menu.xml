@@ -26,7 +26,7 @@
         </LinearLayout>
 
         <LinearLayout android:id="@+id/menu_my_bookmarks" style="@style/ProfileMenuItem">
-            <ImageView android:src="@drawable/ic_bookmark" style="@style/ProfileMenuIcon" app:tint="#CCFF00" />
+            <ImageView android:src="@drawable/ic_bookmark_filled" style="@style/ProfileMenuIcon" app:tint="#CCFF00" />
             <TextView android:text="내가 한 북마크" style="@style/ProfileMenuText" android:layout_weight="1" />
             <TextView android:id="@+id/tv_count_bookmarks" android:layout_marginStart="12dp" android:text="Nul" style="@style/ProfileMenuText" android:textColor="#CCFF00" android:textStyle="bold" />
         </LinearLayout>

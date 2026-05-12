@@ -33,6 +33,24 @@ public class FriendRepository {
         });
     }
 
+    // 특정 유저의 친구 목록 조회
+    public void fetchUserFriendList(int userId, Consumer<List<FriendResponse>> callback) {
+        api.getUserFriendList(userId).enqueue(new Callback<List<FriendResponse>>() {
+            @Override
+            public void onResponse(Call<List<FriendResponse>> call, Response<List<FriendResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.accept(response.body());
+                } else {
+                    callback.accept(null);
+                }
+            }
+            @Override
+            public void onFailure(Call<List<FriendResponse>> call, Throwable t) {
+                callback.accept(null);
+            }
+        });
+    }
+
     // 상태 변경 요청 (취소/수락 등)
     public void updateStatus(FriendRequest request, Consumer<Boolean> callback) {
         api.updateRelationship(request).enqueue(new Callback<okhttp3.ResponseBody>() {

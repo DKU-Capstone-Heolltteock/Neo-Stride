@@ -104,6 +104,30 @@ public class Mockserver implements Interceptor {
             return buildResponse(chain, json);
         }
 
+        // [계정 정보 조회] users/me/account
+        if (uri.contains("users/me/account")) {
+            String json = "{\n" +
+                    "  \"email\": \"neostride@example.com\",\n" +
+                    "  \"nickname\": \"MocktestID1557\",\n" +
+                    "  \"profile_photo\": null\n" +
+                    "}";
+            return buildResponse(chain, json);
+        }
+
+        // [닉네임 변경] PATCH users/me/nickname
+        if (method.equals("PATCH") && uri.contains("users/me/nickname")) {
+            return buildResponse(chain, "{\"status\": \"success\"}");
+        }
+
+        // [계정 탈퇴] DELETE users/me
+        if (method.equals("DELETE") && uri.contains("users/me")) {
+            return buildResponse(chain, "{\"status\": \"success\"}");
+        }
+
+        if (method.equals("POST") && uri.contains("community/friends/action")) {
+            return buildResponse(chain, "{\"status\": \"success\"}");
+        }
+
         if (method.equals("POST") && uri.contains("feedback")) {
             return buildResponse(chain, "{\"plan_id\": 2, \"is_completed\": true, \"ai_feedback_comment\": \"정확한 세팅 확인 완료!\"}");
         }
@@ -132,24 +156,145 @@ public class Mockserver implements Interceptor {
             }
         }
 
+        // [특정 유저 친구 목록] community/friends/user/{userId} — 반드시 일반 friends 조건보다 먼저 체크
+        // status = 로그인한 내가 해당 사람과의 관계 (friends/sent/none 등)
+        if (uri.contains("community/friends/user/")) {
+            String json = "[\n" +
+                    "  {\"user_id\": 41, \"nickname\": \"SpeedKing\",   \"badge_tier\": \"diamond\",  \"friend_count\": 42, \"profile_image_url\": \"https://picsum.photos/100/141\", \"status\": \"friends\"},\n" +
+                    "  {\"user_id\": 42, \"nickname\": \"MorningPace\", \"badge_tier\": \"gold\",     \"friend_count\": 18, \"profile_image_url\": \"https://picsum.photos/100/142\", \"status\": \"none\"},\n" +
+                    "  {\"user_id\": 43, \"nickname\": \"TrailWalker\", \"badge_tier\": \"silver\",   \"friend_count\": 7,  \"profile_image_url\": null,                             \"status\": \"sent\"},\n" +
+                    "  {\"user_id\": 44, \"nickname\": \"NightRun77\",  \"badge_tier\": \"bronze\",   \"friend_count\": 3,  \"profile_image_url\": \"https://picsum.photos/100/144\", \"status\": \"friends\"},\n" +
+                    "  {\"user_id\": 45, \"nickname\": \"MaraFan\",     \"badge_tier\": \"platinum\", \"friend_count\": 56, \"profile_image_url\": \"https://picsum.photos/100/145\", \"status\": \"none\"}\n" +
+                    "]";
+            return buildResponse(chain, json);
+        }
+
+        // [친구 목록] community/friends?status=...
+        if (uri.contains("community/friends") && !uri.contains("action")) {
+            String json;
+            if (uri.contains("status=sent")) {
+                json = "[\n" +
+                        "  {\"user_id\": 11, \"nickname\": \"SentUser1\", \"badge_tier\": \"silver\", \"friend_count\": 8, \"profile_image_url\": \"https://picsum.photos/100/111\", \"status\": \"sent\"},\n" +
+                        "  {\"user_id\": 12, \"nickname\": \"SentUser2\", \"badge_tier\": \"none\",   \"friend_count\": 2, \"profile_image_url\": null,                           \"status\": \"sent\"}\n" +
+                        "]";
+            } else if (uri.contains("status=received")) {
+                json = "[\n" +
+                        "  {\"user_id\": 21, \"nickname\": \"ReceivedUser1\", \"badge_tier\": \"gold\",     \"friend_count\": 20, \"profile_image_url\": \"https://picsum.photos/100/121\", \"status\": \"received\"},\n" +
+                        "  {\"user_id\": 22, \"nickname\": \"ReceivedUser2\", \"badge_tier\": \"bronze\",   \"friend_count\": 5,  \"profile_image_url\": \"https://picsum.photos/100/122\", \"status\": \"received\"},\n" +
+                        "  {\"user_id\": 23, \"nickname\": \"ReceivedUser3\", \"badge_tier\": \"platinum\", \"friend_count\": 33, \"profile_image_url\": null,                            \"status\": \"received\"}\n" +
+                        "]";
+            } else if (uri.contains("status=blocked")) {
+                json = "[\n" +
+                        "  {\"user_id\": 31, \"nickname\": \"BlockedUser1\", \"badge_tier\": \"none\",   \"friend_count\": 1, \"profile_image_url\": null,                           \"status\": \"blocked\"},\n" +
+                        "  {\"user_id\": 32, \"nickname\": \"BlockedUser2\", \"badge_tier\": \"silver\", \"friend_count\": 7, \"profile_image_url\": \"https://picsum.photos/100/131\", \"status\": \"blocked\"}\n" +
+                        "]";
+            } else {
+                // status=friends (기본)
+                json = "[\n" +
+                        "  {\"user_id\": 1, \"nickname\": \"RunnerA\",    \"badge_tier\": \"gold\",     \"friend_count\": 3,  \"profile_image_url\": \"https://picsum.photos/100/102\", \"status\": \"friends\"},\n" +
+                        "  {\"user_id\": 2, \"nickname\": \"HealthMania\", \"badge_tier\": \"silver\",   \"friend_count\": 12, \"profile_image_url\": \"https://picsum.photos/100/103\", \"status\": \"friends\"},\n" +
+                        "  {\"user_id\": 3, \"nickname\": \"NatureRun\",   \"badge_tier\": \"bronze\",   \"friend_count\": 5,  \"profile_image_url\": null,                            \"status\": \"friends\"},\n" +
+                        "  {\"user_id\": 4, \"nickname\": \"RouteMaster\", \"badge_tier\": \"diamond\",  \"friend_count\": 28, \"profile_image_url\": \"https://picsum.photos/100/104\", \"status\": \"friends\"}\n" +
+                        "]";
+            }
+            return buildResponse(chain, json);
+        }
+
+        // 5-0. [러너페이지 피드] community/contents/user/{userId} → 반드시 /me, /tagged 등보다 먼저 체크
+        if (uri.contains("community/contents/user/")) {
+            String json = "[\n" +
+                    "  {\n" +
+                    "    \"content_id\": 601,\n" +
+                    "    \"user_id\": 999,\n" +
+                    "    \"content_title\": \"오운완\",\n" +
+                    "    \"content_text\": \"오늘도 열심히 뛰었습니다!\",\n" +
+                    "    \"profile_image_url\": \"https://picsum.photos/100/102\",\n" +
+                    "    \"nickname\": \"RunnerA\",\n" +
+                    "    \"badge_tier\": \"gold\",\n" +
+                    "    \"is_bookmarked\": false,\n" +
+                    "    \"is_tagged\": false,\n" +
+                    "    \"is_liked\": false,\n" +
+                    "    \"is_commented\": false,\n" +
+                    "    \"image_url\": \"https://picsum.photos/400/402\",\n" +
+                    "    \"route_map_url\": \"https://picsum.photos/300/151\",\n" +
+                    "    \"tag_count\": 2,\n" +
+                    "    \"like_count\": 20,\n" +
+                    "    \"comment_count\": 3,\n" +
+                    "    \"total_distance\": 5.5,\n" +
+                    "    \"duration\": 1200,\n" +
+                    "    \"pace\": 360,\n" +
+                    "    \"created_at\": \"2026-05-01T10:00:00\"\n" +
+                    "  },\n" +
+                    "  {\n" +
+                    "    \"content_id\": 602,\n" +
+                    "    \"user_id\": 999,\n" +
+                    "    \"content_title\": \"유산소 빡세게 한 날\",\n" +
+                    "    \"content_text\": \"힘들었지만 뿌듯해요.\",\n" +
+                    "    \"profile_image_url\": \"https://picsum.photos/100/102\",\n" +
+                    "    \"nickname\": \"RunnerA\",\n" +
+                    "    \"badge_tier\": \"gold\",\n" +
+                    "    \"is_bookmarked\": false,\n" +
+                    "    \"is_tagged\": false,\n" +
+                    "    \"is_liked\": false,\n" +
+                    "    \"is_commented\": false,\n" +
+                    "    \"image_url\": \"https://picsum.photos/400/410\",\n" +
+                    "    \"route_map_url\": null,\n" +
+                    "    \"tag_count\": 1,\n" +
+                    "    \"like_count\": 15,\n" +
+                    "    \"comment_count\": 6,\n" +
+                    "    \"total_distance\": 22.3,\n" +
+                    "    \"duration\": 9158,\n" +
+                    "    \"pace\": 410,\n" +
+                    "    \"created_at\": \"2026-03-02T09:00:00\"\n" +
+                    "  }\n" +
+                    "]";
+            return buildResponse(chain, json);
+        }
+
         // 5. [마이페이지 피드 목록 통합 관리]
         if (uri.contains("community/contents")) {
             String json = ""; // 결과를 담을 변수 선언
 
             if (uri.endsWith("/me")) {
-                // 내가 쓴 피드
+                // 내가 쓴 피드 (이미지, 통계 데이터 추가 버전)
                 json = "[\n" +
                         "  {\n" +
                         "    \"content_id\": 101,\n" +
-                        "    \"content_text\": \"오운완! 근육 식물 아바타 귀엽죠?\",\n" +
+                        "    \"content_title\": \"오늘의 오운완 기록!\",\n" + // [추가] 제목
+                        "    \"content_text\": \"오운완! 오늘 코스는 한강변이었어요.\",\n" +
+                        "    \"profile_image_url\": \"https://picsum.photos/100/100\",\n" +
+                        "    \"nickname\": \"MocktestID1557\",\n" +
+                        "    \"badge_tier\": \"platinum\",\n" +
+                        "    \"is_bookmarked\": true,\n" +
+                        "    \"is_tagged\": false,\n" +
+                        "    \"is_liked\": false,\n" +     // [추가] 하이라이트 OFF
+                        "    \"is_commented\": true,\n" +  // [추가] 하이라이트 ON
+                        "    \"image_url\": \"https://picsum.photos/400/400\",\n" +
+                        "    \"route_map_url\": \"https://picsum.photos/300/150\",\n" +
+                        "    \"tag_count\": 3,\n" +
+                        "    \"like_count\": 12,\n" +
+                        "    \"comment_count\": 5,\n" +
                         "    \"total_distance\": 11.8,\n" +
-                        "    \"duration\": 2269,\n" + // 37분 49초
-                        "    \"pace\": 384,\n" + // 6:24
+                        "    \"duration\": 2269,\n" +
+                        "    \"pace\": 384,\n" +
                         "    \"created_at\": \"2026-05-05T17:10:00\"\n" +
                         "  },\n" +
                         "  {\n" +
                         "    \"content_id\": 102,\n" +
+                        "    \"content_title\": \"호에엥\",\n" +
                         "    \"content_text\": \"유산소 빡세게 한 날... 힘들다.\",\n" +
+                        "    \"profile_image_url\": null,\n" +
+                        "    \"nickname\": \"MocktestID1557\",\n" +
+                        "    \"badge_tier\": \"platinum\",\n" +
+                        "    \"is_bookmarked\": false,\n" +
+                        "    \"is_tagged\": false,\n" +
+                        "    \"is_liked\": true,\n" +     // [추가] 하이라이트 OFF
+                        "    \"is_commented\": true,\n" +  // [추가] 하이라이트 ON
+                        "    \"image_url\": \"https://picsum.photos/400/401\",\n" +
+                        "    \"route_map_url\": null,\n" +
+                        "    \"tag_count\": 2,\n" +
+                        "    \"like_count\": 45,\n" +
+                        "    \"comment_count\": 10,\n" +
                         "    \"total_distance\": 22.3,\n" +
                         "    \"duration\": 9158,\n" +
                         "    \"pace\": 410,\n" +
@@ -157,21 +302,111 @@ public class Mockserver implements Interceptor {
                         "  }\n" +
                         "]";
             }
+
+
             else if (uri.endsWith("/tagged")) {
-                // 나를 태그한 피드
-                json = "[{\"content_id\": 201, \"content_text\": \"@MocktestID1557 님과 함께 달렸어요!\", \"total_distance\": 5.5, \"duration\": 1200, \"pace\": 360, \"created_at\": \"2026-05-01T10:00:00\"}]";
+                // [나를 태그한 피드] 태그만 되고 아직 반응은 안 한 상태 테스트
+                json = "[\n" +
+                        "  {\n" +
+                        "    \"content_id\": 201,\n" +
+                        "    \"content_title\": \"러닝 크루 정기런\",\n" +
+                        "    \"content_text\": \"@MocktestID1557 님과 함께 달렸어요! 오늘 페이스 좋네요.\",\n" +
+                        "    \"profile_image_url\": \"https://picsum.photos/100/102\",\n" +
+                        "    \"nickname\": \"RunnerA\",\n" +
+                        "    \"badge_tier\": \"gold\",\n" +
+                        "    \"is_bookmarked\": false,\n" +
+                        "    \"is_tagged\": true,\n" +
+                        "    \"is_liked\": false,\n" +     // [추가] 하이라이트 OFF
+                        "    \"is_commented\": false,\n" + // [추가] 하이라이트 OFF
+                        "    \"image_url\": \"https://picsum.photos/400/402\",\n" +
+                        "    \"route_map_url\": \"https://picsum.photos/300/151\",\n" +
+                        "    \"tag_count\": 5,\n" +
+                        "    \"like_count\": 20,\n" +
+                        "    \"comment_count\": 8,\n" +
+                        "    \"total_distance\": 5.5,\n" +
+                        "    \"duration\": 1200,\n" +
+                        "    \"pace\": 360,\n" +
+                        "    \"created_at\": \"2026-05-01T10:00:00\"\n" +
+                        "  }\n" +
+                        "]";
             }
             else if (uri.endsWith("/comments")) {
-                // 내가 댓글 단 피드
-                json = "[{\"content_id\": 301, \"content_text\": \"댓글 단 피드 예시입니다.\", \"total_distance\": 8.2, \"duration\": 2400, \"pace\": 400, \"created_at\": \"2026-04-20T14:00:00\"}]";
+                // [내가 댓글 단 피드] 댓글은 썼지만 좋아요는 안 누른 상태 테스트
+                json = "[\n" +
+                        "  {\n" +
+                        "    \"content_id\": 301,\n" +
+                        "    \"content_title\": \"같이 달리실 분?\",\n" +
+                        "    \"content_text\": \"댓글 단 피드 예시입니다. 일요일 아침 남산 코스 어떠세요?\",\n" +
+                        "    \"profile_image_url\": \"https://picsum.photos/100/103\",\n" +
+                        "    \"nickname\": \"HealthMania\",\n" +
+                        "    \"badge_tier\": \"silver\",\n" +
+                        "    \"is_bookmarked\": false,\n" +
+                        "    \"is_tagged\": true,\n" +
+                        "    \"is_liked\": false,\n" +     // [추가] 하이라이트 OFF
+                        "    \"is_commented\": true,\n" +  // [추가] 하이라이트 ON
+                        "    \"image_url\": null,\n" +
+                        "    \"route_map_url\": null,\n" +
+                        "    \"tag_count\": 1,\n" +
+                        "    \"like_count\": 8,\n" +
+                        "    \"comment_count\": 15,\n" +
+                        "    \"total_distance\": 8.2,\n" +
+                        "    \"duration\": 2400,\n" +
+                        "    \"pace\": 400,\n" +
+                        "    \"created_at\": \"2026-04-20T14:00:00\"\n" +
+                        "  }\n" +
+                        "]";
             }
             else if (uri.endsWith("/likes")) {
-                // 내가 좋아요 한 피드
-                json = "[{\"content_id\": 401, \"content_text\": \"좋아요를 누른 멋진 피드!\", \"total_distance\": 10.0, \"duration\": 3000, \"pace\": 300, \"created_at\": \"2026-04-15T09:00:00\"}]";
+                // [내가 좋아요 한 피드] 좋아요는 눌렀지만 댓글은 안 단 상태 테스트
+                json = "[\n" +
+                        "  {\n" +
+                        "    \"content_id\": 401,\n" +
+                        "    \"content_title\": \"좋아요를 누른 멋진 피드\",\n" +
+                        "    \"content_text\": \"풍경이 너무 예뻐서 좋아요 누를 수밖에 없었네요.\",\n" +
+                        "    \"profile_image_url\": \"https://picsum.photos/100/104\",\n" +
+                        "    \"nickname\": \"NatureRunner\",\n" +
+                        "    \"badge_tier\": \"bronze\",\n" +
+                        "    \"is_bookmarked\": false,\n" +
+                        "    \"is_tagged\": true,\n" +
+                        "    \"is_liked\": true,\n" +      // [추가] 하이라이트 ON
+                        "    \"is_commented\": false,\n" + // [추가] 하이라이트 OFF
+                        "    \"image_url\": \"https://picsum.photos/400/403\",\n" +
+                        "    \"route_map_url\": \"https://picsum.photos/300/152\",\n" +
+                        "    \"tag_count\": 0,\n" +
+                        "    \"like_count\": 150,\n" +
+                        "    \"comment_count\": 20,\n" +
+                        "    \"total_distance\": 10.0,\n" +
+                        "    \"duration\": 3000,\n" +
+                        "    \"pace\": 300,\n" +
+                        "    \"created_at\": \"2026-04-15T09:00:00\"\n" +
+                        "  }\n" +
+                        "]";
             }
             else if (uri.endsWith("/bookmarks")) {
-                // 내가 북마크 한 피드
-                json = "[{\"content_id\": 501, \"content_text\": \"나중에 다시 볼 북마크 피드\", \"total_distance\": 15.3, \"duration\": 4500, \"pace\": 350, \"created_at\": \"2026-04-10T20:00:00\"}]";
+                // [내가 북마크 한 피드] 북마크만 하고 다른 반응은 없는 상태 테스트
+                json = "[\n" +
+                        "  {\n" +
+                        "    \"content_id\": 501,\n" +
+                        "    \"content_title\": \"나중에 따라 뛸 코스\",\n" +
+                        "    \"content_text\": \"나중에 다시 볼 북마크 피드입니다.\",\n" +
+                        "    \"profile_image_url\": \"https://picsum.photos/100/105\",\n" +
+                        "    \"nickname\": \"RouteMaster\",\n" +
+                        "    \"badge_tier\": \"diamond\",\n" +
+                        "    \"is_bookmarked\": true,\n" +
+                        "    \"is_tagged\": false,\n" +
+                        "    \"is_liked\": false,\n" +
+                        "    \"is_commented\": false,\n" +
+                        "    \"image_url\": \"https://picsum.photos/400/404\",\n" +
+                        "    \"route_map_url\": \"https://picsum.photos/300/153\",\n" +
+                        "    \"tag_count\": 2,\n" +
+                        "    \"like_count\": 55,\n" +
+                        "    \"comment_count\": 12,\n" +
+                        "    \"total_distance\": 15.3,\n" +
+                        "    \"duration\": 4500,\n" +
+                        "    \"pace\": 350,\n" +
+                        "    \"created_at\": \"2026-04-10T20:00:00\"\n" +
+                        "  }\n" +
+                        "]";
             }
 
             return buildResponse(chain, json);
@@ -181,6 +416,18 @@ public class Mockserver implements Interceptor {
         // Mockserver 안에서 프로필 수정(PUT) 응답
         if (method.equals("DELETE")) return buildResponse(chain, "{\"status\": \"success\"}");
 
+
+        // 4-1. [러너페이지 프로필] users/{userId}/profile (me가 아닌 경우)
+        if (uri.matches(".*users/\\d+/profile.*")) {
+            String json = "{\n" +
+                    "  \"community_profile_name\": \"RunnerA\",\n" +
+                    "  \"profile_photo\": \"https://picsum.photos/200/200\",\n" +
+                    "  \"status_message\": \"매일 조금씩 더 멀리!\",\n" +
+                    "  \"friend_count\": 3,\n" +
+                    "  \"post_count\": 2\n" +
+                    "}";
+            return buildResponse(chain, json);
+        }
 
         // 6. [배지 상세 정보 조회]
         if (uri.contains("users/me/badge")) {
@@ -194,6 +441,18 @@ public class Mockserver implements Interceptor {
             return buildResponse(chain, json);
         }
 
+
+        // 6-1. [러너페이지 배지] users/{userId}/badge (me가 아닌 경우)
+        if (uri.matches(".*users/\\d+/badge.*")) {
+            String json = "{\n" +
+                    "  \"Badge\": \"gold\",\n" +
+                    "  \"record_id\": 601,\n" +
+                    "  \"distance\": 5.5,\n" +
+                    "  \"pace\": \"6:00\",\n" +
+                    "  \"achieved_at\": \"2026-05-01\"\n" +
+                    "}";
+            return buildResponse(chain, json);
+        }
 
         return chain.proceed(chain.request());
     }

@@ -7,7 +7,11 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.location.Location;
+import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.PowerManager;
@@ -45,6 +49,7 @@ public class LocationTrackingService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private PowerManager.WakeLock wakeLock; // 화면 꺼져도 CPU 유지
+    private HandlerThread locationThread;   // 메인 루퍼 대신 전용 스레드
 
     // 채널 생성 + 초기 알림 즉시 표시 (서비스 시작 전에도 호출 가능)
     public static void postImmediateNotification(Context context) {
@@ -114,6 +119,10 @@ public class LocationTrackingService extends Service {
         );
         wakeLock.acquire(3 * 60 * 60 * 1000L); // 최대 3시간 (일반 러닝 초과 시간)
 
+        // 위치 콜백 전용 백그라운드 스레드 시작
+        locationThread = new HandlerThread("LocationThread");
+        locationThread.start();
+
         locationCallback = new LocationCallback() {
             @Override
             public void onLocationResult(@NonNull LocationResult locationResult) {
@@ -127,7 +136,12 @@ public class LocationTrackingService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(NOTIFICATION_ID, buildNotification());
+        // Android 14(API 34)부터 foregroundServiceType을 startForeground에도 명시 필요
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, buildNotification(), ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
+        } else {
+            startForeground(NOTIFICATION_ID, buildNotification());
+        }
         startLocationUpdates();
         return START_STICKY; // 시스템이 종료해도 자동 재시작
     }
@@ -145,6 +159,9 @@ public class LocationTrackingService extends Service {
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release();
         }
+        if (locationThread != null) {
+            locationThread.quitSafely();
+        }
         locationListener = null;
     }
 
@@ -153,7 +170,10 @@ public class LocationTrackingService extends Service {
             LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
                     .setMinUpdateIntervalMillis(1000)
                     .build();
-            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
+            // 메인 루퍼 대신 전용 백그라운드 스레드 루퍼 사용
+            // → 화면 꺼져도 삼성이 메인 루퍼 쓰로틀링해도 GPS 계속 수신
+            Looper looper = locationThread != null ? locationThread.getLooper() : Looper.getMainLooper();
+            fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, looper);
         } catch (SecurityException e) {
             e.printStackTrace();
         }

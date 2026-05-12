@@ -2,6 +2,7 @@ package com.neostride.app.feature.friend;
 
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,14 +19,42 @@ import java.util.List;
 
 public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendViewHolder> {
 
-    private List<FriendResponse> friendList = new ArrayList<>();
-    private String currentStatus = "friends"; // 현재 선택된 탭 상태 저장용
+    public interface OnActionClickListener {
+        void onAction(int userId, String action, String nickname); // action: "cancel", "accept", "reject", "unblock", "delete"
+    }
 
-    // 데이터 갱신 메서드
+    public interface OnItemClickListener {
+        void onItemClick(int userId, String nickname);
+    }
+
+    private List<FriendResponse> friendList = new ArrayList<>();
+    private String currentStatus = "friends";
+    private OnActionClickListener actionListener;
+    private OnItemClickListener itemClickListener;
+
+    public void setOnActionClickListener(OnActionClickListener listener) {
+        this.actionListener = listener;
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.itemClickListener = listener;
+    }
+
     public void setFriendList(List<FriendResponse> newList, String status) {
         this.friendList = newList;
         this.currentStatus = status;
         notifyDataSetChanged();
+    }
+
+    /** per_item 모드에서 특정 유저의 status를 변경하고 해당 아이템만 리바인드 */
+    public void updateItemStatus(int userId, String newStatus) {
+        for (int i = 0; i < friendList.size(); i++) {
+            if (friendList.get(i).userId == userId) {
+                friendList.get(i).status = newStatus;
+                notifyItemChanged(i);
+                break;
+            }
+        }
     }
 
     @NonNull
@@ -43,10 +72,14 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
         holder.tvNickname.setText(item.nickname);
         holder.tvFriendCount.setText("친구 " + item.friendCount);
 
-        holder.btnAction.setIncludeFontPadding(false); // 텍스트 상단 쏠림 방지
-        holder.btnAction.setGravity(Gravity.CENTER);  // 수직/수평 중앙 정렬
-        holder.btnAction.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0); // 아이콘 초기화
+        holder.btnAction.setIncludeFontPadding(false);
+        holder.btnAction.setGravity(Gravity.CENTER);
+        holder.btnAction.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
         holder.btnAction.setCompoundDrawablePadding(0);
+
+        // 거절 버튼 기본 초기화 (received 탭 외에는 숨김)
+        holder.btnActionSecondary.setVisibility(View.GONE);
+        holder.btnActionSecondary.setOnClickListener(null);
 
         // 2. 배지 티어 색상 적용
         BadgeTier tier = BadgeTier.fromString(item.badgeTier);
@@ -57,19 +90,70 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
         }
 
         // 3. 현재 탭 상태에 따라 우측 버튼 설정
-        switch (currentStatus) {
-            case "sent":
-                holder.btnAction.setText("- 요청 취소");
-                holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
-                holder.btnAction.setBackgroundTintList(null); // 원래 형광색으로 복원
-                holder.btnAction.setTextColor(Color.BLACK);
-                break;
+        // "per_item" 모드: 각 아이템의 item.status를 사용 (남의 친구 목록 화면 등에서 사용)
+        String resolvedStatus = "per_item".equals(currentStatus)
+                ? (item.status != null ? item.status : "none")
+                : currentStatus;
 
-            case "received":
-                holder.btnAction.setText("+ 수락");
+        switch (resolvedStatus) {
+            case "sent":
+                holder.btnAction.setText("요청 취소");
                 holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
                 holder.btnAction.setBackgroundTintList(null);
                 holder.btnAction.setTextColor(Color.BLACK);
+
+                android.graphics.drawable.Drawable returnIcon = androidx.core.content.ContextCompat.getDrawable(
+                        holder.itemView.getContext(), R.drawable.ic_friend_return);
+                if (returnIcon != null) {
+                    int returnSize = (int) (holder.itemView.getResources().getDisplayMetrics().density * 14);
+                    returnIcon = returnIcon.mutate();
+                    returnIcon.setBounds(0, 0, returnSize, returnSize);
+                    androidx.core.graphics.drawable.DrawableCompat.setTint(returnIcon, Color.BLACK);
+                    holder.btnAction.setCompoundDrawables(returnIcon, null, null, null);
+                    holder.btnAction.setCompoundDrawablePadding((int)(holder.itemView.getResources().getDisplayMetrics().density * 4));
+                }
+                break;
+
+            case "received":
+                // 거절 버튼 (빨간 스타일 + ic_friend_deny 아이콘)
+                holder.btnActionSecondary.setVisibility(View.VISIBLE);
+                holder.btnActionSecondary.setText("거절");
+                holder.btnActionSecondary.setTextColor(Color.WHITE);
+                GradientDrawable rejectBg = new GradientDrawable();
+                rejectBg.setCornerRadius(holder.itemView.getResources().getDisplayMetrics().density * 20);
+                rejectBg.setColor(Color.parseColor("#FF4444"));
+                holder.btnActionSecondary.setBackground(rejectBg);
+
+                android.graphics.drawable.Drawable denyIcon = androidx.core.content.ContextCompat.getDrawable(
+                        holder.itemView.getContext(), R.drawable.ic_friend_deny);
+                if (denyIcon != null) {
+                    int denySize = (int) (holder.itemView.getResources().getDisplayMetrics().density * 14);
+                    denyIcon = denyIcon.mutate();
+                    denyIcon.setBounds(0, 0, denySize, denySize);
+                    androidx.core.graphics.drawable.DrawableCompat.setTint(denyIcon, Color.WHITE);
+                    holder.btnActionSecondary.setCompoundDrawables(denyIcon, null, null, null);
+                    holder.btnActionSecondary.setCompoundDrawablePadding((int)(holder.itemView.getResources().getDisplayMetrics().density * 4));
+                }
+                holder.btnActionSecondary.setOnClickListener(v -> {
+                    if (actionListener != null) actionListener.onAction(item.userId, "reject", item.nickname);
+                });
+
+                // 수락 버튼 (ic_friend_accept 아이콘)
+                holder.btnAction.setText("수락");
+                holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
+                holder.btnAction.setBackgroundTintList(null);
+                holder.btnAction.setTextColor(Color.BLACK);
+
+                android.graphics.drawable.Drawable acceptIcon = androidx.core.content.ContextCompat.getDrawable(
+                        holder.itemView.getContext(), R.drawable.ic_friend_accept);
+                if (acceptIcon != null) {
+                    int acceptSize = (int) (holder.itemView.getResources().getDisplayMetrics().density * 14);
+                    acceptIcon = acceptIcon.mutate();
+                    acceptIcon.setBounds(0, 0, acceptSize, acceptSize);
+                    androidx.core.graphics.drawable.DrawableCompat.setTint(acceptIcon, Color.BLACK);
+                    holder.btnAction.setCompoundDrawables(acceptIcon, null, null, null);
+                    holder.btnAction.setCompoundDrawablePadding((int)(holder.itemView.getResources().getDisplayMetrics().density * 4));
+                }
                 break;
 
             case "blocked":
@@ -77,26 +161,72 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
                 holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
                 holder.btnAction.setBackgroundTintList(null);
                 holder.btnAction.setTextColor(Color.BLACK);
+
+                android.graphics.drawable.Drawable unlockIcon = androidx.core.content.ContextCompat.getDrawable(
+                        holder.itemView.getContext(), R.drawable.ic_friend_unlock);
+                if (unlockIcon != null) {
+                    int iconSize = (int) (holder.itemView.getResources().getDisplayMetrics().density * 14);
+                    unlockIcon = unlockIcon.mutate();
+                    unlockIcon.setBounds(0, 0, iconSize, iconSize);
+                    androidx.core.graphics.drawable.DrawableCompat.setTint(unlockIcon, Color.BLACK);
+                    holder.btnAction.setCompoundDrawables(unlockIcon, null, null, null);
+                    holder.btnAction.setCompoundDrawablePadding((int)(holder.itemView.getResources().getDisplayMetrics().density * 4));
+                }
+                break;
+
+            case "none": // 친구 관계 없음 → 친구요청 버튼
+                holder.btnAction.setText("친구요청");
+                holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
+                holder.btnAction.setBackgroundTintList(null);
+                holder.btnAction.setTextColor(Color.BLACK);
+
+                android.graphics.drawable.Drawable reqIcon = androidx.core.content.ContextCompat.getDrawable(
+                        holder.itemView.getContext(), R.drawable.ic_friend_request);
+                if (reqIcon != null) {
+                    int reqSize = (int) (holder.itemView.getResources().getDisplayMetrics().density * 14);
+                    reqIcon = reqIcon.mutate();
+                    reqIcon.setBounds(0, 0, reqSize, reqSize);
+                    androidx.core.graphics.drawable.DrawableCompat.setTint(reqIcon, Color.BLACK);
+                    holder.btnAction.setCompoundDrawables(reqIcon, null, null, null);
+                    holder.btnAction.setCompoundDrawablePadding((int)(holder.itemView.getResources().getDisplayMetrics().density * 4));
+                }
                 break;
 
             default: // "friends" (친구 목록) 탭
                 holder.btnAction.setText("친구 삭제");
-
-                // 빨간색 배경 적용
                 holder.btnAction.setBackgroundResource(R.drawable.bg_badge_btn);
                 holder.btnAction.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF4444")));
-
-                // 흰색 텍스트 및 흰색 아이콘 설정
                 holder.btnAction.setTextColor(Color.WHITE);
-                holder.btnAction.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_friend_remove, 0, 0, 0);
-                holder.btnAction.setCompoundDrawablePadding(8);
-                holder.btnAction.setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));
+
+                // 아이콘 크기를 텍스트 높이(16dp)에 맞게 수동 설정
+                android.graphics.drawable.Drawable removeIcon = androidx.core.content.ContextCompat.getDrawable(
+                        holder.itemView.getContext(), R.drawable.ic_friend_remove);
+                if (removeIcon != null) {
+                    int iconSize = (int) (holder.itemView.getResources().getDisplayMetrics().density * 14);
+                    removeIcon = removeIcon.mutate();
+                    removeIcon.setBounds(0, 0, iconSize, iconSize);
+                    androidx.core.graphics.drawable.DrawableCompat.setTint(removeIcon, Color.WHITE);
+                    holder.btnAction.setCompoundDrawables(removeIcon, null, null, null);
+                    holder.btnAction.setCompoundDrawablePadding((int)(holder.itemView.getResources().getDisplayMetrics().density * 4));
+                }
                 break;
         }
 
-        // 4. 버튼 클릭 리스너
+        // 4. 아이템 전체 클릭 → 러너 페이지
+        holder.itemView.setOnClickListener(v -> {
+            if (itemClickListener != null) itemClickListener.onItemClick(item.userId, item.nickname);
+        });
+
+        // 5. 버튼 클릭 리스너 (버튼은 별도 처리, 이벤트 전파 차단)
         holder.btnAction.setOnClickListener(v -> {
-            // 현재 status에 따른 액션 처리 (예: 삭제 확인 팝업)
+            if (actionListener == null) return;
+            switch (resolvedStatus) {
+                case "sent":     actionListener.onAction(item.userId, "cancel",  item.nickname); break;
+                case "received": actionListener.onAction(item.userId, "accept",  item.nickname); break;
+                case "blocked":  actionListener.onAction(item.userId, "unblock", item.nickname); break;
+                case "none":     actionListener.onAction(item.userId, "request", item.nickname); break;
+                default:         actionListener.onAction(item.userId, "delete",  item.nickname); break;
+            }
         });
     }
 
@@ -107,15 +237,16 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
 
     static class FriendViewHolder extends RecyclerView.ViewHolder {
         ImageView ivProfile, ivBadge;
-        TextView tvNickname, tvFriendCount, btnAction;
+        TextView tvNickname, tvFriendCount, btnAction, btnActionSecondary;
 
         public FriendViewHolder(@NonNull View itemView) {
             super(itemView);
-            ivProfile = itemView.findViewById(R.id.iv_profile);
-            ivBadge = itemView.findViewById(R.id.iv_badge);
-            tvNickname = itemView.findViewById(R.id.tv_nickname);
-            tvFriendCount = itemView.findViewById(R.id.tv_friend_count);
-            btnAction = itemView.findViewById(R.id.btn_action);
+            ivProfile          = itemView.findViewById(R.id.iv_profile);
+            ivBadge            = itemView.findViewById(R.id.iv_badge);
+            tvNickname         = itemView.findViewById(R.id.tv_nickname);
+            tvFriendCount      = itemView.findViewById(R.id.tv_friend_count);
+            btnAction          = itemView.findViewById(R.id.btn_action);
+            btnActionSecondary = itemView.findViewById(R.id.btn_action_secondary);
         }
     }
 }

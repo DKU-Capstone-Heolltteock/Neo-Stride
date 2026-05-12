@@ -89,6 +89,17 @@
         <!-- friend화면_Activity -->
         <activity android:name=".feature.friend.FriendActivity"
             android:exported="false" />
+        <!-- runnerpage화면_Activity -->
+        <activity
+            android:name=".feature.runnerpage.RunnerPageActivity"
+            android:exported="false" />
+        <!-- account화면_Activity -->
+        <activity
+            android:name=".feature.account.AccountActivity"
+            android:exported="false" />
+        <activity
+            android:name=".feature.friend.RunnerFriendListActivity"
+            android:exported="false" />
 
         <!-- GPS 포그라운드 서비스 (화면 꺼져도 기록 유지) -->
         <service

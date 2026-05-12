@@ -60,4 +60,15 @@ public class MyPageRepository {
     public void updateProfileImage(okhttp3.MultipartBody.Part imagePart, Callback<Void> callback) {
         apiService.updateProfileImage(imagePart).enqueue(callback);
     }
+
+    // 북마크 상태 업데이트 (서버에 저장/삭제 요청)
+    public void toggleBookmark(int contentId, boolean isBookmarked, Callback<Void> callback) {
+        // 백엔드 설계에 따라 넘기는 값이 달라질 수 있습니다.
+        // 예시: { "is_bookmarked": true }
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("is_bookmarked", isBookmarked);
+
+        // apiService에 toggleBookmark 메서드가 정의되어 있어야 합니다.
+        apiService.toggleBookmark(contentId, body).enqueue(callback);
+    }
 }

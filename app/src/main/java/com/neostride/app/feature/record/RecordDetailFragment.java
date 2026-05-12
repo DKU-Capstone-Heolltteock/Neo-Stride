@@ -280,22 +280,21 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
         if (points.size() < 3) return points;
 
-        // 1단계: 고립된 GPS 노이즈 스파이크만 제거
-        // 인터벌 러닝 보호: 앞뒤 양쪽 이웃 모두와 크게 다를 때만 노이즈로 판정
+        // 1단계: 고립된 GPS 노이즈 스파이크 제거 (임계값 1.5x — 1.8x보다 더 적극적으로 제거)
         for (int i = 1; i < points.size() - 1; i++) {
             float v    = points.get(i).paceValue;
             float prev = points.get(i - 1).paceValue;
             float next = points.get(i + 1).paceValue;
-            boolean isSpikeHigh = v > prev * 1.8f && v > next * 1.8f;
-            boolean isSpikeLow  = v < prev * 0.55f && v < next * 0.55f;
+            boolean isSpikeHigh = v > prev * 1.5f && v > next * 1.5f;
+            boolean isSpikeLow  = v < prev * 0.65f && v < next * 0.65f;
             if (isSpikeHigh || isSpikeLow) points.get(i).paceValue = (prev + next) / 2f;
         }
 
-        // 2단계: 5포인트 이동평균 1회
+        // 2단계: 7포인트 이동평균 1회 (200m 이상 인터벌 피크 보존)
         float[] smoothed = new float[points.size()];
         for (int i = 0; i < points.size(); i++) {
-            int from = Math.max(0, i - 2);
-            int to   = Math.min(points.size() - 1, i + 2);
+            int from = Math.max(0, i - 3);
+            int to   = Math.min(points.size() - 1, i + 3);
             float sum = 0;
             for (int j = from; j <= to; j++) sum += points.get(j).paceValue;
             smoothed[i] = sum / (to - from + 1);

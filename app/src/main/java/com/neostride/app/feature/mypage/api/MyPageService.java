@@ -13,7 +13,9 @@ import retrofit2.http.Body;
 import retrofit2.http.GET;
 import retrofit2.http.Multipart;
 import retrofit2.http.PATCH;
+import retrofit2.http.POST;
 import retrofit2.http.Part;
+import retrofit2.http.Path;
 
 public interface MyPageService {
 
@@ -49,4 +51,10 @@ public interface MyPageService {
     // [추가] 6. 내가 북마크 한 피드 목록
     @GET("community/contents/bookmarks")
     Call<List<CommunityContentResponse>> getBookmarkedFeeds();
+
+    @POST("community/bookmark/{contentId}")
+    Call<Void> toggleBookmark(
+            @Path("contentId") int contentId,
+            @Body java.util.Map<String, Object> body
+    );
 }

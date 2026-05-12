@@ -13,6 +13,19 @@ public class BadgeRepository {
         this.badgeService = badgeService;
     }
 
+    public void fetchBadgeDetailByUserId(int userId, BadgeCallback callback) {
+        badgeService.getBadgeDetailByUserId(userId).enqueue(new Callback<BadgeDetailResponse>() {
+            @Override
+            public void onResponse(Call<BadgeDetailResponse> call, Response<BadgeDetailResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                }
+            }
+            @Override
+            public void onFailure(Call<BadgeDetailResponse> call, Throwable t) {}
+        });
+    }
+
     public void fetchBadgeDetail(BadgeCallback callback) {
         badgeService.getBadgeDetail().enqueue(new Callback<BadgeDetailResponse>() {
             @Override

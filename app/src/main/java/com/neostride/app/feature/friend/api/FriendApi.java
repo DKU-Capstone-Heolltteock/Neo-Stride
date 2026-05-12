@@ -26,4 +26,10 @@ public interface FriendApi {
      */
     @POST("community/friends/action")
     Call<ResponseBody> updateRelationship(@Body FriendRequest request);
+
+    /**
+     * 3. 특정 유저의 친구 목록 조회 (친구 관계인 경우에만 접근 가능)
+     */
+    @GET("community/friends/user/{userId}")
+    Call<List<FriendResponse>> getUserFriendList(@retrofit2.http.Path("userId") int userId);
 }

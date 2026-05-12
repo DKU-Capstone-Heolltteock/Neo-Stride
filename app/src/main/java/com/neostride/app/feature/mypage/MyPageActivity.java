@@ -38,6 +38,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.tabs.TabLayout;
 import com.neostride.app.R;
 import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.runnerpage.RunnerPageActivity;
+
 import com.neostride.app.feature.badge.api.BadgeService;
 import com.neostride.app.feature.badge.model.BadgeDetailResponse;
 import com.neostride.app.feature.badge.model.BadgeTier;
@@ -138,8 +141,15 @@ public class MyPageActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    // 데이터가 오면 어댑터에 연결! (모든 리스트의 모양이 같으므로 어댑터 재사용)
                     MyFeedAdapter adapter = new MyFeedAdapter(response.body());
+                    adapter.setOnProfileClickListener((userId, nickname) -> {
+                        int myId = TokenManager.getUserId(MyPageActivity.this);
+                        if (userId == myId) return; // 본인이면 무시
+                        Intent intent = new Intent(MyPageActivity.this, RunnerPageActivity.class);
+                        intent.putExtra("user_id", userId);
+                        intent.putExtra("nickname", nickname);
+                        startActivity(intent);
+                    });
                     rvMyFeeds.setAdapter(adapter);
                 }
             }
@@ -165,6 +175,10 @@ public class MyPageActivity extends AppCompatActivity {
         tabLayout = findViewById(R.id.tab_layout);
         rvMyFeeds = findViewById(R.id.rv_my_feeds);
         tvUsername = findViewById(R.id.tv_username);
+        tvUsername.setOnClickListener(v -> {
+            Intent intent = new Intent(MyPageActivity.this, com.neostride.app.feature.account.AccountActivity.class);
+            startActivity(intent);
+        });
         tvFriends = findViewById(R.id.tv_friends);
         tvStatusMessage = findViewById(R.id.tv_status_message);
         ivProfile = findViewById(R.id.iv_profile);
@@ -222,8 +236,15 @@ public class MyPageActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    // 동일 패키지에 있는 MyFeedAdapter 사용
                     MyFeedAdapter adapter = new MyFeedAdapter(response.body());
+                    adapter.setOnProfileClickListener((userId, nickname) -> {
+                        int myId = TokenManager.getUserId(MyPageActivity.this);
+                        if (userId == myId) return;
+                        Intent intent = new Intent(MyPageActivity.this, RunnerPageActivity.class);
+                        intent.putExtra("user_id", userId);
+                        intent.putExtra("nickname", nickname);
+                        startActivity(intent);
+                    });
                     rvMyFeeds.setAdapter(adapter);
                 }
             }
