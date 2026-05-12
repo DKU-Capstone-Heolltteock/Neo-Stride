@@ -36,6 +36,9 @@ import java.util.Map;
 public class MonthPageFragment extends Fragment {
     private static final String ARG_MONTH = "arg_month";
 
+    private static final String ARG_TIP_MODE = "arg_tip_mode";
+    private boolean isTipMode = false;
+
     private YearMonth displayMonth;
     private RecyclerView rvCalendar, rvDailyRecords;
     private TextView tvSelectedDate, tvNoRecord;
@@ -53,11 +56,19 @@ public class MonthPageFragment extends Fragment {
     private ImageView ivAiGraphArrow;
     private View btnToggleAiGraph;
 
-    public static MonthPageFragment newInstance(YearMonth month) {
+    public static MonthPageFragment newInstance(
+            YearMonth month,
+            boolean isTipMode
+    ) {
+
         MonthPageFragment fragment = new MonthPageFragment();
+
         Bundle args = new Bundle();
         args.putString(ARG_MONTH, month.toString());
+        args.putBoolean(ARG_TIP_MODE, isTipMode);
+
         fragment.setArguments(args);
+
         return fragment;
     }
 
@@ -67,7 +78,15 @@ public class MonthPageFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_month_page, container, false);
 
         if (getArguments() != null) {
-            displayMonth = YearMonth.parse(getArguments().getString(ARG_MONTH));
+
+            displayMonth = YearMonth.parse(
+                    getArguments().getString(ARG_MONTH)
+            );
+
+            isTipMode = getArguments().getBoolean(
+                    ARG_TIP_MODE,
+                    false
+            );
         }
 
         recordRepository = new RunningRepository();
@@ -111,9 +130,17 @@ public class MonthPageFragment extends Fragment {
             }
 
             if (selectedFullData != null) {
-                RecordDetailFragment detailFragment = RecordDetailFragment.newInstance(selectedFullData);
+                RecordDetailFragment detailFragment =
+                        RecordDetailFragment.newInstance(
+                                selectedFullData,
+                                isTipMode
+                        );
+                int containerId = isTipMode
+                        ? R.id.tip_record_container
+                        : R.id.fragment_container;
+
                 requireActivity().getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, detailFragment)
+                        .replace(containerId, detailFragment)
                         .addToBackStack(null)
                         .commit();
             } else {

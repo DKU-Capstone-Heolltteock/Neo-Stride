@@ -1,10 +1,16 @@
 package com.neostride.app.feature.tip;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -24,18 +30,44 @@ public class TipUploadActivity extends AppCompatActivity {
     private TextView btnFree, btnTraining, btnCourse, btnGear;
     private ImageView btnBack;
     private TextView btnDone;
-    private ImageView btnGps, btnAddPhoto;
+
+    private ImageView btnGps;
+    private ImageView btnAddPhoto;
+
+    private HorizontalScrollView scrollSelectedPhotos;
     private LinearLayout layoutSelectedPhotos;
 
-    private EditText etTitle, etContent;
+    private EditText etTitle;
+    private EditText etContent;
+
+    private String selectedCategory = "자유";
 
     private final ArrayList<Uri> selectedImageUris = new ArrayList<>();
+
     private ActivityResultLauncher<String[]> photoPickerLauncher;
+
+    private ActivityResultLauncher<Intent> gpsRecordLauncher;
+    private boolean gpsSelected = false;
+    private String selectedRouteMapUri = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.activity_tip_upload);
+
+        getWindow().setLayout(
+                (int) (getResources().getDisplayMetrics().widthPixels * 0.88),
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+
+        getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+
+        WindowManager.LayoutParams params = getWindow().getAttributes();
+        params.dimAmount = 0.7f;
+        getWindow().setAttributes(params);
+
+        getWindow().setGravity(Gravity.CENTER);
 
         btnFree = findViewById(R.id.btn_category_free);
         btnTraining = findViewById(R.id.btn_category_training);
@@ -47,23 +79,27 @@ public class TipUploadActivity extends AppCompatActivity {
 
         btnGps = findViewById(R.id.btn_gps);
         btnAddPhoto = findViewById(R.id.btn_add_photo);
+
+        scrollSelectedPhotos = findViewById(R.id.scroll_selected_photos);
         layoutSelectedPhotos = findViewById(R.id.layout_selected_photos);
 
         etTitle = findViewById(R.id.et_tip_title);
         etContent = findViewById(R.id.et_tip_content);
 
         initPhotoPicker();
+        initGpsRecordLauncher();
 
-        selectCategory(btnFree, false);
+        selectCategory(btnFree, "자유", false);
 
-        btnFree.setOnClickListener(v -> selectCategory(btnFree, false));
-        btnTraining.setOnClickListener(v -> selectCategory(btnTraining, false));
-        btnGear.setOnClickListener(v -> selectCategory(btnGear, false));
-        btnCourse.setOnClickListener(v -> selectCategory(btnCourse, true));
+        btnFree.setOnClickListener(v -> selectCategory(btnFree, "자유", false));
+        btnTraining.setOnClickListener(v -> selectCategory(btnTraining, "훈련", false));
+        btnGear.setOnClickListener(v -> selectCategory(btnGear, "장비", false));
+        btnCourse.setOnClickListener(v -> selectCategory(btnCourse, "코스", true));
 
-        btnGps.setOnClickListener(v ->
-                Toast.makeText(this, "GPS 기능 준비중입니다", Toast.LENGTH_SHORT).show()
-        );
+        btnGps.setOnClickListener(v -> {
+            Intent intent = new Intent(this, TipRecordSelectActivity.class);
+            gpsRecordLauncher.launch(intent);
+        });
 
         btnBack.setOnClickListener(v -> finish());
 
@@ -76,22 +112,7 @@ public class TipUploadActivity extends AppCompatActivity {
             photoPickerLauncher.launch(new String[]{"image/*"});
         });
 
-        btnDone.setOnClickListener(v -> {
-            String title = etTitle.getText().toString().trim();
-            String content = etContent.getText().toString().trim();
-
-            if (title.isEmpty()) {
-                Toast.makeText(this, "제목을 입력해주세요", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            if (content.isEmpty()) {
-                Toast.makeText(this, "내용을 입력해주세요", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            Toast.makeText(this, "팁 작성 완료 예정", Toast.LENGTH_SHORT).show();
-        });
+        btnDone.setOnClickListener(v -> uploadTip());
     }
 
     private void initPhotoPicker() {
@@ -108,6 +129,28 @@ public class TipUploadActivity extends AppCompatActivity {
         );
     }
 
+    private void initGpsRecordLauncher() {
+        gpsRecordLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
+                        return;
+                    }
+
+                    Intent data = result.getData();
+
+                    gpsSelected = data.getBooleanExtra("gpsSelected", false);
+                    selectedRouteMapUri = data.getStringExtra("routeMapUri");
+
+                    if (gpsSelected) {
+                        Toast.makeText(this, "GPS 기록이 등록되었습니다", Toast.LENGTH_SHORT).show();
+                        btnGps.setAlpha(1.0f);
+                        renderSelectedPhotos();
+                    }
+                }
+        );
+    }
+
     private void addSelectedImages(List<Uri> uris) {
         for (Uri uri : uris) {
             if (selectedImageUris.size() >= 3) {
@@ -117,11 +160,23 @@ public class TipUploadActivity extends AppCompatActivity {
 
             if (!selectedImageUris.contains(uri)) {
                 selectedImageUris.add(uri);
+
+                try {
+                    getContentResolver().takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    );
+                } catch (Exception ignored) {
+                }
             }
         }
     }
 
-    private void selectCategory(TextView selectedButton, boolean isCourse) {
+    private void selectCategory(
+            TextView selectedButton,
+            String category,
+            boolean isCourse
+    ) {
         btnFree.setSelected(false);
         btnTraining.setSelected(false);
         btnCourse.setSelected(false);
@@ -129,58 +184,147 @@ public class TipUploadActivity extends AppCompatActivity {
 
         selectedButton.setSelected(true);
 
+        selectedCategory = category;
+
         btnGps.setVisibility(isCourse ? View.VISIBLE : View.GONE);
+    }
+
+    private void uploadTip() {
+        String title = etTitle.getText().toString().trim();
+        String content = etContent.getText().toString().trim();
+
+        if (title.isEmpty()) {
+            Toast.makeText(this, "제목을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (content.isEmpty()) {
+            Toast.makeText(this, "내용을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra("title", title);
+        resultIntent.putExtra("content", content);
+        resultIntent.putExtra("category", selectedCategory);
+        resultIntent.putExtra("gpsVisible", gpsSelected);
+        resultIntent.putExtra("routeMapUri", selectedRouteMapUri);
+        resultIntent.putParcelableArrayListExtra("imageUris", selectedImageUris);
+
+        setResult(Activity.RESULT_OK, resultIntent);
+
+        Toast.makeText(this, "팁 작성 완료", Toast.LENGTH_SHORT).show();
+
+        finish();
     }
 
     private void renderSelectedPhotos() {
         layoutSelectedPhotos.removeAllViews();
 
-        if (selectedImageUris.isEmpty()) {
-            layoutSelectedPhotos.setVisibility(View.GONE);
+        if (!gpsSelected && selectedImageUris.isEmpty()) {
+            scrollSelectedPhotos.setVisibility(View.GONE);
             return;
         }
 
-        layoutSelectedPhotos.setVisibility(View.VISIBLE);
+        scrollSelectedPhotos.setVisibility(View.VISIBLE);
+
+        if (gpsSelected && selectedRouteMapUri != null) {
+            addGpsThumbnail();
+        }
 
         for (Uri uri : selectedImageUris) {
-            FrameLayout photoBox = new FrameLayout(this);
-
-            LinearLayout.LayoutParams boxParams = new LinearLayout.LayoutParams(dp(78), dp(78));
-            boxParams.setMargins(0, 0, dp(12), 0);
-            photoBox.setLayoutParams(boxParams);
-
-            ImageView imageView = new ImageView(this);
-            imageView.setLayoutParams(new FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT
-            ));
-            imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            imageView.setImageURI(uri);
-
-            TextView btnRemove = new TextView(this);
-            FrameLayout.LayoutParams removeParams = new FrameLayout.LayoutParams(dp(24), dp(24));
-            removeParams.gravity = android.view.Gravity.TOP | android.view.Gravity.END;
-            btnRemove.setLayoutParams(removeParams);
-            btnRemove.setGravity(android.view.Gravity.CENTER);
-            btnRemove.setText("×");
-            btnRemove.setTextColor(0xFF000000);
-            btnRemove.setTextSize(16);
-            btnRemove.setTypeface(null, android.graphics.Typeface.BOLD);
-            btnRemove.setBackgroundResource(R.drawable.bg_badge_btn);
-
-            btnRemove.setOnClickListener(v -> {
-                selectedImageUris.remove(uri);
-                renderSelectedPhotos();
-            });
-
-            photoBox.addView(imageView);
-            photoBox.addView(btnRemove);
-
-            layoutSelectedPhotos.addView(photoBox);
+            addPhotoThumbnail(uri);
         }
     }
 
+    private void addGpsThumbnail() {
+        FrameLayout gpsBox = new FrameLayout(this);
+
+        LinearLayout.LayoutParams boxParams =
+                new LinearLayout.LayoutParams(dp(78), dp(78));
+        boxParams.setMargins(0, 0, dp(12), 0);
+        gpsBox.setLayoutParams(boxParams);
+
+        ImageView gpsImage = new ImageView(this);
+        gpsImage.setLayoutParams(
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                )
+        );
+        gpsImage.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        gpsImage.setImageURI(Uri.parse(selectedRouteMapUri));
+
+        TextView btnRemoveGps = new TextView(this);
+        FrameLayout.LayoutParams removeParams =
+                new FrameLayout.LayoutParams(dp(24), dp(24));
+        removeParams.gravity = Gravity.TOP | Gravity.END;
+
+        btnRemoveGps.setLayoutParams(removeParams);
+        btnRemoveGps.setGravity(Gravity.CENTER);
+        btnRemoveGps.setText("×");
+        btnRemoveGps.setTextColor(0xFFFFFFFF);
+        btnRemoveGps.setTextSize(16);
+        btnRemoveGps.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnRemoveGps.setBackgroundColor(0xFFFF3B30);
+
+        btnRemoveGps.setOnClickListener(v -> {
+            gpsSelected = false;
+            selectedRouteMapUri = null;
+            renderSelectedPhotos();
+        });
+
+        gpsBox.addView(gpsImage);
+        gpsBox.addView(btnRemoveGps);
+
+        layoutSelectedPhotos.addView(gpsBox);
+    }
+
+    private void addPhotoThumbnail(Uri uri) {
+        FrameLayout photoBox = new FrameLayout(this);
+
+        LinearLayout.LayoutParams boxParams =
+                new LinearLayout.LayoutParams(dp(78), dp(78));
+        boxParams.setMargins(0, 0, dp(12), 0);
+        photoBox.setLayoutParams(boxParams);
+
+        ImageView imageView = new ImageView(this);
+        imageView.setLayoutParams(
+                new FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT
+                )
+        );
+        imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        imageView.setImageURI(uri);
+
+        TextView btnRemove = new TextView(this);
+        FrameLayout.LayoutParams removeParams =
+                new FrameLayout.LayoutParams(dp(24), dp(24));
+        removeParams.gravity = Gravity.TOP | Gravity.END;
+
+        btnRemove.setLayoutParams(removeParams);
+        btnRemove.setGravity(Gravity.CENTER);
+        btnRemove.setText("×");
+        btnRemove.setTextColor(0xFF000000);
+        btnRemove.setTextSize(16);
+        btnRemove.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnRemove.setBackgroundResource(R.drawable.bg_badge_btn);
+
+        btnRemove.setOnClickListener(v -> {
+            selectedImageUris.remove(uri);
+            renderSelectedPhotos();
+        });
+
+        photoBox.addView(imageView);
+        photoBox.addView(btnRemove);
+
+        layoutSelectedPhotos.addView(photoBox);
+    }
+
     private int dp(int value) {
-        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+        return (int) (
+                value * getResources().getDisplayMetrics().density + 0.5f
+        );
     }
 }

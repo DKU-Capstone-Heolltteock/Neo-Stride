@@ -52,6 +52,9 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import android.app.Activity;
+import android.content.Intent;
+
 
 // 기록 상세 화면을 담당하는 Fragment임
 public class RecordDetailFragment extends Fragment implements OnMapReadyCallback {
@@ -76,6 +79,8 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
     private float paceThresVF;
     private boolean thresSet = false;
 
+    private boolean isTipMode = false;
+
     public static class PacePoint {
         public String timeStr;
         public float paceValue;
@@ -86,11 +91,16 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         }
     }
 
-    public static RecordDetailFragment newInstance(RunningRecordResponse record) {
+    public static RecordDetailFragment newInstance(
+            RunningRecordResponse record,
+            boolean isTipMode
+    ) {
         RecordDetailFragment fragment = new RecordDetailFragment();
 
         Bundle args = new Bundle();
         args.putSerializable("record_data", record);
+        args.putBoolean("tip_mode", isTipMode);
+
         fragment.setArguments(args);
 
         return fragment;
@@ -121,6 +131,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
         if (getArguments() != null) {
             recordData = (RunningRecordResponse) getArguments().getSerializable("record_data");
+            isTipMode = getArguments().getBoolean("tip_mode", false);
         }
 
         if (recordData != null) {
@@ -267,9 +278,25 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
                 moveCameraToRoute();
             });
 
-            getView().findViewById(R.id.btn_share_circle).setOnClickListener(v -> {
-                captureMapAndOpenFeedDialog();
-            });
+            ImageView btnShare = getView().findViewById(R.id.btn_share_circle);
+
+            if (isTipMode) {
+                btnShare.setImageResource(R.drawable.ic_write_feed);
+
+                btnShare.setOnClickListener(v -> {
+                    Toast.makeText(
+                            requireContext(),
+                            "GPS 경로가 선택되었습니다",
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    confirmTipGpsSelection();
+                });
+            } else {
+                btnShare.setOnClickListener(v -> {
+                    captureMapAndOpenFeedDialog();
+                });
+            }
         }
 
         try {
@@ -815,5 +842,36 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
                 (int) pace,
                 (int) ((pace - (int) pace) * 60)
         );
+    }
+
+    private void confirmTipGpsSelection() {
+        if (mMap == null) {
+            returnTipGpsResult(null);
+            return;
+        }
+
+        moveCameraToRoute();
+
+        mMap.snapshot(bitmap -> {
+            String routeMapUri = saveBitmapToCache(bitmap);
+            returnTipGpsResult(routeMapUri);
+        });
+    }
+
+    private void returnTipGpsResult(String routeMapUri) {
+        Intent resultIntent = new Intent();
+
+        resultIntent.putExtra("gpsSelected", true);
+        resultIntent.putExtra("routeMapUri", routeMapUri);
+
+        if (recordData != null) {
+            resultIntent.putExtra("distance", recordData.getDistance());
+            resultIntent.putExtra("time", recordData.getTime());
+            resultIntent.putExtra("pace", recordData.getPace());
+            resultIntent.putExtra("createdAt", recordData.getCreatedAt());
+        }
+
+        requireActivity().setResult(Activity.RESULT_OK, resultIntent);
+        requireActivity().finish();
     }
 }
