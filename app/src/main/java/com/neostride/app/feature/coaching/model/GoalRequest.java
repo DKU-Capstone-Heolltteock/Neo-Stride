@@ -4,9 +4,10 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 
+
 //  목표 생성 요청 DTO
-//  ERD: COACHING_PLANS 테이블에 저장될 데이터
-//  POST /api/coaching/goals
+//  <p>
+//  POST /api/coaching/goals — COACHING_PLANS 테이블에 저장될 데이터
 
 public class GoalRequest {
 

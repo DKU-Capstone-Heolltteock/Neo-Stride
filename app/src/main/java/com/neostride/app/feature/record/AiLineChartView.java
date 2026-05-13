@@ -13,12 +13,21 @@ import java.util.List;
 import java.util.Locale;
 import com.neostride.app.feature.running.model.RunningRecordResponse;
 
+
+//  AI 코칭 달성도 꺾은선 차트 커스텀 뷰
+//  <p>
+//  - AI 코칭 기록별 실제 페이스를 형광 초록 꺾은선으로 그린다.
+//  - 목표 페이스를 반투명 점선으로 그려 실적과 비교한다.
+//  - 각 포인트에 페이스 라벨·날짜·목표 거리를 표시하며, 최종 목표 달성 시 원을 채운다.
+
 public class AiLineChartView extends View {
+    // ── 데이터 ──
     private List<RunningRecordResponse> records = new ArrayList<>();
     private List<Float> dailyTargetDistances = new ArrayList<>();
-    private float targetPaceValue = 5.5f;
-    private float finalGoalDistance = 0f;
+    private float targetPaceValue = 5.5f;     // 목표 페이스 (분/km)
+    private float finalGoalDistance = 0f;     // 최종 목표 거리 (km)
 
+    // ── 페인트 ──
     private Paint linePaint, pointPaint, textPaint, targetLinePaint;
 
     public AiLineChartView(Context context, AttributeSet attrs) {

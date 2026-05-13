@@ -11,10 +11,16 @@ import com.neostride.app.feature.coaching.GoalStorage;
 
 import java.util.List;
 
+//  하루 러닝 기록 목록 RecyclerView 어댑터
+//  <p>
+//  - AI 코칭 기록은 플랜 상태에 따른 색상 강조 바와 라벨을 표시한다.
+//  - 일반 기록은 기본 형광색 강조 바만 표시한다.
+
 public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.ViewHolder> {
     private List<RunningRecordItem> records;
     private OnRecordClickListener listener;
 
+    // 기록 항목 클릭 콜백
     public interface OnRecordClickListener {
         void onRecordClick(RunningRecordItem record);
     }
@@ -39,7 +45,7 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
         holder.tvPace.setText(record.getPace());
         holder.tvCalories.setText(record.getCalories());
 
-        // 🔥 AI Coaching 판별 로직 (isAiCoaching 값에 전적으로 의존)
+        // AI Coaching 판별 로직 (isAiCoaching 값에 전적으로 의존)
         if (record.isAiCoaching()) {
             // 1. 라벨 보이기
             holder.tvAiLabel.setVisibility(View.VISIBLE);
@@ -56,7 +62,7 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
 
                 GoalStorage.PlanData plan = GoalStorage.getPlan(holder.itemView.getContext(), key);
                 if (plan != null) {
-                    switch (plan.status) {
+                    switch (plan.getEffectiveStatus(key)) {
                         case "completed":
                             barColor = 0xFFCCFF00; // 완료 시 형광 연두
                             break;
@@ -75,7 +81,7 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
             holder.accentBar.setBackgroundColor(barColor);
             holder.tvAiLabel.setTextColor(barColor);
         } else {
-            // 🔥 일반 러닝: 라벨 숨기고 바 색상을 기본 형광색으로 고정
+            // 일반 러닝: 라벨 숨기고 바 색상을 기본 형광색으로 고정
             holder.tvAiLabel.setVisibility(View.GONE);
             holder.accentBar.setBackgroundColor(0xFFCCFF00); // 기본 형광 연두 (#CCFF00)
         }

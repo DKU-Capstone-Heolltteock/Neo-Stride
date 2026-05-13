@@ -2,6 +2,13 @@ package com.neostride.app.feature.badge.model;
 
 import android.graphics.Color;
 
+
+//  뱃지 등급 열거형
+//  <p>
+//  - 각 등급별 한글 이름·색상 코드 보유
+//  - 거리(km)·페이스(초/km) 조합으로 등급을 판정하는 {@link #getTierNameByRecord} 제공
+//  - 인접 기준점 사이를 선형 보간({@link #interpolate})해 등급 경계를 산출
+
 public enum BadgeTier {
     NONE("UnRanked", "#AAAAAA"),
     BRONZE("브론즈", "#A46628"),
@@ -23,6 +30,9 @@ public enum BadgeTier {
     public String getName() { return name; }
     public int getColor() { return Color.parseColor(colorCode); }
 
+    /** 언랭(UnRanked) 여부를 반환한다. true이면 배지 아이콘을 숨겨야 한다. */
+    public boolean isNone() { return this == NONE; }
+
     public static BadgeTier fromString(String text) {
         if (text == null) return NONE;
         for (BadgeTier b : BadgeTier.values()) {
@@ -31,7 +41,13 @@ public enum BadgeTier {
         return NONE;
     }
 
-    // 공용 티어 판정 메서드
+    /**
+     * 거리(km)와 페이스(초/km)로 등급 문자열을 반환한다.
+     *
+     * @param inputKm       달린 거리 (km)
+     * @param inputPaceSec  페이스 (초/km)
+     * @return 등급 소문자 문자열 (예: "gold", "none")
+     */
     public static String getTierNameByRecord(double inputKm, int inputPaceSec) {
         double[] dists = {1.0, 3.0, 5.0, 10.0, 20.0, 40.0};
 
@@ -62,6 +78,7 @@ public enum BadgeTier {
         return "none";
     }
 
+    /** 두 기준점 (x1,y1)~(x2,y2) 사이에서 x에 대한 선형 보간값을 반환한다. */
     private static double interpolate(double x, double x1, double x2, double y1, double y2) {
         if (x <= x1) return y1;
         if (x >= x2) return y2;

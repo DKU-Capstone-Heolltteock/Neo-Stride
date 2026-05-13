@@ -20,8 +20,15 @@ import com.neostride.app.feature.mypage.repository.MyPageRepository;
 import java.util.List;
 import java.util.Locale;
 
+
+//  마이페이지 피드 목록 RecyclerView 어댑터
+//  <p>
+//  - 피드별 프로필·배지·이미지·경로 지도·통계(좋아요·댓글·태그·북마크)를 바인딩한다.
+//  - 북마크 토글 시 서버 API를 호출하여 상태를 동기화한다.
+
 public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder> {
 
+    // 프로필 이미지·닉네임 클릭 콜백 (러너 페이지 이동용)
     public interface OnProfileClickListener {
         void onProfileClick(int userId, String nickname);
     }
@@ -70,11 +77,15 @@ public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder
         if (holder.ivFeedProfile != null) holder.ivFeedProfile.setOnClickListener(profileClick);
         if (holder.tvUsername != null) holder.tvUsername.setOnClickListener(profileClick);
 
-        // 2. 배지 아이콘 (null/NONE → UnRanked 색으로 표시, 그 외 → 티어 색상)
+        // 2. 배지 아이콘 (언랭이면 숨김, 그 외 → 티어 색상)
         if (holder.ivFeedBadge != null) {
             BadgeTier tier = BadgeTier.fromString(item.badgeTier);
-            holder.ivFeedBadge.setVisibility(View.VISIBLE);
-            holder.ivFeedBadge.setColorFilter(tier.getColor());
+            if (tier.isNone()) {
+                holder.ivFeedBadge.setVisibility(View.GONE);
+            } else {
+                holder.ivFeedBadge.setVisibility(View.VISIBLE);
+                holder.ivFeedBadge.setColorFilter(tier.getColor());
+            }
         }
 
         // 4. 북마크 상태 세팅

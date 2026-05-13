@@ -41,11 +41,20 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+
+//  계정 관리 화면 Activity
+//  <p>
+//  - 이메일·닉네임·프로필 사진 조회 및 수정
+//  - 닉네임 변경 다이얼로그 제공
+//  - 로그아웃 및 계정 탈퇴 처리
+
 public class AccountActivity extends AppCompatActivity {
 
+    // ── UI 뷰 ──
     private ShapeableImageView ivProfile;
     private TextView tvEmailValue, tvNicknameValue;
 
+    // ── 네트워크 ──
     private AccountApi accountApi;
     private String currentNickname = "";
 
@@ -95,6 +104,7 @@ public class AccountActivity extends AppCompatActivity {
         fetchAccountInfo();
     }
 
+    // ─── 뷰 참조 초기화 및 클릭 리스너 등록 ───
     private void initViews() {
         ivProfile       = findViewById(R.id.iv_profile);
         tvEmailValue    = findViewById(R.id.tv_email_value);
@@ -116,6 +126,7 @@ public class AccountActivity extends AppCompatActivity {
 
     }
 
+    // ─── 서버에서 계정 정보(이메일, 닉네임, 프로필 사진)를 불러와 UI에 반영 ───
     private void fetchAccountInfo() {
         accountApi.getAccountInfo().enqueue(new Callback<AccountInfoResponse>() {
             @Override
@@ -149,8 +160,7 @@ public class AccountActivity extends AppCompatActivity {
         });
     }
 
-    // ─── 프로필 이미지 변경 다이얼로그 (MyPageActivity와 동일) ───
-
+    // ─── 프로필 이미지 변경 다이얼로그 (카메라/갤러리/기본 이미지 선택) ───
     private void showImagePickDialog() {
         View dialogView = getLayoutInflater().inflate(R.layout.layout_dialog_profile_image, null);
 
@@ -193,48 +203,41 @@ public class AccountActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    // ─── 닉네임 수정 다이얼로그 ───
-
+    // ─── 닉네임 수정 다이얼로그 (글자 수 실시간 표시, 서버 PATCH 요청) ───
     private void showNicknameEditDialog() {
-        Dialog dialog = new Dialog(this);
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        View dialogView = getLayoutInflater().inflate(R.layout.layout_account_edit_nickname, null);
 
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(24), dp(24), dp(24), dp(20));
-        root.setBackgroundResource(R.drawable.bg_feed_card_bordered);
+        EditText etInput    = dialogView.findViewById(R.id.et_nickname_input);
+        TextView btnConfirm = dialogView.findViewById(R.id.btn_confirm);
+        TextView btnCancel  = dialogView.findViewById(R.id.btn_cancel);
+        TextView tvCharCount = dialogView.findViewById(R.id.tv_char_count);
 
-        TextView tvTitle = new TextView(this);
-        tvTitle.setText("닉네임 변경");
-        tvTitle.setTextColor(Color.WHITE);
-        tvTitle.setTextSize(18);
-        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
-        root.addView(tvTitle);
+        // 기존 닉네임 세팅 및 커서 맨 뒤로
+        etInput.setText(currentNickname);
+        etInput.setSelection(etInput.length());
+        tvCharCount.setText(currentNickname.length() + "/12");
 
-        EditText etNickname = new EditText(this);
-        etNickname.setText(currentNickname);
-        etNickname.setTextColor(Color.WHITE);
-        etNickname.setHintTextColor(0xFF555555);
-        etNickname.setHint("새 닉네임 입력");
-        etNickname.setBackgroundResource(R.drawable.bg_email_input);
-        etNickname.setPadding(dp(14), dp(12), dp(14), dp(12));
-        LinearLayout.LayoutParams etP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        etP.topMargin = dp(16);
-        etNickname.setLayoutParams(etP);
-        root.addView(etNickname);
+        // 실시간 글자 수 카운트
+        etInput.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                tvCharCount.setText(s.length() + "/12");
+            }
+            @Override public void afterTextChanged(android.text.Editable s) {}
+        });
 
-        root.addView(makeDivider(dp(20)));
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                .setView(dialogView)
+                .create();
 
-        LinearLayout btnRow = makeBtnRow();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        }
 
-        TextView btnCancel = makeCancelBtn();
         btnCancel.setOnClickListener(v -> dialog.dismiss());
-        btnRow.addView(btnCancel);
 
-        TextView btnConfirm = makeConfirmBtn("변경", 0xFFCCFF00, Color.BLACK);
         btnConfirm.setOnClickListener(v -> {
-            String newNick = etNickname.getText().toString().trim();
+            String newNick = etInput.getText().toString().trim();
             if (newNick.isEmpty()) {
                 Toast.makeText(this, "닉네임을 입력해주세요.", Toast.LENGTH_SHORT).show();
                 return;
@@ -270,14 +273,11 @@ public class AccountActivity extends AppCompatActivity {
                 }
             });
         });
-        btnRow.addView(btnConfirm);
-        root.addView(btnRow);
 
-        showDialog(dialog, root);
+        dialog.show();
     }
 
-    // ─── 로그아웃 다이얼로그 (MainActivity 스타일과 동일) ───
-
+    // ─── 로그아웃 확인 다이얼로그 (확인 시 토큰 삭제 후 LoginActivity 이동) ───
     private void showLogoutDialog() {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -305,8 +305,7 @@ public class AccountActivity extends AppCompatActivity {
         showDialog(dialog, root);
     }
 
-    // ─── 계정 탈퇴 다이얼로그 ───
-
+    // ─── 계정 탈퇴 확인 다이얼로그 (확인 시 서버 DELETE 요청 후 LoginActivity 이동) ───
     private void showDeleteAccountDialog() {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -346,8 +345,9 @@ public class AccountActivity extends AppCompatActivity {
         showDialog(dialog, root);
     }
 
-    // ─── 다이얼로그 빌더 헬퍼 ───
+    // ── 다이얼로그 빌더 헬퍼 ──
 
+    // ─── 기본 배경(bg_feed_card_bordered)의 확인 다이얼로그 루트 레이아웃 생성 ───
     private LinearLayout buildSimpleConfirmRoot(String title, int titleColor, String message) {
         return buildSimpleConfirmRoot(title, titleColor, R.drawable.bg_feed_card_bordered, message);
     }
@@ -379,6 +379,7 @@ public class AccountActivity extends AppCompatActivity {
         return root;
     }
 
+    // ─── 다이얼로그 내부 수평 구분선 뷰 생성 ───
     private View makeDivider(int topMargin) {
         View divider = new View(this);
         divider.setBackgroundColor(0xFF2A2A2A);
@@ -389,6 +390,7 @@ public class AccountActivity extends AppCompatActivity {
         return divider;
     }
 
+    // ─── 버튼을 오른쪽 정렬로 담는 수평 행 레이아웃 생성 ───
     private LinearLayout makeBtnRow() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -400,6 +402,7 @@ public class AccountActivity extends AppCompatActivity {
         return row;
     }
 
+    // ─── 회색 텍스트 "취소" 버튼 생성 ───
     private TextView makeCancelBtn() {
         TextView btn = new TextView(this);
         btn.setText("취소");
@@ -408,6 +411,7 @@ public class AccountActivity extends AppCompatActivity {
         return btn;
     }
 
+    // ─── 지정 색상·텍스트로 확인 버튼(둥근 배경) 생성 ───
     private TextView makeConfirmBtn(String text, int bgColor, int textColor) {
         TextView btn = new TextView(this);
         btn.setText(text);
@@ -425,6 +429,7 @@ public class AccountActivity extends AppCompatActivity {
         return btn;
     }
 
+    // ─── 다이얼로그를 화면 너비 85%로 중앙에 표시 ───
     private void showDialog(Dialog dialog, LinearLayout root) {
         dialog.setContentView(root);
         Window window = dialog.getWindow();
@@ -437,6 +442,7 @@ public class AccountActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    // ─── dp 값을 픽셀로 변환 ───
     private int dp(int value) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
     }

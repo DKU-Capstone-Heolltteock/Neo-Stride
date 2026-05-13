@@ -25,10 +25,20 @@ import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 import java.util.ArrayList;
 import java.util.List;
 
+
+//  친구 관리 화면 Activity
+//  <p>
+//  - 친구 목록 / 보낸 요청 / 받은 요청 / 차단 목록 탭으로 구성된다.
+//  - 각 탭 전환 시 서버에서 상태별 데이터를 조회하여 RecyclerView에 표시한다.
+//  - 친구 삭제 시 확인 다이얼로그를 제공한다.
+
 public class FriendActivity extends AppCompatActivity {
 
+    // ── 어댑터 및 레포지터리 ──
     private FriendAdapter adapter;
     private FriendRepository repository;
+
+    // ── 탭 상태 ──
     private List<TextView> tabs = new ArrayList<>();
     private final String[] statusKeys = {"friends", "sent", "received", "blocked"};
     private int currentTabIndex = 0;
@@ -97,9 +107,8 @@ public class FriendActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * 상단 탭 버튼들을 리스트에 담고 클릭 리스너를 설정합니다.
-     */
+
+     // 상단 탭 버튼들을 리스트에 담고 클릭 리스너를 설정합니다.
     private void initTabs() {
         tabs.add(findViewById(R.id.tab_friend_list));
         tabs.add(findViewById(R.id.tab_sent_requests));
@@ -116,9 +125,8 @@ public class FriendActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 선택된 탭은 검정색(형광색 배경), 나머지는 흰색(배경 없음)으로 스타일을 업데이트합니다.
-     */
+
+     // 선택된 탭은 검정색(형광색 배경), 나머지는 흰색(배경 없음)으로 스타일을 업데이트합니다.
     private void updateTabUI(int selectedIndex) {
         for (int i = 0; i < tabs.size(); i++) {
             TextView tab = tabs.get(i);
@@ -137,9 +145,8 @@ public class FriendActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 서버로부터 상태별 데이터를 가져옵니다.
-     */
+
+     // 서버로부터 상태별 데이터를 가져옵니다.
     private void loadData(String status) {
         repository.fetchFriendList(status, list -> {
             if (list != null) {
@@ -153,9 +160,8 @@ public class FriendActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * 친구 삭제 확인 다이얼로그를 표시합니다.
-     */
+
+     // 친구 삭제 확인 다이얼로그를 표시합니다.
     private void showDeleteFriendDialog(int userId, String nickname) {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -250,6 +256,7 @@ public class FriendActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    // ─── dp 값을 픽셀로 변환 ───
     private int dp(int value) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
     }

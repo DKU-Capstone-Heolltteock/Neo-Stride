@@ -17,12 +17,20 @@ import com.neostride.app.feature.friend.model.FriendResponse;
 import java.util.ArrayList;
 import java.util.List;
 
+
+//  친구 목록 RecyclerView 어댑터
+//  <p>
+//  - 탭 상태(friends/sent/received/blocked/none/per_item)에 따라 우측 액션 버튼을 다르게 표시한다.
+//  - "per_item" 모드에서는 각 항목의 {@link com.neostride.app.feature.friend.model.FriendResponse#status}를 사용한다.
+
 public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendViewHolder> {
 
+    // 액션 버튼 클릭 콜백 (action: "cancel"/"accept"/"reject"/"unblock"/"delete"/"request")
     public interface OnActionClickListener {
-        void onAction(int userId, String action, String nickname); // action: "cancel", "accept", "reject", "unblock", "delete"
+        void onAction(int userId, String action, String nickname);
     }
 
+    // 항목 전체 클릭 콜백 (러너 페이지 이동용)
     public interface OnItemClickListener {
         void onItemClick(int userId, String nickname);
     }
@@ -46,7 +54,7 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
         notifyDataSetChanged();
     }
 
-    /** per_item 모드에서 특정 유저의 status를 변경하고 해당 아이템만 리바인드 */
+    // per_item 모드에서 특정 유저의 status를 변경하고 해당 아이템만 리바인드
     public void updateItemStatus(int userId, String newStatus) {
         for (int i = 0; i < friendList.size(); i++) {
             if (friendList.get(i).userId == userId) {
@@ -81,12 +89,13 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
         holder.btnActionSecondary.setVisibility(View.GONE);
         holder.btnActionSecondary.setOnClickListener(null);
 
-        // 2. 배지 티어 색상 적용
+        // 2. 배지 티어 색상 적용 (언랭이면 숨김)
         BadgeTier tier = BadgeTier.fromString(item.badgeTier);
-        if (tier != null) {
-            holder.ivBadge.setColorFilter(tier.getColor());
+        if (tier == null || tier.isNone()) {
+            holder.ivBadge.setVisibility(View.GONE);
         } else {
-            holder.ivBadge.setColorFilter(Color.GRAY);
+            holder.ivBadge.setVisibility(View.VISIBLE);
+            holder.ivBadge.setColorFilter(tier.getColor());
         }
 
         // 3. 현재 탭 상태에 따라 우측 버튼 설정

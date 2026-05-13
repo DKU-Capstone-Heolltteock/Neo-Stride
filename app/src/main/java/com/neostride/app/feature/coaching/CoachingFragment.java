@@ -34,8 +34,16 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 
+
+//  코칭 탭 Fragment
+//  <p>
+//  - ViewPager2 기반 주간 캘린더로 플랜 조회 및 날짜 선택
+//  - 선택한 날짜의 플랜 상세(목표·상태·AI 피드백) 표시
+//  - 새 목표 생성(서버 전송 + 로컬 캐싱), 목표 삭제, 히스토리 관리
+
 public class CoachingFragment extends Fragment {
 
+    // ── UI 뷰 ──
     private TextView tvWeekLabel, tvNoPlan, btnToday, tvHistoryEmpty;
     private ImageView ivHistoryArrow;
     private LinearLayout btnToggleHistory;
@@ -48,20 +56,23 @@ public class CoachingFragment extends Fragment {
     private CardView btnAddGoal;
     private LinearLayout btnDeleteGoal;
     private RecyclerView rvHistory;
-    private boolean historyExpanded = false;
 
+    // ── 상태 ──
+    private boolean historyExpanded = false;
     private int selectedDay = -1, selectedMonth = -1, selectedYear = -1;
     private int forceHeaderMonth = -1, forceHeaderYear = -1;
 
-    // WeekPageFragment에서 접근
+    // ── WeekPageFragment에서 접근하는 선택 날짜 게터 ──
     public int getSelectedDay() { return selectedDay; }
     public int getSelectedMonth() { return selectedMonth; }
     public int getSelectedYear() { return selectedYear; }
 
+    // 영문 요일 키("mon" 등)를 한글 한 글자("월" 등)로 변환한다.
     static String dayKeyToKorean(String key) {
         switch (key) { case "sun": return "일"; case "mon": return "월"; case "tue": return "화"; case "wed": return "수"; case "thu": return "목"; case "fri": return "금"; case "sat": return "토"; default: return key; }
     }
 
+    // 영문 요일 키 목록을 일~토 순으로 정렬하여 한글 쉼표 문자열로 변환한다.
     static String daysListToKorean(List<String> days) {
         final java.util.List<String> ORDER = java.util.Arrays.asList("sun", "mon", "tue", "wed", "thu", "fri", "sat");
         java.util.List<String> sorted = new java.util.ArrayList<>(days);
@@ -234,7 +245,7 @@ public class CoachingFragment extends Fragment {
         btnAddGoal.setVisibility(allPlans.isEmpty() ? View.VISIBLE : View.GONE);
     }
 
-    // WeekPageFragment에서 호출
+    // WeekPageFragment에서 날짜 셀을 클릭했을 때 호출된다. 선택 날짜를 갱신하고 플랜 상세를 표시한다.
     public void onWeekDayClicked(int day, int month, int year, String dateKey) {
         selectedDay = day; selectedMonth = month; selectedYear = year;
         forceHeaderMonth = month; forceHeaderYear = year;
@@ -242,6 +253,7 @@ public class CoachingFragment extends Fragment {
         showPlanDetail(dateKey);
     }
 
+    // ─── WeekPagerAdapter를 재생성하여 주간 페이지를 새로고침 (헤더·위치 보존) ───
     private void refreshWeekPages() {
         // 현재 헤더 텍스트 보존
         String currentHeader = tvWeekLabel.getText().toString();
@@ -255,6 +267,7 @@ public class CoachingFragment extends Fragment {
         tvWeekLabel.setText(currentHeader);
     }
 
+    // ─── 년/월 선택 NumberPicker 다이얼로그를 표시하고 선택 시 해당 주로 이동 ───
     private void showYearMonthPicker() {
         Calendar ws = weekPagerAdapter.getWeekStartForPosition(vpWeek.getCurrentItem());
         ws.add(Calendar.DAY_OF_MONTH, 3);
@@ -351,6 +364,7 @@ public class CoachingFragment extends Fragment {
         dialog.show();
     }
 
+    // ─── dateKey에 해당하는 플랜 데이터를 읽어 플랜 상세 UI를 갱신 ───
     private void showPlanDetail(String dateKey) {
         GoalStorage.PlanData plan = GoalStorage.getPlan(requireContext(), dateKey);
         View historyHeaderDivider = getView().findViewById(R.id.view_history_header_divider);
@@ -697,6 +711,7 @@ public class CoachingFragment extends Fragment {
         }
     }
 
+    // ─── 서버에서 활성 목표를 조회하여 로컬(GoalStorage)에 동기화한 후 주간 뷰를 갱신 ───
     private void fetchActiveGoalFromServer() {
         int userId = com.neostride.app.common.network.TokenManager.getUserId(requireContext());
         com.neostride.app.feature.coaching.repository.CoachingRepository repo = new com.neostride.app.feature.coaching.repository.CoachingRepository();
@@ -751,6 +766,19 @@ public class CoachingFragment extends Fragment {
                         // 4. 완성된 데이터를 로컬 저장소(SharedPreferences)에 날짜별로 안전하게 저장합니다.
                         GoalStorage.savePlan(requireContext(), key, plan);
                     }
+
+                    // ── 목표 달성 여부 평가 (서버에서 아직 활성 상태인 경우만) ──
+                    com.neostride.app.feature.coaching.model.GoalResponse.GoalInfo goalInfo = data.getGoal();
+                    if (goalInfo != null && goalInfo.isActive()) {
+                        CoachingStatus evalStatus = GoalCompletionEvaluator.evaluate(
+                                null, goalInfo, data.getPlanDays());
+                        if (evalStatus != CoachingStatus.ACTIVE) {
+                            boolean isAchieved = evalStatus == CoachingStatus.COMPLETED_SUCCESS;
+                            int serverGoalId = data.getGoalId();
+                            requireActivity().runOnUiThread(() ->
+                                    showGoalCompletionDialog(serverGoalId, isAchieved));
+                        }
+                    }
                 }
                 requireActivity().runOnUiThread(() -> refreshWeekPages());
             }
@@ -762,6 +790,111 @@ public class CoachingFragment extends Fragment {
         });
     }
 
+    // ─── 목표 완료 결과 다이얼로그 (달성/미달성) ───
+    private void showGoalCompletionDialog(int goalId, boolean isAchieved) {
+        if (!isAdded()) return;
+
+        int accentColor  = isAchieved ? 0xFFCCFF00 : 0xFFFF4444;
+        int bgRes        = isAchieved ? R.drawable.bg_card_bordered : R.drawable.bg_popup_red_border;
+        String title     = isAchieved ? "🎉 목표 달성!" : "목표 기간 종료";
+        String message   = isAchieved
+                ? "설정한 목표를 성공적으로 달성했습니다!\n수고하셨습니다."
+                : "목표 기간이 종료되었습니다.\n완료율이 아쉽지만 다음엔 더 잘하실 수 있어요!";
+
+        Dialog dialog = new Dialog(requireContext());
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setCancelable(false);
+
+        LinearLayout root = new LinearLayout(requireContext());
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(24), dp(24), dp(24), dp(20));
+        root.setBackgroundResource(bgRes);
+
+        TextView tvTitle = new TextView(requireContext());
+        tvTitle.setText(title);
+        tvTitle.setTextColor(accentColor);
+        tvTitle.setTextSize(18);
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        root.addView(tvTitle);
+
+        TextView tvMsg = new TextView(requireContext());
+        tvMsg.setText(message);
+        tvMsg.setTextColor(0xFF888888);
+        tvMsg.setTextSize(14);
+        LinearLayout.LayoutParams msgP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        msgP.topMargin = dp(12);
+        tvMsg.setLayoutParams(msgP);
+        root.addView(tvMsg);
+
+        View divider = new View(requireContext());
+        divider.setBackgroundColor(0xFF333333);
+        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        divP.topMargin = dp(20);
+        divider.setLayoutParams(divP);
+        root.addView(divider);
+
+        LinearLayout btnRow = new LinearLayout(requireContext());
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(Gravity.END);
+        LinearLayout.LayoutParams brP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        brP.topMargin = dp(16);
+        btnRow.setLayoutParams(brP);
+
+        TextView btnConfirm = new TextView(requireContext());
+        btnConfirm.setText("확인");
+        btnConfirm.setTextColor(android.graphics.Color.BLACK);
+        btnConfirm.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnConfirm.setPadding(dp(24), dp(10), dp(24), dp(10));
+        android.graphics.drawable.GradientDrawable confirmBg = new android.graphics.drawable.GradientDrawable();
+        confirmBg.setCornerRadius(dp(20));
+        confirmBg.setColor(accentColor);
+        btnConfirm.setBackground(confirmBg);
+        btnConfirm.setOnClickListener(v -> {
+            dialog.dismiss();
+            // 서버에 목표 비활성화 전송
+            com.neostride.app.feature.coaching.repository.CoachingRepository repo =
+                    new com.neostride.app.feature.coaching.repository.CoachingRepository();
+            com.neostride.app.feature.coaching.model.GoalStatusUpdateRequest req =
+                    new com.neostride.app.feature.coaching.model.GoalStatusUpdateRequest(false, isAchieved);
+            repo.updateGoalStatus(goalId, req,
+                    new com.neostride.app.feature.coaching.repository.CoachingRepository.OnResultListener<com.neostride.app.feature.coaching.model.GoalResponse>() {
+                        @Override
+                        public void onSuccess(com.neostride.app.feature.coaching.model.GoalResponse data) {
+                            if (!isAdded()) return;
+                            // 히스토리에 결과 기록 후 로컬 플랜 초기화
+                            requireActivity().runOnUiThread(() -> {
+                                GoalStorage.clearAllPlans(requireContext());
+                                refreshWeekPages();
+                                if (isAdded()) btnAddGoal.setVisibility(View.VISIBLE);
+                                Toast.makeText(requireContext(),
+                                        isAchieved ? "목표가 달성 처리되었습니다." : "목표가 종료 처리되었습니다.",
+                                        Toast.LENGTH_SHORT).show();
+                            });
+                        }
+                        @Override
+                        public void onError(String message) {
+                            android.util.Log.e("CoachingFragment", "목표 상태 변경 실패: " + message);
+                        }
+                    });
+        });
+        btnRow.addView(btnConfirm);
+        root.addView(btnRow);
+
+        dialog.setContentView(root);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
+            window.setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.85),
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+        }
+        dialog.show();
+    }
+
+    // ─── 로컬 히스토리를 불러와 RecyclerView에 표시 ───
     private void loadHistory() {
         List<GoalStorage.HistoryItem> items = GoalStorage.getHistory(requireContext());
         if (items.isEmpty()) {
@@ -777,7 +910,9 @@ public class CoachingFragment extends Fragment {
         }
     }
 
+    // ─── "분:초" 형식 페이스 문자열을 총 초(int)로 변환 (파싱 실패 시 360초 반환) ───
     private int parsePaceToSec(String ps) { try { String[] p = ps.split(":"); return Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1]); } catch (Exception e) { return 360; } }
+    // ─── 한글 요일 문자열에서 영문 요일 키 목록을 파싱 (빈 결과면 월·수·금 기본값) ───
     private java.util.List<String> parseDaysFromKorean(String ds) {
         java.util.List<String> r = new java.util.ArrayList<>();
         if (ds.contains("일")) r.add("sun"); if (ds.contains("월")) r.add("mon"); if (ds.contains("화")) r.add("tue");
@@ -787,7 +922,12 @@ public class CoachingFragment extends Fragment {
 
     private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density); }
 
-    // 히스토리 어댑터
+
+//      목표 히스토리 목록 어댑터
+//      <p>
+//      - 완료/삭제 결과에 따라 상태 점 색상 및 구분선을 처리한다.
+//      - 미완료·활성 목표 없음 조건에서 복원 버튼을 노출한다.
+
     class HistorySwipeAdapter extends RecyclerView.Adapter<HistorySwipeAdapter.VH> {
         List<GoalStorage.HistoryItem> items;
         HistorySwipeAdapter(List<GoalStorage.HistoryItem> items) { this.items = items; }
@@ -880,6 +1020,7 @@ public class CoachingFragment extends Fragment {
         }
     }
 
+    // ─── 목표 삭제 확인 다이얼로그 (서버 DELETE 후 로컬 플랜 전체 삭제 및 히스토리 기록) ───
     private void showDeleteConfirmDialog(String goalId, GoalStorage.PlanData plan) {
         final android.content.Context context = requireContext();
         Dialog dialog = new Dialog(context);
@@ -1022,6 +1163,7 @@ public class CoachingFragment extends Fragment {
         dialog.show();
     }
 
+    // ─── 히스토리 항목 삭제·복원 공용 확인 다이얼로그 (제목·메시지·동작 색상 파라미터화) ───
     private void showHistoryDialog(String title, String message, String actionText, int actionColor, Runnable onConfirm) {
         Dialog dialog = new Dialog(requireContext());
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);

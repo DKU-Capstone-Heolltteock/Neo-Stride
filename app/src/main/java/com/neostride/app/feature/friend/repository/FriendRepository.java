@@ -10,6 +10,11 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+
+//  친구 관계 데이터 레포지터리
+//  <p>
+//  - {@link FriendApi}를 통해 친구 목록 조회 및 관계 상태 변경 API를 호출한다.
+
 public class FriendRepository {
     private final FriendApi api;
 
@@ -17,7 +22,7 @@ public class FriendRepository {
         this.api = api;
     }
 
-    // 목록 가져오기
+    // 상태별 친구 목록을 서버에서 조회하여 콜백으로 전달한다.
     public void fetchFriendList(String status, Consumer<List<FriendResponse>> callback) {
         api.getFriendList(status).enqueue(new Callback<List<FriendResponse>>() {
             @Override
@@ -33,7 +38,7 @@ public class FriendRepository {
         });
     }
 
-    // 특정 유저의 친구 목록 조회
+    // 특정 사용자의 친구 목록을 서버에서 조회한다. (친구 관계인 경우에만 접근 가능)
     public void fetchUserFriendList(int userId, Consumer<List<FriendResponse>> callback) {
         api.getUserFriendList(userId).enqueue(new Callback<List<FriendResponse>>() {
             @Override
@@ -51,7 +56,7 @@ public class FriendRepository {
         });
     }
 
-    // 상태 변경 요청 (취소/수락 등)
+    // 친구 관계 상태 변경 요청을 서버로 전송하고 성공 여부를 콜백으로 전달한다.
     public void updateStatus(FriendRequest request, Consumer<Boolean> callback) {
         api.updateRelationship(request).enqueue(new Callback<okhttp3.ResponseBody>() {
             @Override

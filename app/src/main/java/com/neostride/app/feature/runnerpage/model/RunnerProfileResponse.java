@@ -2,6 +2,10 @@ package com.neostride.app.feature.runnerpage.model;
 
 import com.google.gson.annotations.SerializedName;
 
+//  러너 프로필 API 응답 DTO
+//  <p>
+//  - 닉네임·프로필 사진·상태메시지·친구 수·게시물 수·친구 여부를 담는다.
+
 public class RunnerProfileResponse {
     @SerializedName("community_profile_name") public String nickname;
     @SerializedName("profile_photo")          public String profilePhoto;

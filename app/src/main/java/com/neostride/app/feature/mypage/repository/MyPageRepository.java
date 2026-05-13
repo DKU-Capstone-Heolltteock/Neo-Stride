@@ -12,6 +12,11 @@ import java.util.List;
 import retrofit2.Call;
 import retrofit2.Callback;
 
+
+//  마이페이지 데이터 레포지터리
+//  <p>
+//  - {@link MyPageService}를 통해 프로필·피드·북마크 API를 호출하고 Callback으로 결과를 전달한다.
+
 public class MyPageRepository {
     private MyPageService apiService;
 
@@ -19,49 +24,49 @@ public class MyPageRepository {
         this.apiService = ApiClient.getInstance().create(MyPageService.class);
     }
 
-    // 1. 프로필 정보 조회
+    // 현재 사용자 프로필 정보를 조회한다.
     public void getUserProfile(Callback<UserProfileResponse> callback) {
         apiService.getUserProfile().enqueue(callback);
     }
 
-    // 2. 내가 쓴 피드 목록 조회
+    // 내가 쓴 피드 목록을 조회한다.
     public void getMyFeeds(Callback<List<CommunityContentResponse>> callback) {
         apiService.getMyFeeds().enqueue(callback);
     }
 
-    // [추가] 3. 나를 태그한 피드 목록 조회
+    // 나를 태그한 피드 목록을 조회한다.
     public void getTaggedFeeds(Callback<List<CommunityContentResponse>> callback) {
         apiService.getTaggedFeeds().enqueue(callback);
     }
 
-    // [추가] 4. 내가 댓글 단 피드 목록 조회
+    // 내가 댓글 단 피드 목록을 조회한다.
     public void getCommentedFeeds(Callback<List<CommunityContentResponse>> callback) {
         apiService.getCommentedFeeds().enqueue(callback);
     }
 
-    // [추가] 5. 내가 좋아요 한 피드 목록 조회
+    // 내가 좋아요 한 피드 목록을 조회한다.
     public void getLikedFeeds(Callback<List<CommunityContentResponse>> callback) {
         apiService.getLikedFeeds().enqueue(callback);
     }
 
-    // [추가] 6. 내가 북마크 한 피드 목록 조회
+    // 내가 북마크 한 피드 목록을 조회한다.
     public void getBookmarkedFeeds(Callback<List<CommunityContentResponse>> callback) {
         apiService.getBookmarkedFeeds().enqueue(callback);
     }
 
-    // 상태 메시지 수정
+    // 상태 메시지를 서버에 수정 요청한다.
     public void updateStatusMessage(String message, Callback<Void> callback) {
         java.util.Map<String, String> body = new java.util.HashMap<>();
         body.put("status_message", message);
         apiService.updateStatusMessage(body).enqueue(callback);
     }
 
-    // 프로필 이미지 업로드
+    // 프로필 이미지를 Multipart로 서버에 업로드한다.
     public void updateProfileImage(okhttp3.MultipartBody.Part imagePart, Callback<Void> callback) {
         apiService.updateProfileImage(imagePart).enqueue(callback);
     }
 
-    // 북마크 상태 업데이트 (서버에 저장/삭제 요청)
+    // 북마크 상태를 토글하여 서버에 저장/해제 요청한다.
     public void toggleBookmark(int contentId, boolean isBookmarked, Callback<Void> callback) {
         // 백엔드 설계에 따라 넘기는 값이 달라질 수 있습니다.
         // 예시: { "is_bookmarked": true }

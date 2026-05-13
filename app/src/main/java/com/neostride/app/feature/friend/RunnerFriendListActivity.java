@@ -30,20 +30,27 @@ import com.neostride.app.feature.friend.model.FriendRequest;
 import com.neostride.app.feature.friend.repository.FriendRepository;
 import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 
+//  다른 러너의 친구 목록 화면 Activity
+//  <p>
+//  - 상단에 대상 러너의 프로필 카드(닉네임·배지·친구 수)와 친구 관계 버튼을 표시한다.
+//  - 친구인 경우에만 상대방의 친구 목록을 RecyclerView로 표시한다.
+
 public class RunnerFriendListActivity extends AppCompatActivity {
 
+    // ── UI 뷰 ──
     private ImageView ivProfile, ivBadge;
     private TextView tvNickname, tvFriendCount, btnFriendAction;
     private RecyclerView rvRunnerFriends;
     private TextView tvAccessDenied;
 
+    // ── 상태 ──
     private int targetUserId;
     private String nickname;
     private String badgeTier;
     private int friendCount;
     private String profilePhoto;
     private boolean isFriend;
-    /** "none" | "sent" | "friends" | "blocked" */
+    // 현재 친구 관계 상태: "none" | "sent" | "friends" | "blocked"
     private String friendshipStatus = "none";
 
     private FriendRepository friendRepository;
@@ -72,6 +79,7 @@ public class RunnerFriendListActivity extends AppCompatActivity {
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
     }
 
+    // ─── 뷰 참조 초기화 ───
     private void initViews() {
         ivProfile       = findViewById(R.id.iv_profile);
         ivBadge         = findViewById(R.id.iv_badge);
@@ -82,9 +90,8 @@ public class RunnerFriendListActivity extends AppCompatActivity {
         tvAccessDenied  = findViewById(R.id.tv_access_denied);
     }
 
-    /**
-     * 최상단 러너 프로필 카드 바인딩
-     */
+
+     // 최상단 러너 프로필 카드 바인딩
     private void bindRunnerProfileCard() {
         // 닉네임
         if (nickname != null) tvNickname.setText(nickname);
@@ -92,9 +99,14 @@ public class RunnerFriendListActivity extends AppCompatActivity {
         // 친구 수
         tvFriendCount.setText("친구 " + friendCount);
 
-        // 배지 색상
+        // 배지 색상 (언랭이면 숨김)
         BadgeTier tier = BadgeTier.fromString(badgeTier);
-        ivBadge.setColorFilter(tier.getColor());
+        if (tier.isNone()) {
+            ivBadge.setVisibility(View.GONE);
+        } else {
+            ivBadge.setVisibility(View.VISIBLE);
+            ivBadge.setColorFilter(tier.getColor());
+        }
 
         // 프로필 사진
         if (profilePhoto != null && !profilePhoto.isEmpty()) {
@@ -155,9 +167,7 @@ public class RunnerFriendListActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * 친구 목록 RecyclerView 설정
-     */
+    // 친구 목록 RecyclerView 설정
     private void setupFriendList() {
         if (!isFriend || targetUserId == -1) {
             // 친구가 아닌 경우: 접근 제한 메시지 표시
@@ -211,9 +221,7 @@ public class RunnerFriendListActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * 친구 삭제 확인 다이얼로그
-     */
+    // ─── 친구 삭제 확인 다이얼로그 (확인 시 서버 DELETE 후 UI 갱신) ───
     private void showDeleteFriendDialog() {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -311,10 +319,10 @@ public class RunnerFriendListActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    /**
-     * 버튼 배경·텍스트·아이콘을 한번에 적용하는 헬퍼.
-     * colorHex가 null이면 bg_badge_btn(형광) 적용, 아니면 해당 색상 GradientDrawable 적용.
-     */
+
+     // 버튼 배경·텍스트·아이콘을 한번에 적용하는 헬퍼 메서드.
+
+     // @param colorHex null이면 bg_badge_btn(형광) drawable 적용, 아니면 지정 색상 GradientDrawable 적용
     private void setButtonStyle(TextView btn, String text, int iconRes, String colorHex, int textColor) {
         btn.setText(text);
         btn.setTextColor(textColor);
@@ -339,6 +347,7 @@ public class RunnerFriendListActivity extends AppCompatActivity {
         }
     }
 
+    // ─── dp 값을 픽셀로 변환 ───
     private int dp(int value) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
     }

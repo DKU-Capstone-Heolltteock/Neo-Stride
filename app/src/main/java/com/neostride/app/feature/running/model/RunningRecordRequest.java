@@ -3,6 +3,12 @@ package com.neostride.app.feature.running.model;
 import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
+
+//  러닝 기록 저장 요청 DTO
+//  <p>
+//  - 사용자 ID·플랜 ID·거리·소요 시간·페이스·칼로리·경로·GPS 좌표 목록·배지 등급을 담는다.
+//  - planId가 null이면 일반 러닝, 값이 있으면 AI 코칭 러닝으로 처리된다.
+
 public class RunningRecordRequest {
     @SerializedName("user_id")
     private int userId;

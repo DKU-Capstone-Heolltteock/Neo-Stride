@@ -8,6 +8,7 @@ import com.neostride.app.feature.coaching.model.FeedbackRequest;
 import com.neostride.app.feature.coaching.model.FeedbackResponse;
 import com.neostride.app.feature.coaching.model.GoalRequest;
 import com.neostride.app.feature.coaching.model.GoalResponse;
+import com.neostride.app.feature.coaching.model.GoalStatusUpdateRequest;
 import com.neostride.app.feature.coaching.model.TodayPlanResponse;
 
 import retrofit2.Call;
@@ -16,11 +17,17 @@ import retrofit2.Response;
 
 import java.util.Map;
 
+
+//  코칭 데이터 레포지터리
+//  <p>
+//  - {@link CoachingApi}를 통해 목표·플랜·피드백 API를 호출하고 결과를 {@link OnResultListener}로 전달한다.
+
 public class CoachingRepository {
 
     private static final String TAG = "CoachingRepository";
     private final CoachingApi coachingApi;
 
+    // 코칭 API 결과 콜백 인터페이스
     public interface OnResultListener<T> {
         void onSuccess(T data);
         void onError(String message);
@@ -104,6 +111,26 @@ public class CoachingRepository {
 
             @Override
             public void onFailure(Call<FeedbackResponse> call, Throwable t) {
+                listener.onError("네트워크 오류: " + t.getMessage());
+            }
+        });
+    }
+
+    // ── 목표 상태 변경 (is_active, is_achieved) ──
+    public void updateGoalStatus(int goalId, GoalStatusUpdateRequest request, OnResultListener<GoalResponse> listener) {
+        coachingApi.updateGoalStatus(goalId, request).enqueue(new Callback<GoalResponse>() {
+            @Override
+            public void onResponse(Call<GoalResponse> call, Response<GoalResponse> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "목표 상태 변경 성공 goal_id=" + goalId);
+                    listener.onSuccess(response.body());
+                } else {
+                    listener.onError("상태 변경 실패: " + response.code());
+                }
+            }
+            @Override
+            public void onFailure(Call<GoalResponse> call, Throwable t) {
+                Log.e(TAG, "목표 상태 변경 네트워크 오류", t);
                 listener.onError("네트워크 오류: " + t.getMessage());
             }
         });

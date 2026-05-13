@@ -52,25 +52,38 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+
+//  러닝 기록 상세 Fragment
+//  <p>
+//  - Google Maps에 GPS 경로를 페이스별 색상 폴리라인으로 그린다.
+//  - 내장 {@link PaceLineView}로 시간별 페이스 변화를 색상 꺾은선 그래프로 표시한다.
+//  - 지도 스냅샷을 캐시에 저장한 후 {@link com.neostride.app.feature.feed.FeedUploadDialog}로 피드 작성 화면을 연다.
+
 public class RecordDetailFragment extends Fragment implements OnMapReadyCallback {
 
+    // ── 지도 및 기록 데이터 ──
     private GoogleMap mMap;
     private RunningRecordResponse recordData;
 
+    // ── 피드 업로드 관련 ──
     private ActivityResultLauncher<String[]> feedPhotoPickerLauncher;
     private FeedUploadDialog feedUploadDialog;
 
+    // ── 상태 ──
     private boolean isAnalysisExpanded = false;
 
+    // ── 페이스 색상 상수 (빠름→느림 기준) ──
     private static final int COLOR_VERY_SLOW = Color.parseColor("#FF3B30");
     private static final int COLOR_SLOW      = Color.parseColor("#FF9500");
     private static final int COLOR_NORMAL    = Color.parseColor("#FFCC00");
     private static final int COLOR_FAST      = Color.parseColor("#A8D600");
     private static final int COLOR_VERY_FAST = Color.parseColor("#34C759");
 
+    // ── 페이스 임계값 (평균 페이스 기반으로 동적 계산) ──
     private float paceThresVS, paceThresS, paceThresF, paceThresVF;
     private boolean thresSet = false;
 
+    /** 페이스 차트의 단일 데이터 포인트 (경과 시간 라벨·페이스 값) */
     public static class PacePoint {
         public String timeStr;
         public float paceValue;
@@ -113,6 +126,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         return view;
     }
 
+    // ─── 기본 통계(날짜·거리·시간·칼로리·페이스) 텍스트뷰에 바인딩 ───
     private void setupBasicUI(View view) {
         TextView tvTitle = view.findViewById(R.id.tv_detail_title);
         if (recordData.getCreatedAt() != null) {
@@ -132,6 +146,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
                 .setText(String.format(Locale.KOREA, "%d'%02d\"", paceSeconds / 60, paceSeconds % 60));
     }
 
+    // ─── 페이스 분석 카드 토글 설정 및 PaceLineView 생성·주입 ───
     private void setupExpandableCard(View view) {
         View toggleArea = view.findViewById(R.id.layout_expand_toggle);
         LinearLayout expandContent = view.findViewById(R.id.layout_expand_content);
@@ -206,12 +221,14 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         }
     }
 
+    // ─── 지도 스냅샷 촬영 후 피드 업로드 다이얼로그 열기 ───
     private void captureMapAndOpenFeedDialog() {
         if (mMap == null) { openFeedDialog(null); return; }
         moveCameraToRoute();
         mMap.snapshot(bitmap -> openFeedDialog(saveBitmapToCache(bitmap)));
     }
 
+    // ─── Bitmap을 캐시 디렉터리에 PNG로 저장하고 URI 문자열 반환 ───
     private String saveBitmapToCache(Bitmap bitmap) {
         if (bitmap == null) return null;
         try {
@@ -223,6 +240,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         } catch (Exception e) { e.printStackTrace(); return null; }
     }
 
+    // ─── FeedUploadDialog 생성 및 표시 (지도 캡처 URI 첨부) ───
     private void openFeedDialog(String routeMapUri) {
         feedUploadDialog = new FeedUploadDialog(
                 requireContext(), recordData, routeMapUri,
@@ -232,6 +250,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         feedUploadDialog.show();
     }
 
+    // ─── GPS 경로 전체가 보이도록 지도 카메라를 경계에 맞춰 이동 ───
     private void moveCameraToRoute() {
         if (mMap == null || recordData == null || recordData.getGpsPath() == null || recordData.getGpsPath().isEmpty()) return;
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
@@ -241,6 +260,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 300));
     }
 
+    // ─── GPS 포인트 쌍마다 페이스를 계산해 페이스 색상 폴리라인을 지도에 그림 ───
     private void drawFullRoute(List<GpsTraceRequest> path) {
         if (path.size() < 2) return;
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
@@ -258,6 +278,12 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         }
         mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 300));
     }
+
+
+//      GPS 경로에서 구간별 페이스를 계산하고 노이즈 필터링 후 PacePoint 목록을 반환한다.
+//      <p>
+//      - 1단계: 인접값 대비 1.5배 초과/0.65배 미만 스파이크를 이웃 평균으로 대체한다.
+//      - 2단계: 7포인트 이동평균을 1회 적용해 부드러운 그래프를 생성한다.
 
     private List<PacePoint> calculatePacePoints(List<GpsTraceRequest> path) {
         List<PacePoint> points = new ArrayList<>();
@@ -303,6 +329,12 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
         return points;
     }
+
+
+//      페이스 꺾은선 차트 커스텀 뷰
+//      <p>
+//      - 구간별 페이스를 색상 세그먼트로 분할해 Canvas에 직접 그린다.
+//      - 터치 이벤트로 선택 포인트를 결정해 {@link OnPointSelectedListener}에 콜백한다.
 
     private class PaceLineView extends View {
         private List<PacePoint> points = new ArrayList<>();
@@ -396,8 +428,10 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         }
     }
 
+    // 페이스 차트 터치 선택 콜백 인터페이스
     public interface OnPointSelectedListener { void onPointSelected(PacePoint point); }
 
+    // ─── 평균 페이스 기반으로 색상 임계값 5단계 동적 계산 ───
     private void updatePaceThresholds() {
         if (recordData == null) return;
         // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위) → 차트 비교용 분/km로 통일
@@ -407,6 +441,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         thresSet = true;
     }
 
+    // ─── 페이스 값에 대응하는 색상 반환 (임계값 미설정 시 고정 기준 사용) ───
     private int getPaceColor(float pace) {
         if (!thresSet) {
             if (pace >= 8.5f) return COLOR_VERY_SLOW; if (pace >= 7.5f) return COLOR_SLOW;
@@ -418,6 +453,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         return COLOR_VERY_FAST;
     }
 
+    // ─── ImageView 아이콘에 수평 그라데이션 색상을 SRC_ATOP 모드로 합성 ───
     private void setGradientTintToIcon(ImageView iv, int[] cls, float[] pts) {
         if (iv == null || iv.getDrawable() == null) return;
         Drawable d = iv.getDrawable();
@@ -430,12 +466,14 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         iv.setImageDrawable(new BitmapDrawable(getResources(), b));
     }
 
+    // ─── 두 위경도 좌표 사이의 거리(km) 계산 ───
     private double distanceBetween(double la1, double lo1, double la2, double lo2) {
         Location l1 = new Location(""); l1.setLatitude(la1); l1.setLongitude(lo1);
         Location l2 = new Location(""); l2.setLatitude(la2); l2.setLongitude(lo2);
         return l1.distanceTo(l2) / 1000.0;
     }
 
+    // ─── ISO-8601 타임스탬프 문자열을 밀리초로 변환 ───
     private long parseIsoTime(String t) {
         try {
             String c = t.replace("Z", "").replace("T", " ");

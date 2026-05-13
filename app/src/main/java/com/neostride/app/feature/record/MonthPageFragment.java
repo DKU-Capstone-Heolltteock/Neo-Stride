@@ -36,21 +36,32 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+
+//  월별 기록 페이지 Fragment
+//  <p>
+//  - ViewPager2의 한 페이지로, 특정 월의 캘린더 그리드·월간 통계·AI 달성도 그래프를 표시한다.
+//  - 서버에서 러닝 기록을 가져와 날짜별 거리와 코칭 dot를 캘린더에 반영한다.
+//  - 날짜 선택 시 해당 일의 상세 기록 목록을 아래 RecyclerView에 업데이트한다.
+//  - AI 코칭 기록이 있으면 {@link AiLineChartView}에 실적 vs 목표 페이스를 그린다.
+
 public class MonthPageFragment extends Fragment {
     private static final String ARG_MONTH = "arg_month";
 
+    // ── UI 뷰 ──
     private YearMonth displayMonth;
     private RecyclerView rvCalendar, rvDailyRecords;
     private TextView tvSelectedDate, tvNoRecord;
     private TextView tvStatDistance, tvStatPace, tvStatCalories;
     private ImageView ivCompareDistance, ivComparePace, ivCompareCalories;
 
+    // ── 어댑터 및 데이터 ──
     private DailyRecordAdapter dailyAdapter;
     private CalendarAdapter calendarAdapter;
     private List<CalendarDayItem> currentDays;
     private RunningRepository recordRepository;
     private List<RunningRecordResponse> allServerRecords = new ArrayList<>();
-    // AI 목표 달성도 그래프 관련 변수 추가
+
+    // ── AI 달성도 그래프 섹션 뷰 ──
     private LinearLayout layoutAiGoalAchievement, layoutAiGraphContent;
     private TextView tvGraphGoalInfo;
     private ImageView ivAiGraphArrow;
@@ -139,6 +150,7 @@ public class MonthPageFragment extends Fragment {
         updateAiGoalSection(LocalDate.now());
     }
 
+    // ─── 캘린더 어댑터 초기화 후 서버 데이터 요청 ───
     private void setupPage() {
         currentDays = generateDaysList(displayMonth);
         calendarAdapter = new CalendarAdapter(currentDays, day -> {
@@ -150,6 +162,7 @@ public class MonthPageFragment extends Fragment {
         fetchMonthDataFromServer();
     }
 
+    // ─── 서버에서 전체 러닝 기록을 가져와 UI(통계·캘린더·차트)를 갱신 ───
     private void fetchMonthDataFromServer() {
         int userId = TokenManager.getUserId(requireContext());
         recordRepository.fetchUserRecords(userId, new RunningRepository.RecordCallback() {
@@ -170,6 +183,7 @@ public class MonthPageFragment extends Fragment {
         });
     }
 
+    // ─── 서버 기록을 순회해 날짜별 누적 거리와 코칭 dot 상태를 캘린더에 반영 ───
     private void updateCalendarDistances(List<RunningRecordResponse> records) {
         if (currentDays == null || calendarAdapter == null) return;
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
@@ -200,6 +214,7 @@ public class MonthPageFragment extends Fragment {
         calendarAdapter.notifyDataSetChanged();
     }
 
+    // ─── 이번 달·전달 누계를 집계해 총 거리·페이스·칼로리 통계와 전월 비교 화살표 표시 ───
     private void updateMonthlyStatistics(List<RunningRecordResponse> records) {
         float curDist = 0f, curCal = 0f; double curSec = 0;
         float prevDist = 0f, prevCal = 0f; double prevSec = 0;
@@ -233,6 +248,7 @@ public class MonthPageFragment extends Fragment {
         updateComparisonUI(ivCompareCalories, curCal, prevCal, true);
     }
 
+    // ─── 전월 대비 증감에 따라 화살표 아이콘과 색상(형광/빨강) 설정; 전월 데이터 없으면 숨김 ───
     private void updateComparisonUI(ImageView view, float current, float previous, boolean higherIsBetter) {
         if (previous <= 0) { view.setVisibility(View.GONE); return; }
         view.setVisibility(View.VISIBLE);
@@ -247,6 +263,7 @@ public class MonthPageFragment extends Fragment {
         }
     }
 
+    // ─── 날짜 셀 선택 시: 선택일 라벨 갱신, AI 목표 섹션 갱신, 해당 일 기록 목록 필터링 ───
     private void onDaySelected(CalendarDayItem day) {
         LocalDate date = day.getDate();
         String formattedDate = date.getYear() + "년 " + date.getMonthValue() + "월 " + date.getDayOfMonth() + "일 " + date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.KOREAN);
@@ -286,6 +303,7 @@ public class MonthPageFragment extends Fragment {
         }
     }
 
+    // ─── GoalStorage에 저장된 플랜이 있으면 AI 달성도 섹션을 표시하고 차트 데이터 주입 ───
     private void updateAiGoalSection(LocalDate date) {
         Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
 
@@ -303,6 +321,7 @@ public class MonthPageFragment extends Fragment {
         }
     }
 
+    // ─── RunningRecordResponse → RunningRecordItem 변환 (시간·페이스 포맷 처리 포함) ───
     private RunningRecordItem convertToItem(RunningRecordResponse res) {
         int totalSeconds = (int) res.getTime();
         String timeStr = String.format("%02d:%02d", totalSeconds / 60, totalSeconds % 60);
@@ -312,6 +331,7 @@ public class MonthPageFragment extends Fragment {
         return new RunningRecordItem(res.getCreatedAt(), String.format("%.2fkm", res.getDistance()), timeStr, paceStr, (int)res.getCalories() + "kcal");
     }
 
+    // ─── 해당 월의 캘린더 셀 목록 생성 (앞 빈칸 null 포함, 코칭 상태 주입) ───
     private List<CalendarDayItem> generateDaysList(YearMonth month) {
         List<CalendarDayItem> days = new ArrayList<>();
         LocalDate firstOfMonth = month.atDay(1);
@@ -324,7 +344,7 @@ public class MonthPageFragment extends Fragment {
             if (allPlans != null) {
                 String key = date.getYear() + "-" + date.getMonthValue() + "-" + date.getDayOfMonth();
                 GoalStorage.PlanData plan = allPlans.get(key);
-                if (plan != null) coachingStatus = plan.status;
+                if (plan != null) coachingStatus = plan.getEffectiveStatus(key);
             }
             CalendarDayItem calDay = new CalendarDayItem(date, "", true);
             calDay.setCoachingStatus(coachingStatus);
@@ -333,7 +353,7 @@ public class MonthPageFragment extends Fragment {
         return days;
     }
 
-    // 파라미터를 double에서 String으로 변경합니다!
+    // ─── 목표 페이스 문자열("5:30/km")을 파싱해 AiLineChartView에 기준선으로 전달 ───
     private void setupPaceChart(String targetPaceStr) {
         if (getView() != null && targetPaceStr != null) {
             AiLineChartView chartView = getView().findViewById(R.id.ai_line_chart);
@@ -356,6 +376,7 @@ public class MonthPageFragment extends Fragment {
         }
     }
 
+    // ─── AI 코칭 기록과 날짜별 목표 거리를 추출해 AiLineChartView에 주입 ───
     private void updateLineChart(List<RunningRecordResponse> records) {
         if (records == null || getView() == null) return;
 

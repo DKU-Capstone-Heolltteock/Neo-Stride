@@ -6,11 +6,13 @@ import androidx.viewpager2.adapter.FragmentStateAdapter;
 
 import java.util.Calendar;
 
-/**
- * 주간 캘린더용 ViewPager2 어댑터
- * 기준: 2024년 1월 첫째주부터 시작, 총 500주 분량
- * 현재 주가 중간(250)에 위치
- */
+
+//  주간 캘린더 ViewPager2 어댑터
+//  <p>
+//  - 총 500페이지(주)를 생성하며, 현재 주는 중앙(250번) 위치에 있다.
+//  - {@link #getPositionForDate}로 특정 날짜의 페이지 인덱스를 계산한다.
+//  - {@link #getWeekStartForPosition}으로 페이지 인덱스에 해당하는 주 시작 날짜를 반환한다.
+
 public class WeekPagerAdapter extends FragmentStateAdapter {
 
     private static final int TOTAL_WEEKS = 500;
@@ -42,9 +44,9 @@ public class WeekPagerAdapter extends FragmentStateAdapter {
         return CENTER_POSITION;
     }
 
-    /**
-     * 특정 날짜가 속한 주의 position 반환
-     */
+
+     // 특정 날짜가 속한 주의 position 반환
+
     public int getPositionForDate(int year, int month, int day) {
         Calendar target = Calendar.getInstance();
         target.set(Calendar.YEAR, year);
@@ -57,6 +59,7 @@ public class WeekPagerAdapter extends FragmentStateAdapter {
         return CENTER_POSITION + diffWeeks;
     }
 
+    // ─── 주어진 Calendar를 해당 주 일요일 00:00:00으로 맞춤 ───
     private void setToStartOfWeek(Calendar cal) {
         int dayOfWeek = cal.get(Calendar.DAY_OF_WEEK);
         int daysToSubtract = dayOfWeek - Calendar.SUNDAY;
@@ -67,9 +70,9 @@ public class WeekPagerAdapter extends FragmentStateAdapter {
         cal.set(Calendar.MILLISECOND, 0);
     }
 
-    /**
-     * position으로부터 해당 주의 시작 Calendar 반환
-     */
+
+     // position으로부터 해당 주의 시작 Calendar 반환
+
     public Calendar getWeekStartForPosition(int position) {
         int weekOffset = position - CENTER_POSITION;
         Calendar weekStart = (Calendar) baseWeekStart.clone();

@@ -3,8 +3,10 @@ package com.neostride.app.feature.coaching.model;
 import com.google.gson.annotations.SerializedName;
 
 
-//  러닝 완료 후 AI 피드백 요청 DTO
-//  POST /api/coaching/plans/{plan_day_id}/feedback
+
+//  AI 피드백 요청 DTO
+//  <p>
+//  POST /api/coaching/plans/{plan_day_id}/feedback — 러닝 완료 후 AI 피드백을 요청한다.
 
 public class FeedbackRequest {
 

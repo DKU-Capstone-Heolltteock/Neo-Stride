@@ -1,5 +1,9 @@
 package com.neostride.app.feature.running;
 
+
+//  러닝 모드 선택 카드 데이터 모델
+//  <p>
+//  - 카드 제목·부제목·배경색·AI 코칭 여부를 담는다.
 public class RunningModeItem {
     public String title;
     public String subtitle;

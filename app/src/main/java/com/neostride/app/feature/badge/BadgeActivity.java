@@ -25,9 +25,19 @@ import com.neostride.app.feature.running.repository.RunningRepository;
 
 import java.util.List;
 
+
+//  뱃지 화면 Activity
+//  <p>
+//  - 현재 사용자의 뱃지 등급·기록·달성일자 표시
+//  - 등급 계산기: km + 페이스 입력 시 {@link BadgeTier} 기준으로 예상 등급 산출
+//  - 등급 기준표 확장/축소 토글
+
 public class BadgeActivity extends AppCompatActivity {
 
+    // ── 상태 ──
     private boolean isExpanded = false;
+
+    // ── UI 뷰 ──
     private TextView tvBadgeTierName, tvBadgeRecord, tvBadgeDate;
     private ImageView ivBadgeMain;
 
@@ -116,6 +126,7 @@ public class BadgeActivity extends AppCompatActivity {
         repository.fetchBadgeDetail(this::updateBadgeUI);
     }
 
+    // ─── NONE 등급일 때 1km 이상 기록 중 최고 페이스 기록을 서버에서 조회해 UI에 표시 ───
     private void loadBestRecord() {
         int userId = TokenManager.getUserId(this);
         RunningRepository runningRepo = new RunningRepository();
@@ -172,6 +183,7 @@ public class BadgeActivity extends AppCompatActivity {
         });
     }
 
+    // ─── 서버 응답으로 받은 뱃지 정보를 바탕으로 UI(등급명·색상·기록·날짜) 갱신 ───
     private void updateBadgeUI(BadgeDetailResponse response) {
         if (response == null) return;
         BadgeTier tier = BadgeTier.fromString(response.tier);

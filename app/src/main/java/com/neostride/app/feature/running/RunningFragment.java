@@ -63,16 +63,28 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Calendar;
 
+
+//  러닝 탭 Fragment
+//  <p>
+//  - 자유 러닝 / AI 코칭 모드를 ViewPager2 카드로 선택한다.
+//  - LocationTrackingService와 연동해 화면이 꺼진 상태에서도 GPS를 1초 단위로 수신한다.
+//  - 수신한 좌표를 페이스 색상 폴리라인으로 지도에 실시간 표시하고, AI 코칭 모드에서는
+//    목표 거리·시간 프로그레스바를 갱신한다.
+//  - 러닝 완료 시 서버에 기록을 저장하고, 배지 등급 상승 여부를 확인해 팝업을 표시한다.
+
 public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
+    // ── 지도 및 위치 ──
     private GoogleMap mMap;
     private FusedLocationProviderClient fusedLocationClient;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
 
-    // 🌟 1. 백엔드 통신용 Repository
+    // ── 레포지터리 ──
     private RunningRepository runningRepository;
     private BadgeRepository badgeRepository;
-    private BadgeTier cachedCurrentTier = BadgeTier.NONE; // 현재 보유 배지 등급 캐시
+    private BadgeTier cachedCurrentTier = BadgeTier.NONE; // 현재 보유 배지 등급 캐시 (등급 상승 비교용)
+
+    // ── UI 뷰 ──
     private ViewPager2 viewPagerRunningMode;
     private CardView btnStop, btnPause, btnMyLocation, btnResultConfirm;
     private CardView btnGoalCompleted;
@@ -86,16 +98,16 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private TextView tvGoalDistanceLabel, tvGoalTimeLabel;
     private ProgressBar progressGoalDistance, progressGoalTime;
 
-    // 🌟 3. 타이머 및 상태 변수
+    // ── 타이머 및 상태 ──
     private Handler timerHandler = new Handler(Looper.getMainLooper());
     private long startTime = 0, pausedDuration = 0, pauseStartTime = 0, elapsedMillis = 0;
     private boolean isRunning = false, isPaused = false, isCoachingRun = false;
 
-    // 🌟 4. 오늘 작업한 목표 관련 변수
+    // ── AI 코칭 목표 ──
     private double targetDistanceKm = 3.5;
     private int targetTimeSeconds = 1299;
 
-    // 🌟 5. 기존에 있던 지도 경로 기록 및 분석 변수들 (서버 전송 및 Polyline용)
+    // ── GPS 경로 및 거리 집계 ──
     private List<LatLng> routePoints = new ArrayList<>();
     private List<String> routeTimestamps = new ArrayList<>();
     private List<Float> segmentPaces = new ArrayList<>();
@@ -104,17 +116,19 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private float finalPaceMinPerKm = 0f;
     private float finalCalories = 0f;
 
-    // GPS 필터 및 페이스 컬러 상수 (그대로 유지)
-    private static final float MIN_DISTANCE_FILTER = 1f;
-    private static final float MIN_ACCURACY_FILTER = 20f;
-    private static final float MAX_SPEED_FILTER = 12f;
+    // ── GPS 필터 상수 ──
+    private static final float MIN_DISTANCE_FILTER = 1f;   // 최소 이동 거리(m)
+    private static final float MIN_ACCURACY_FILTER = 20f;  // 최소 정확도 허용 반경(m)
+    private static final float MAX_SPEED_FILTER = 12f;     // 최대 속도 허용치(m/s, 약 43km/h)
 
+    // ── 페이스 색상 상수 ──
     private static final int COLOR_VERY_SLOW = Color.parseColor("#FF3B30");
     private static final int COLOR_SLOW      = Color.parseColor("#FF9500");
     private static final int COLOR_NORMAL    = Color.parseColor("#FFCC00");
     private static final int COLOR_FAST      = Color.parseColor("#A8D600");
     private static final int COLOR_VERY_FAST = Color.parseColor("#34C759");
 
+    // ── 페이스 임계값 (구간 평균 기반으로 동적 계산) ──
     private float paceThresholdVerySlow, paceThresholdSlow, paceThresholdFast, paceThresholdVeryFast;
     private boolean paceThresholdsSet = false;
 
@@ -146,6 +160,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         return view;
     }
 
+    // ─── 모든 뷰 참조 초기화 및 버튼 클릭 리스너 등록 ───
     private void initViews(View v) {
         viewPagerRunningMode = v.findViewById(R.id.viewPagerRunningMode);
         layoutStartButtons = v.findViewById(R.id.layout_start_buttons);
@@ -196,6 +211,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         if (btnGoalCompleted != null) btnGoalCompleted.setOnClickListener(view -> resetToReady());
     }
 
+    // ─── 러닝 모드 ViewPager2 설정: 자유 러닝 / 오늘의 목표 카드 구성 및 자동 슬라이드 ───
     private void setupViewPager(View v) {
         List<RunningModeItem> modes = new ArrayList<>();
         modes.add(new RunningModeItem("측정 시작", "자유 러닝", 0xFFCCFF00, false));
@@ -262,6 +278,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
+    // ─── 러닝 완료 후 GPS 경로·거리·페이스·칼로리·배지 등급을 서버에 전송 ───
     private void sendDataToBackend() {
         // 10m(0.01km) 미만은 저장하지 않음
         if (totalDistanceMeters < 10f) return;
@@ -276,17 +293,17 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             ));
         }
 
-        // 🌟 핵심: 티어 계산을 위해 먼저 페이스(초)를 계산합니다.
+        // 핵심: 티어 계산을 위해 먼저 페이스(초)를 계산합니다.
         int currentUserId = TokenManager.getUserId(requireContext());
         int durationSeconds = (int) (elapsedMillis / 1000);
 
-        // [중요] paceSeconds를 먼저 선언해야 아래 currentBadge에서 쓸 수 있습니다.
+        // paceSeconds를 먼저 선언해야 아래 currentBadge에서 쓸 수 있습니다.
         int paceSeconds = (int) (finalPaceMinPerKm * 60);
 
-        // 2. 계산된 페이스와 거리를 바탕으로 티어 획득
+        // 계산된 페이스와 거리를 바탕으로 티어 획득
         String currentBadge = BadgeTier.getTierNameByRecord(totalDistanceMeters / 1000f, paceSeconds);
 
-        // 3. 서버 전송용 Request 객체 생성
+        // 서버 전송용 Request 객체 생성
         RunningRecordRequest request = new RunningRecordRequest(
                 currentUserId,
                 null, // planId (필요시 추가)
@@ -309,7 +326,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
 
-        // [추가] GPS 잡기 전, 대한민국(남한) 중심으로 초기 위치 고정
+        // GPS 잡기 전, 대한민국(남한) 중심으로 초기 위치 고정
         // 위도 35.9, 경도 127.7 / 줌 레벨 7.0f
         com.google.android.gms.maps.model.LatLng southKoreaCenter = new com.google.android.gms.maps.model.LatLng(35.9, 127.7);
         mMap.moveCamera(com.google.android.gms.maps.CameraUpdateFactory.newLatLngZoom(southKoreaCenter, 7.0f));
@@ -323,6 +340,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         checkPermissionAndMoveCamera();
     }
 
+    // ─── 페이스(분/km)에 대응하는 색상 반환 (임계값 미설정 시 고정 기준 사용) ───
     private int getPaceColor(float paceMinPerKm) {
         if (!paceThresholdsSet) {
             if (paceMinPerKm >= 8.5f) return COLOR_VERY_SLOW;
@@ -338,6 +356,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         return COLOR_VERY_FAST;
     }
 
+    // ─── 누적 구간 페이스 평균으로 색상 임계값 5단계를 동적 재계산 (5포인트 이상 시 활성화) ───
     private void updatePaceThresholds() {
         if (segmentPaces.size() < 5) return;
         float sum = 0; for (float p : segmentPaces) sum += p;
@@ -349,7 +368,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         paceThresholdsSet = true;
     }
 
-    // 🌟 서비스로부터 위치를 받아 처리 (화면 꺼져도 1초 단위 동작)
+    // 서비스로부터 위치를 받아 처리 (화면 꺼져도 1초 단위 동작)
     private final LocationTrackingService.LocationListener serviceLocationListener = location -> {
         if (!isRunning || isPaused || !isAdded()) return;
 
@@ -362,7 +381,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             float distance = lastLocation.distanceTo(location);
             if (distance < MIN_DISTANCE_FILTER) return;
 
-            // 🌟 1. 실시간 페이스 계산
+            // 실시간 페이스 계산
             long timeDiff = (location.getTime() - lastLocation.getTime()) / 1000;
             if (timeDiff > 0) {
                 float speed = distance / timeDiff;
@@ -376,7 +395,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             totalDistanceMeters += distance;
             lastLocation = location;
 
-            // 🌟 2. UI는 메인 스레드에서 업데이트
+            // UI는 메인 스레드에서 업데이트
             requireActivity().runOnUiThread(() -> {
                 if (!isAdded()) return;
                 if (isCoachingRun) {
@@ -403,17 +422,20 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     };
 
+    // ─── LocationTrackingService 시작 및 위치 콜백 등록 ───
     private void startLocationUpdates() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
         LocationTrackingService.setLocationListener(serviceLocationListener);
         requireContext().startForegroundService(new Intent(requireContext(), LocationTrackingService.class));
     }
 
+    // ─── LocationTrackingService 중지 및 위치 콜백 해제 ───
     private void stopLocationUpdates() {
         LocationTrackingService.setLocationListener(null);
         requireContext().stopService(new Intent(requireContext(), LocationTrackingService.class));
     }
 
+    // ─── 지도를 초기화하고 구간별 페이스 색상 폴리라인을 전체 재그림 ───
     private void drawColoredRoute() {
         if (mMap == null || routePoints.size() < 2) return;
         mMap.clear();
@@ -429,7 +451,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    // 🌟 수정된 부분: 시간 프로그레스바 연동
+    // 시간 프로그레스바 연동
     private Runnable timerRunnable = new Runnable() {
         @Override
         public void run() {
@@ -437,12 +459,12 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             elapsedMillis = SystemClock.elapsedRealtime() - startTime - pausedDuration;
             long totalSec = elapsedMillis / 1000;
 
-            // 시간 표시 (기존 로직)
+            // 시간 표시
             long hours = totalSec / 3600; long minutes = (totalSec % 3600) / 60; long seconds = totalSec % 60;
             if (hours > 0) tvElapsedTime.setText(String.format("%d:%02d:%02d", hours, minutes, seconds));
             else tvElapsedTime.setText(String.format("%02d:%02d", minutes, seconds));
 
-            // [추가] AI 코칭 모드 시간 게이지 업데이트
+            // AI 코칭 모드 시간 게이지 업데이트
             if (isCoachingRun && targetTimeSeconds > 0) {
                 long diff = targetTimeSeconds - totalSec;
                 if (diff >= 0) {
@@ -485,6 +507,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     };
 
+    // ─── 러닝 시작: 상태 초기화, 즉시 알림 표시, 타이머·GPS 시작 ───
     private void startTracking() {
         isRunning = true; isPaused = false; totalDistanceMeters = 0f; lastLocation = null;
         routePoints.clear(); routeTimestamps.clear(); segmentPaces.clear();
@@ -498,7 +521,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         tvElapsedTime.setText("00 : 00"); tvDistance.setText("0 m");
     }
 
-    // 배터리 최적화에서 제외 요청 - 시스템 팝업 바로 호출
+    // ─── 배터리 최적화 예외 요청 팝업 표시 (시스템 설정 바로 진입) ───
     private void requestIgnoreBatteryOptimization() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
         PowerManager pm = (PowerManager) requireContext().getSystemService(android.content.Context.POWER_SERVICE);
@@ -508,7 +531,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         startActivity(intent);
     }
 
-    // 배지 등급 상승 여부 체크 후 팝업 표시
+    // ─── 이번 러닝 등급과 캐시된 등급을 비교해 상승 시 등급 상승 팝업 표시 ───
     private void checkAndShowTierUpgrade() {
         float distanceKm = totalDistanceMeters / 1000f;
         int paceSeconds = (int) (finalPaceMinPerKm * 60);
@@ -522,6 +545,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
+    // ─── 이전·새 등급을 pill 배경으로 표시하는 등급 상승 축하 다이얼로그 ───
     private void showTierUpgradeDialog(BadgeTier oldTier, BadgeTier newTier) {
         if (!isAdded()) return;
 
@@ -574,6 +598,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         dialog.show();
     }
 
+    // ─── 일시정지/재개 토글 및 일시정지 누적 시간 계산 ───
     private void togglePause() {
         if (isPaused) {
             isPaused = false;
@@ -590,6 +615,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
+    // ─── 정지 전 검사: AI 코칭 중 목표 미달이면 경고창 표시, 아니면 바로 종료 ───
     private void checkBeforeStop() {
         // 코칭 모드인데 목표 거리를 다 못 채웠다면 경고창 띄우기
         if (isCoachingRun && totalDistanceMeters < (targetDistanceKm * 1000)) {
@@ -600,7 +626,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    // 목표 달성 시 호출 (자동 종료 및 세리머니)
+    // ─── AI 코칭 목표 달성 시 타이머·GPS 중지 후 형광색 완료 UI 표시 ───
     private void handleGoalCompleted() {
         isRunning = false;
         timerHandler.removeCallbacks(timerRunnable);
@@ -627,7 +653,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    private void stopTracking(boolean showResult) { // boolean showResult 추가!
+    // ─── 러닝 종료: 페이스·칼로리 계산 후 showResult=true이면 결과 화면, false이면 초기화 ───
+    private void stopTracking(boolean showResult) {
         isRunning = false;
         timerHandler.removeCallbacks(timerRunnable);
         stopLocationUpdates();
@@ -676,6 +703,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
+    // ─── 결과·컨트롤·경고 UI 숨기고 초기 '측정 시작' 화면으로 완전 복원 ───
     private void resetToReady() {
         // 1. 운동 종료 후의 UI 요소들 숨기기
         if (layoutResult != null) layoutResult.setVisibility(View.GONE);
@@ -683,7 +711,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         if (btnGoalCompleted != null) btnGoalCompleted.setVisibility(View.GONE);
         if (layoutStopWarning != null) layoutStopWarning.setVisibility(View.GONE); // 경고창도 혹시 모르니 숨김
 
-        // 2. '측정 시작' 버튼이 있는 레이아웃 다시 표시하기
+        // '측정 시작' 버튼이 있는 레이아웃 다시 표시하기
         if (layoutStartButtons != null) {
             layoutStartButtons.setVisibility(View.VISIBLE);
         }
@@ -706,7 +734,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             tvGoalTimeLabel.setText(String.format("%02d:%02d", targetTimeSeconds / 60, targetTimeSeconds % 60));
         }
 
-        // 4. 지도 및 러닝 데이터 초기화
+        // 지도 및 러닝 데이터 초기화
         if (mMap != null) mMap.clear();
         totalDistanceMeters = 0f;
         lastLocation = null;
@@ -714,7 +742,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         routeTimestamps.clear();
         segmentPaces.clear();
 
-        // 5. 상태 변수 및 메인 텍스트 리셋
+        // 상태 변수 및 메인 텍스트 리셋
         elapsedMillis = 0;
         pausedDuration = 0;
         isPaused = false;
@@ -729,6 +757,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
+    // ─── 위치 권한 확인 후 부여 시 내 위치로 카메라 이동, 미부여 시 권한 요청 ───
     private void checkPermissionAndMoveCamera() {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             if (mMap != null) {
@@ -738,6 +767,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         } else { requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE); }
     }
 
+    // ─── 현재 위치를 1회 조회해 지도 카메라를 이동 (isAnimate=true이면 애니메이션) ───
     private void moveToCurrentLocation(boolean isAnimate) {
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
         fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)

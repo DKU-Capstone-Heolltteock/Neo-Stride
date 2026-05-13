@@ -54,23 +54,32 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+
+//  마이페이지 Activity
+//  <p>
+//  - 프로필(닉네임·배지·상태메시지·친구 수) 표시 및 수정
+//  - 내 피드 / 태그된 피드 / 활동(댓글·좋아요·북마크) 탭 전환
+//  - 프로필 사진 변경 (카메라/갤러리/기본 이미지), 서버 Multipart 업로드
+
 public class MyPageActivity extends AppCompatActivity {
 
+    // ── UI 뷰 ──
     private ImageButton btnBack;
     private LinearLayout layoutStatus;
     private TabLayout tabLayout;
     private RecyclerView rvMyFeeds;
-    private TextView tvUsername, tvFriends;
+    private TextView tvUsername, tvFriends, tvStatusMessage;
+    private ImageView ivProfile, ivBadge;
+
+    // ── 레포지터리 ──
     private MyPageRepository repository;
-    private TextView tvStatusMessage;
-    private ImageView ivProfile;
-    private UserProfileResponse cachedUserData;
-    private boolean isMenuItemSelected = false;
-    private ImageView ivBadge;
     private BadgeRepository badgeRepository;
 
-    private int lastRealTabPosition = 0; // 0(내 피드) 또는 1(태그 피드) 저장
-    private boolean isRevertingTab = false; // 무한 루프 방지 플래그
+    // ── 상태 ──
+    private UserProfileResponse cachedUserData;
+    private boolean isMenuItemSelected = false;
+    private int lastRealTabPosition = 0;  // 0(내 피드) 또는 1(태그 피드)
+    private boolean isRevertingTab = false; // 탭 복원 중 무한 루프 방지 플래그
 
     // 카메라 실행 런처
     private final ActivityResultLauncher<Intent> cameraLauncher = registerForActivityResult(
@@ -133,8 +142,8 @@ public class MyPageActivity extends AppCompatActivity {
         setupTabLayout();
     }
 
+    // ─── 피드 타입(me/tagged/comments/likes/bookmarks)에 맞는 API를 호출하여 RecyclerView에 표시 ───
     private void loadFeeds(String type) {
-        // 로딩 중임을 알리기 위해 리스트를 잠시 비워줄 수도 있습니다.
         rvMyFeeds.setAdapter(null);
 
         Callback<List<CommunityContentResponse>> callback = new Callback<List<CommunityContentResponse>>() {
@@ -169,6 +178,7 @@ public class MyPageActivity extends AppCompatActivity {
         }
     }
 
+    // ─── 뷰 참조 초기화 및 클릭 리스너 등록 ───
     private void initViews() {
         btnBack = findViewById(R.id.btn_back);
         layoutStatus = findViewById(R.id.layout_status);
@@ -204,6 +214,7 @@ public class MyPageActivity extends AppCompatActivity {
         }
     }
 
+    // ─── 서버에서 프로필·배지 정보를 조회하고 초기 피드(내 피드)를 로드 ───
     private void fetchData() {
         repository.getUserProfile(new Callback<UserProfileResponse>() {
             @Override
@@ -218,19 +229,25 @@ public class MyPageActivity extends AppCompatActivity {
             }
         });
 
-        // 배지 등급 조회 → ivBadge 색상 적용
+        // 배지 등급 조회 → 언랭이면 숨김, 아니면 색상 적용
         badgeRepository.fetchBadgeDetail(badgeResponse -> {
             BadgeTier tier = BadgeTier.fromString(badgeResponse.tier);
-            if (ivBadge != null && ivBadge.getDrawable() != null) {
-                Drawable d = DrawableCompat.wrap(ivBadge.getDrawable()).mutate();
-                DrawableCompat.setTint(d, tier.getColor());
-                ivBadge.setImageDrawable(d);
+            if (ivBadge != null) {
+                if (tier.isNone()) {
+                    ivBadge.setVisibility(android.view.View.GONE);
+                } else if (ivBadge.getDrawable() != null) {
+                    ivBadge.setVisibility(android.view.View.VISIBLE);
+                    Drawable d = DrawableCompat.wrap(ivBadge.getDrawable()).mutate();
+                    DrawableCompat.setTint(d, tier.getColor());
+                    ivBadge.setImageDrawable(d);
+                }
             }
         });
 
         loadFeeds("me");
     }
 
+    // ─── 내 피드만 조회하여 RecyclerView에 표시 (레거시 메서드) ───
     private void fetchMyFeeds() {
         repository.getMyFeeds(new Callback<List<CommunityContentResponse>>() {
             @Override
@@ -255,6 +272,7 @@ public class MyPageActivity extends AppCompatActivity {
         });
     }
 
+    // ─── 서버 응답 데이터로 닉네임·친구 수·상태 메시지·탭 카운트 UI를 갱신 ───
     private void updateUI(UserProfileResponse data) {
         // 방어 코드: 데이터가 아예 없는 경우 처리(백엔드에서 정보를 불러오지 못하고 있을 때)
         if (data == null) {
@@ -296,6 +314,7 @@ public class MyPageActivity extends AppCompatActivity {
         }
     }
 
+    // ─── 프로필 이미지 변경 다이얼로그 (카메라/갤러리/기본 이미지 선택) ───
     private void showImagePickDialog() {
         // 1. 커스텀 뷰 준비
         View dialogView = getLayoutInflater().inflate(R.layout.layout_dialog_profile_image, null);
@@ -348,10 +367,12 @@ public class MyPageActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    // ─── RecyclerView 레이아웃 매니저 설정 ───
     private void setupRecyclerView() {
         rvMyFeeds.setLayoutManager(new LinearLayoutManager(this));
     }
 
+    // ─── TabLayout 탭 선택 리스너 설정 ───
     private void setupTabLayout() {
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
@@ -388,6 +409,7 @@ public class MyPageActivity extends AppCompatActivity {
         });
     }
 
+    // ─── "활동" 탭 클릭 시 댓글·좋아요·북마크 선택 PopupWindow 표시 ───
     private void showActivityMenu() {
         View popupView = getLayoutInflater().inflate(R.layout.layout_my_activity_menu, null);
         isMenuItemSelected = false; // 팝업이 열릴 때 초기화
@@ -458,7 +480,7 @@ public class MyPageActivity extends AppCompatActivity {
         popupWindow.showAsDropDown(anchor, xOff, yOff);
     }
 
-    //사용자 상태 메시지를 수정하는 커스텀 다이얼로그를 표시합니다.
+    // ─── 상태 메시지 수정 다이얼로그 (즉시 UI 반영 후 서버 PATCH) ───
     private void showEditStatusDialog() {
         // 1. [레이아웃 준비] 커스텀 뷰 인플레이트 및 뷰 참조
         View dialogView = getLayoutInflater().inflate(R.layout.layout_mypage_edit_status, null);
@@ -535,7 +557,7 @@ public class MyPageActivity extends AppCompatActivity {
         dialog.show();
     }
 
-    // 카메라 Bitmap → Multipart 업로드
+    // ─── 카메라로 촬영한 Bitmap을 캐시 파일로 변환하여 서버에 업로드 ───
     private void uploadProfileImageBitmap(Bitmap bitmap) {
         try {
             java.io.File file = new java.io.File(getCacheDir(), "profile_camera.jpg");
@@ -548,7 +570,7 @@ public class MyPageActivity extends AppCompatActivity {
         }
     }
 
-    // 갤러리 Uri → Multipart 업로드
+    // ─── 갤러리에서 선택한 Uri를 캐시 파일로 변환하여 서버에 업로드 ───
     private void uploadProfileImageUri(Uri uri) {
         try {
             java.io.InputStream is = getContentResolver().openInputStream(uri);
@@ -563,7 +585,7 @@ public class MyPageActivity extends AppCompatActivity {
         }
     }
 
-    // 공통 업로드 로직
+    // ─── Multipart 파일을 서버에 업로드하는 공통 로직 ───
     private void uploadProfileFile(java.io.File file) {
         okhttp3.RequestBody requestBody = okhttp3.RequestBody.create(file, okhttp3.MediaType.parse("image/jpeg"));
         okhttp3.MultipartBody.Part part = okhttp3.MultipartBody.Part.createFormData("image", file.getName(), requestBody);
@@ -580,6 +602,7 @@ public class MyPageActivity extends AppCompatActivity {
         });
     }
 
+    // ─── "활동" 탭 텍스트를 갱신 (기본값: "내 활동 ▼", 하위 메뉴 선택 시 해당 이름 표시) ───
     private void updateActivityTabTitle(String title) {
         TabLayout.Tab activityTab = tabLayout.getTabAt(2);
         if (activityTab != null) {

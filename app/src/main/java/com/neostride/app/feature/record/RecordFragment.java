@@ -24,11 +24,19 @@ import java.lang.reflect.Field;
 import java.time.YearMonth;
 import android.annotation.SuppressLint;
 
+
+//  기록 탭 Fragment
+//  <p>
+//  - ViewPager2로 월별 기록 페이지를 표시한다.
+//  - 상단 년/월 텍스트 클릭 시 NumberPicker 다이얼로그로 원하는 달로 이동할 수 있다.
+
 public class RecordFragment extends Fragment {
 
+    // ── ViewPager2 및 어댑터 ──
     private ViewPager2 viewPager;
     private RecordPagerAdapter pagerAdapter;
     private TextView tvMonthYear;
+    // 페이지 인덱스 계산 기준 월 (2024년 1월)
     private final YearMonth baseMonth = YearMonth.of(2024, 1);
 
     @Nullable
@@ -62,6 +70,7 @@ public class RecordFragment extends Fragment {
         return view;
     }
 
+    // ─── 년/월 선택 NumberPicker 다이얼로그 표시 ───
     private void showYearMonthPicker() {
         int currentPos = viewPager.getCurrentItem();
         YearMonth currentMonth = baseMonth.plusMonths(currentPos);
@@ -174,7 +183,7 @@ public class RecordFragment extends Fragment {
         dialog.show();
     }
 
-    // NumberPicker 텍스트 색상을 흰색으로
+    // ─── NumberPicker 텍스트·구분선 색상을 다크 테마(흰색/회색)로 적용 (리플렉션 사용) ───
     @SuppressLint("SoonBlockedPrivateApi")
     private void styleNumberPicker(NumberPicker picker) {
         try {
@@ -209,6 +218,7 @@ public class RecordFragment extends Fragment {
         });
     }
 
+    // ─── 다이얼로그 다크 배경용 둥근 GradientDrawable 생성 ───
     private android.graphics.drawable.GradientDrawable createRoundedBg() {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setColor(Color.parseColor("#1A1A1A"));

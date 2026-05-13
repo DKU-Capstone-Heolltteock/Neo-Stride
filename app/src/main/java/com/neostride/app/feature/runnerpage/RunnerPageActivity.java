@@ -46,8 +46,15 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+//  다른 러너의 프로필 페이지 Activity
+//  <p>
+//  - 닉네임·배지·상태메시지·친구 수 등 프로필 정보를 표시한다.
+//  - 친구 요청·취소·삭제, 차단·차단 해제 기능을 제공한다.
+//  - 해당 러너의 피드 목록을 탭 RecyclerView로 표시한다.
+
 public class RunnerPageActivity extends AppCompatActivity {
 
+    // ── UI 뷰 ──
     private ImageButton btnBack;
     private ImageView ivProfile, ivBadge, ivFriendRequestIcon;
     private TextView tvUsername, tvFriends, tvStatusMessage, tvBlockedMessage, tvFriendRequestLabel, btnMoreOptions;
@@ -55,13 +62,18 @@ public class RunnerPageActivity extends AppCompatActivity {
     private TabLayout tabLayout;
     private RecyclerView rvRunnerFeeds;
 
+    // ── 상태 ──
     private int targetUserId;
     private boolean isBlocked;
     private boolean isFriend;
+    // 친구 상태: "none" | "sent" | "friends"
+    private String friendshipStatus = "none";
     private String runnerNickname = "";
     private String runnerBadgeTier = "none";
     private String runnerProfilePhoto = "";
     private int runnerFriendCount = 0;
+
+    // ── 레포지터리 ──
     private RunnerPageRepository repository;
     private FriendRepository friendRepository;
 
@@ -71,9 +83,10 @@ public class RunnerPageActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_runner_page);
 
-        targetUserId = getIntent().getIntExtra("user_id", -1);
-        isBlocked    = getIntent().getBooleanExtra("is_blocked", false);
-        isFriend     = getIntent().getBooleanExtra("is_friend", false);
+        targetUserId     = getIntent().getIntExtra("user_id", -1);
+        isBlocked        = getIntent().getBooleanExtra("is_blocked", false);
+        isFriend         = getIntent().getBooleanExtra("is_friend", false);
+        friendshipStatus = isFriend ? "friends" : "none";
         String nicknameHint = getIntent().getStringExtra("nickname");
 
         repository       = new RunnerPageRepository();
@@ -94,6 +107,7 @@ public class RunnerPageActivity extends AppCompatActivity {
         fetchRunnerData();
     }
 
+    // ─── 뷰 참조 초기화 및 기본 클릭 리스너 등록 ───
     private void initViews() {
         btnBack          = findViewById(R.id.btn_back);
         ivProfile        = findViewById(R.id.iv_profile);
@@ -120,14 +134,14 @@ public class RunnerPageActivity extends AppCompatActivity {
         tvBlockedMessage    = findViewById(R.id.tv_blocked_message);
 
         btnMoreOptions.setOnClickListener(v -> showMoreOptionsDialog());
-
-        btnFriendRequest.setOnClickListener(v -> sendFriendRequest());
     }
 
+    // ─── 피드 RecyclerView 레이아웃 매니저 설정 ───
     private void setupRecyclerView() {
         rvRunnerFeeds.setLayoutManager(new LinearLayoutManager(this));
     }
 
+    // ─── 차단 상태 분기 후 프로필·배지·피드를 서버에서 조회 ───
     private void fetchRunnerData() {
         if (targetUserId == -1) return;
 
@@ -135,7 +149,10 @@ public class RunnerPageActivity extends AppCompatActivity {
         if (isBlocked) {
             ivFriendRequestIcon.setVisibility(android.view.View.VISIBLE);
             ivFriendRequestIcon.setImageResource(R.drawable.ic_friend_unlock);
+            ivFriendRequestIcon.setColorFilter(Color.BLACK);
             tvFriendRequestLabel.setText("차단 해제");
+            tvFriendRequestLabel.setTextColor(Color.BLACK);
+            btnFriendRequest.setBackgroundResource(R.drawable.bg_badge_btn);
             btnFriendRequest.setOnClickListener(v ->
                 friendRepository.updateStatus(new FriendRequest(targetUserId, "unblock"), success -> {
                     runOnUiThread(() -> {
@@ -150,6 +167,8 @@ public class RunnerPageActivity extends AppCompatActivity {
             );
             rvRunnerFeeds.setVisibility(android.view.View.GONE);
             tvBlockedMessage.setVisibility(android.view.View.VISIBLE);
+        } else {
+            updateFriendButton();
         }
 
         // 프로필 조회
@@ -166,14 +185,21 @@ public class RunnerPageActivity extends AppCompatActivity {
             }
         });
 
-        // 배지 조회
+        // 배지 조회 (언랭이면 숨김)
         repository.getRunnerBadge(targetUserId, badgeResponse -> {
             runnerBadgeTier = badgeResponse.tier != null ? badgeResponse.tier : "none";
             BadgeTier tier = BadgeTier.fromString(badgeResponse.tier);
-            if (ivBadge != null && ivBadge.getDrawable() != null) {
-                Drawable d = DrawableCompat.wrap(ivBadge.getDrawable()).mutate();
-                DrawableCompat.setTint(d, tier.getColor());
-                runOnUiThread(() -> ivBadge.setImageDrawable(d));
+            if (ivBadge != null) {
+                if (tier.isNone()) {
+                    runOnUiThread(() -> ivBadge.setVisibility(View.GONE));
+                } else if (ivBadge.getDrawable() != null) {
+                    Drawable d = DrawableCompat.wrap(ivBadge.getDrawable()).mutate();
+                    DrawableCompat.setTint(d, tier.getColor());
+                    runOnUiThread(() -> {
+                        ivBadge.setVisibility(View.VISIBLE);
+                        ivBadge.setImageDrawable(d);
+                    });
+                }
             }
         });
 
@@ -182,6 +208,7 @@ public class RunnerPageActivity extends AppCompatActivity {
         loadRunnerFeeds();
     }
 
+    // ─── 서버에서 해당 러너의 피드 목록을 가져와 RecyclerView에 바인딩 ───
     private void loadRunnerFeeds() {
         repository.getRunnerFeeds(targetUserId, new Callback<List<CommunityContentResponse>>() {
             @Override
@@ -209,9 +236,9 @@ public class RunnerPageActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * ••• 더보기 PopupWindow (차단 / 신고) — 버튼 바로 아래에 드롭다운으로 표시
-     */
+
+    // ••• 더보기 PopupWindow (차단 / 신고) — 버튼 바로 아래에 드롭다운으로 표시
+
     private void showMoreOptionsDialog() {
         View menuView = LayoutInflater.from(this).inflate(R.layout.layout_runner_more_options, null);
 
@@ -235,9 +262,9 @@ public class RunnerPageActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * 차단 확인 다이얼로그
-     */
+
+    // 차단 확인 다이얼로그
+
     private void showBlockConfirmDialog() {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -339,22 +366,19 @@ public class RunnerPageActivity extends AppCompatActivity {
         dialog.show();
     }
 
+    // ─── dp 단위를 픽셀로 변환 ───
     private int dp(int value) {
         return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
     }
 
-    /**
-     * 차단 해제 성공 후 러너페이지를 정상 상태로 복원합니다.
-     */
+    // ─── 친구 요청 전송 후 버튼 상태를 "sent"로 전환 ───
     private void sendFriendRequest() {
         if (targetUserId == -1) return;
         friendRepository.updateStatus(new FriendRequest(targetUserId, "request"), success -> {
             runOnUiThread(() -> {
                 if (success) {
-                    // 요청 취소 버튼으로 전환
-                    ivFriendRequestIcon.setImageResource(R.drawable.ic_friend_return);
-                    tvFriendRequestLabel.setText("요청 취소");
-                    btnFriendRequest.setOnClickListener(v -> cancelFriendRequest());
+                    friendshipStatus = "sent";
+                    updateFriendButton();
                     Toast.makeText(this, "친구 요청을 보냈습니다.", Toast.LENGTH_SHORT).show();
                 } else {
                     Toast.makeText(this, "친구 요청에 실패했습니다.", Toast.LENGTH_SHORT).show();
@@ -363,15 +387,15 @@ public class RunnerPageActivity extends AppCompatActivity {
         });
     }
 
+    // ─── 보낸 친구 요청을 취소하고 버튼 상태를 "none"으로 복원 ───
     private void cancelFriendRequest() {
         if (targetUserId == -1) return;
         friendRepository.updateStatus(new FriendRequest(targetUserId, "cancel"), success -> {
             runOnUiThread(() -> {
                 if (success) {
-                    // 친구요청 버튼으로 복원
-                    ivFriendRequestIcon.setImageResource(R.drawable.ic_friend_request);
-                    tvFriendRequestLabel.setText("친구요청");
-                    btnFriendRequest.setOnClickListener(v -> sendFriendRequest());
+                    friendshipStatus = "none";
+                    isFriend = false;
+                    updateFriendButton();
                     Toast.makeText(this, "요청을 취소했습니다.", Toast.LENGTH_SHORT).show();
                 } else {
                     Toast.makeText(this, "취소에 실패했습니다.", Toast.LENGTH_SHORT).show();
@@ -380,18 +404,147 @@ public class RunnerPageActivity extends AppCompatActivity {
         });
     }
 
+    // ─── 차단 해제 후 친구 버튼·피드 목록 UI를 원상태로 복원 ───
     private void restoreUnblockedUI() {
-        // 버튼을 친구요청으로 복원
-        ivFriendRequestIcon.setImageResource(R.drawable.ic_friend_request);
-        tvFriendRequestLabel.setText("친구요청");
-        btnFriendRequest.setOnClickListener(v -> sendFriendRequest());
-        // 피드 영역 복원
+        friendshipStatus = isFriend ? "friends" : "none";
+        updateFriendButton();
         tvBlockedMessage.setVisibility(android.view.View.GONE);
         rvRunnerFeeds.setVisibility(android.view.View.VISIBLE);
-        // 피드 데이터 로드
         loadRunnerFeeds();
     }
 
+    // friendshipStatus 값에 따라 친구 버튼 아이콘·텍스트·배경·클릭 일괄 적용
+    private void updateFriendButton() {
+        switch (friendshipStatus) {
+            case "friends":
+                // 친구 삭제 버튼 (빨간색)
+                android.graphics.drawable.GradientDrawable redBg = new android.graphics.drawable.GradientDrawable();
+                redBg.setCornerRadius(dp(20));
+                redBg.setColor(Color.parseColor("#FF4444"));
+                btnFriendRequest.setBackground(redBg);
+                ivFriendRequestIcon.setImageResource(R.drawable.ic_friend_remove);
+                ivFriendRequestIcon.setColorFilter(Color.WHITE);
+                tvFriendRequestLabel.setText("친구 삭제");
+                tvFriendRequestLabel.setTextColor(Color.WHITE);
+                btnFriendRequest.setOnClickListener(v -> showDeleteFriendDialog());
+                break;
+
+            case "sent":
+                // 요청 취소 버튼 (형광)
+                btnFriendRequest.setBackgroundResource(R.drawable.bg_badge_btn);
+                ivFriendRequestIcon.setImageResource(R.drawable.ic_friend_return);
+                ivFriendRequestIcon.setColorFilter(Color.BLACK);
+                tvFriendRequestLabel.setText("요청 취소");
+                tvFriendRequestLabel.setTextColor(Color.BLACK);
+                btnFriendRequest.setOnClickListener(v -> cancelFriendRequest());
+                break;
+
+            default: // "none"
+                // 친구 요청 버튼 (형광)
+                btnFriendRequest.setBackgroundResource(R.drawable.bg_badge_btn);
+                ivFriendRequestIcon.setImageResource(R.drawable.ic_friend_request);
+                ivFriendRequestIcon.setColorFilter(Color.BLACK);
+                tvFriendRequestLabel.setText("친구요청");
+                tvFriendRequestLabel.setTextColor(Color.BLACK);
+                btnFriendRequest.setOnClickListener(v -> sendFriendRequest());
+                break;
+        }
+    }
+
+
+    // 친구 삭제 확인 다이얼로그
+    private void showDeleteFriendDialog() {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(24), dp(24), dp(24), dp(20));
+        root.setBackgroundResource(R.drawable.bg_popup_red_border);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("친구 삭제");
+        tvTitle.setTextColor(0xFFFF3B30);
+        tvTitle.setTextSize(18);
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        root.addView(tvTitle);
+
+        TextView tvMsg = new TextView(this);
+        tvMsg.setText(runnerNickname + "님과 친구를 끊겠습니까?");
+        tvMsg.setTextColor(0xFF888888);
+        tvMsg.setTextSize(14);
+        LinearLayout.LayoutParams msgP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        msgP.topMargin = dp(12);
+        tvMsg.setLayoutParams(msgP);
+        root.addView(tvMsg);
+
+        View divider = new View(this);
+        divider.setBackgroundColor(0xFF333333);
+        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        divP.topMargin = dp(20);
+        divider.setLayoutParams(divP);
+        root.addView(divider);
+
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(Gravity.END);
+        LinearLayout.LayoutParams brP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        brP.topMargin = dp(16);
+        btnRow.setLayoutParams(brP);
+
+        TextView btnCancel = new TextView(this);
+        btnCancel.setText("취소");
+        btnCancel.setTextColor(0xFF888888);
+        btnCancel.setPadding(dp(16), dp(10), dp(16), dp(10));
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnRow.addView(btnCancel);
+
+        TextView btnConfirm = new TextView(this);
+        btnConfirm.setText("삭제");
+        btnConfirm.setTextColor(Color.BLACK);
+        btnConfirm.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnConfirm.setPadding(dp(20), dp(10), dp(20), dp(10));
+        android.graphics.drawable.GradientDrawable confirmBg = new android.graphics.drawable.GradientDrawable();
+        confirmBg.setCornerRadius(dp(20));
+        confirmBg.setColor(0xFFFF3B30);
+        btnConfirm.setBackground(confirmBg);
+        LinearLayout.LayoutParams confirmP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        confirmP.setMarginStart(dp(8));
+        btnConfirm.setLayoutParams(confirmP);
+        btnConfirm.setOnClickListener(v -> {
+            dialog.dismiss();
+            friendRepository.updateStatus(new FriendRequest(targetUserId, "delete"), success -> {
+                runOnUiThread(() -> {
+                    if (success) {
+                        isFriend = false;
+                        friendshipStatus = "none";
+                        updateFriendButton();
+                        Toast.makeText(this, runnerNickname + "님과 친구를 끊었습니다.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "친구 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    }
+                });
+            });
+        });
+        btnRow.addView(btnConfirm);
+        root.addView(btnRow);
+
+        dialog.setContentView(root);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            window.setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.85),
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+        }
+        dialog.show();
+    }
+
+    // ─── 피드 탭 타이틀을 "닉네임 님의 피드 N" 형식으로 갱신 ───
     private void updateFeedTabTitle(int count) {
         TabLayout.Tab feedTab = tabLayout.getTabAt(0);
         if (feedTab != null) {
@@ -399,6 +552,7 @@ public class RunnerPageActivity extends AppCompatActivity {
         }
     }
 
+    // ─── 서버 프로필 응답으로 닉네임·친구 수·상태메시지·사진 UI 갱신 ───
     private void updateProfileUI(RunnerProfileResponse data) {
         if (data.nickname != null) {
             tvUsername.setText(data.nickname);
@@ -407,7 +561,14 @@ public class RunnerPageActivity extends AppCompatActivity {
         runnerFriendCount = data.friendCount != null ? data.friendCount : 0;
         tvFriends.setText("친구 " + runnerFriendCount);
         // 백엔드 응답에 is_friend가 있으면 우선 적용 (Intent로 받은 값보다 정확)
-        if (data.isFriend != null) isFriend = data.isFriend;
+        if (data.isFriend != null) {
+            isFriend = data.isFriend;
+            // 아직 요청 취소 상태가 아닐 때만 덮어씀 (sent 상태는 유지)
+            if (!"sent".equals(friendshipStatus)) {
+                friendshipStatus = isFriend ? "friends" : "none";
+                if (!isBlocked) updateFriendButton();
+            }
+        }
         tvStatusMessage.setText(data.statusMessage != null ? data.statusMessage : "");
 
         // 피드 탭 카운트 (postCount 기준 먼저 갱신, 피드 API 응답 오면 덮어씀)

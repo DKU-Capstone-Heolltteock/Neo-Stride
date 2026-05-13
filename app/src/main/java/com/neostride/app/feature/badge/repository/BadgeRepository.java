@@ -6,6 +6,11 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+/**
+ * 뱃지 데이터 레포지터리
+ * <p>
+ * - {@link BadgeService}를 통해 뱃지 API를 호출하고 결과를 {@link BadgeCallback}으로 전달한다.
+ */
 public class BadgeRepository {
     private final BadgeService badgeService;
 
@@ -13,6 +18,7 @@ public class BadgeRepository {
         this.badgeService = badgeService;
     }
 
+    /** 지정 사용자의 뱃지 상세 정보를 서버에서 조회한다. */
     public void fetchBadgeDetailByUserId(int userId, BadgeCallback callback) {
         badgeService.getBadgeDetailByUserId(userId).enqueue(new Callback<BadgeDetailResponse>() {
             @Override
@@ -26,6 +32,7 @@ public class BadgeRepository {
         });
     }
 
+    /** 현재 로그인 사용자의 뱃지 상세 정보를 서버에서 조회한다. */
     public void fetchBadgeDetail(BadgeCallback callback) {
         badgeService.getBadgeDetail().enqueue(new Callback<BadgeDetailResponse>() {
             @Override

@@ -30,18 +30,28 @@ import com.google.android.gms.location.Priority;
 import com.neostride.app.R;
 import com.neostride.app.activity.MainActivity;
 
+
+//  GPS 위치 추적 포그라운드 서비스
+//  <p>
+//  - FusedLocationProviderClient로 1초 주기 GPS 수신 후 {@link LocationListener}에 전달한다.
+//  - WakeLock으로 화면이 꺼진 상태에서도 CPU가 유지되어 기록이 끊기지 않는다.
+//  - 전용 HandlerThread(LocationThread)를 사용해 메인 루퍼 쓰로틀링 문제를 회피한다.
+//  - Android 14(API 34) 이상에서는 FOREGROUND_SERVICE_TYPE_LOCATION을 명시한다.
+
 public class LocationTrackingService extends Service {
 
     private static final String CHANNEL_ID = "running_tracking_channel";
     private static final int NOTIFICATION_ID = 1001;
     private static NotificationManager notificationManager;
 
+    // GPS 좌표 수신 콜백 인터페이스
     public interface LocationListener {
         void onLocationReceived(Location location);
     }
 
     private static LocationListener locationListener;
 
+    // 정적 LocationListener 등록 (RunningFragment에서 호출)
     public static void setLocationListener(LocationListener listener) {
         locationListener = listener;
     }
@@ -51,7 +61,7 @@ public class LocationTrackingService extends Service {
     private PowerManager.WakeLock wakeLock; // 화면 꺼져도 CPU 유지
     private HandlerThread locationThread;   // 메인 루퍼 대신 전용 스레드
 
-    // 채널 생성 + 초기 알림 즉시 표시 (서비스 시작 전에도 호출 가능)
+    // ─── 알림 채널 생성 및 초기 알림 즉시 표시 (서비스 시작 전에도 호출 가능) ───
     public static void postImmediateNotification(Context context) {
         NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (nm == null) return;
@@ -80,7 +90,7 @@ public class LocationTrackingService extends Service {
         notificationManager = nm; // 이후 updateNotification에서도 사용
     }
 
-    // RunningFragment에서 매 초 호출해서 알림 갱신
+    // ─── RunningFragment에서 매 초 호출하여 알림 표시 내용(시간·거리·페이스) 갱신 ───
     public static void updateNotification(Context context, String time, String distance, String pace) {
         if (notificationManager == null) {
             // 서비스가 아직 안 떴어도 즉시 표시
@@ -165,6 +175,7 @@ public class LocationTrackingService extends Service {
         locationListener = null;
     }
 
+    // ─── 1초 주기 고정밀 GPS 수신 시작 (전용 HandlerThread 루퍼 사용) ───
     private void startLocationUpdates() {
         try {
             LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
@@ -179,6 +190,7 @@ public class LocationTrackingService extends Service {
         }
     }
 
+    // ─── IMPORTANCE_LOW 알림 채널 생성 (진동·소리 없이 지속 표시) ───
     private void createNotificationChannel() {
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID,
@@ -190,6 +202,7 @@ public class LocationTrackingService extends Service {
         if (manager != null) manager.createNotificationChannel(channel);
     }
 
+    // ─── 포그라운드 서비스 최초 알림 객체 생성 ───
     private Notification buildNotification() {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("Neo-Stride 달리기 기록 중")

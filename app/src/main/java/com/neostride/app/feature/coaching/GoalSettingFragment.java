@@ -22,8 +22,15 @@ import com.neostride.app.R;
 import java.util.ArrayList;
 import java.util.List;
 
+
+//  목표 설정 Fragment
+//  <p>
+//  - 기간(주), 러닝 요일, 목표 거리, 목표 페이스를 선택 버튼 + 직접 입력으로 설정한다.
+//  - 설정 완료 시 {@link OnGoalSavedListener}를 통해 {@link GoalStorage.GoalInputData}를 상위에 전달한다.
+
 public class GoalSettingFragment extends Fragment {
 
+    // ── 선택 상태 ──
     private int selectedPeriodWeeks = 4;
     private boolean isCustomPeriod = false;
     private List<String> selectedDays = new ArrayList<>();
@@ -210,6 +217,7 @@ public class GoalSettingFragment extends Fragment {
         return view;
     }
 
+    // ─── 기간 버튼 선택 상태 UI 갱신 ───
     private void updatePeriodUI() {
         for (int i = 0; i < periodButtons.length; i++) {
             if (!isCustomPeriod && periodWeeks[i] == selectedPeriodWeeks) {
@@ -231,6 +239,7 @@ public class GoalSettingFragment extends Fragment {
         }
     }
 
+    // ─── 요일 버튼 선택 상태 UI 갱신 ───
     private void updateDayUI() {
         for (int i = 0; i < dayButtons.length; i++) {
             if (selectedDays.contains(dayKeys[i])) {
@@ -243,6 +252,7 @@ public class GoalSettingFragment extends Fragment {
         }
     }
 
+    // ─── 거리 버튼 선택 상태 UI 갱신 ───
     private void updateDistUI() {
         for (int i = 0; i < distButtons.length; i++) {
             if (!isCustomDistance && distValues[i] == selectedDistanceKm) {
@@ -264,6 +274,7 @@ public class GoalSettingFragment extends Fragment {
         }
     }
 
+    // ─── 페이스 SeekBar/직접 입력 선택 상태 UI 갱신 ───
     private void updatePaceUI() {
         if (isCustomPace) {
             seekbarPace.setEnabled(false);
@@ -282,7 +293,7 @@ public class GoalSettingFragment extends Fragment {
         }
     }
 
-    // TextWatcher 간소화
+    // beforeTextChanged·onTextChanged를 비워 afterTextChanged만 구현하도록 하는 TextWatcher 기반 클래스
     abstract static class SimpleWatcher implements TextWatcher {
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
