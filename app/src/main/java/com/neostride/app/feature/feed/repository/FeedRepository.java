@@ -1,11 +1,11 @@
 package com.neostride.app.feature.feed.repository;
 
 import com.neostride.app.common.network.ApiClient;
-import com.neostride.app.common.network.MockFeedServer;
 import com.neostride.app.feature.feed.api.FeedApi;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
 import com.neostride.app.feature.feed.model.FeedUploadResponse;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import retrofit2.Call;
@@ -14,16 +14,9 @@ import retrofit2.Response;
 
 /*
  * 피드 관련 데이터 처리를 담당하는 Repository 클래스임
- * Mock 모드일 때는 MockFeedServer를 사용하고,
- * 서버 모드일 때는 FeedApi를 사용함
+ * 실제 서버 API를 통해 피드 목록 조회, 피드 업로드를 처리함
  */
 public class FeedRepository {
-
-    /*
-     * 현재는 서버 API가 완성되지 않았으므로 MockFeedServer를 사용함
-     * 실제 서버 연결 시 false로 변경하면 됨
-     */
-    private static final boolean USE_MOCK = true;
 
     private final FeedApi feedApi;
 
@@ -39,11 +32,6 @@ public class FeedRepository {
      * 피드 목록을 조회하는 함수임
      */
     public void getFeedList(RepositoryCallback<List<FeedUploadResponse>> callback) {
-        if (USE_MOCK) {
-            callback.onSuccess(MockFeedServer.getFeedList());
-            return;
-        }
-
         feedApi.getFeedList().enqueue(new Callback<List<FeedUploadResponse>>() {
             @Override
             public void onResponse(
@@ -74,11 +62,6 @@ public class FeedRepository {
             FeedUploadRequest request,
             RepositoryCallback<FeedUploadResponse> callback
     ) {
-        if (USE_MOCK) {
-            callback.onSuccess(MockFeedServer.uploadFeed(request));
-            return;
-        }
-
         feedApi.uploadFeed(request).enqueue(new Callback<FeedUploadResponse>() {
             @Override
             public void onResponse(
@@ -104,23 +87,13 @@ public class FeedRepository {
 
     /*
      * 태그된 사용자 목록을 조회하는 함수임
-     * 현재는 MockFeedServer에서 가져옴
+     * 현재 서버에 태그 조회 API가 없으면 빈 리스트를 반환함
      */
     public void getTaggedUsers(
             Long feedId,
             RepositoryCallback<List<String>> callback
     ) {
-        if (USE_MOCK) {
-            callback.onSuccess(MockFeedServer.getTaggedUsers(feedId));
-            return;
-        }
-
-        /*
-         * 실제 서버 API가 생기면 아래처럼 변경하면 됨
-         *
-         * feedApi.getTaggedUsers(feedId).enqueue(...)
-         */
-        callback.onError("태그 조회 API가 아직 연결되지 않았습니다");
+        callback.onSuccess(new ArrayList<>());
     }
 
     /*

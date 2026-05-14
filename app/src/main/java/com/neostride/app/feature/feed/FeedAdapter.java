@@ -43,11 +43,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
     private Context context;
 
     // 좋아요를 누른 피드 위치를 저장하는 Set임
-    // 현재는 Mock 상태이므로 position 기준으로 관리함
     private final Set<Integer> likedPositions = new HashSet<>();
 
     // 북마크를 누른 피드 위치를 저장하는 Set임
-    // 현재는 Mock 상태이므로 position 기준으로 관리함
     private final Set<Integer> bookmarkedPositions = new HashSet<>();
 
     /*
@@ -72,9 +70,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
     public void onBindViewHolder(@NonNull FeedViewHolder holder, int position) {
         FeedItem item = feedItemList.get(position);
 
-        // 현재 FeedItem에 feedId가 없으므로 Mock 서버의 기본 피드 ID를 position 기준으로 임시 추정함
-        // 나중에 FeedItem에 feedId를 추가하면 이 부분을 item.getFeedId()로 바꾸면 됨
-        Long feedId = getMockFeedId(position);
+        // 현재 FeedItem에 feedId가 없으므로 임시로 position 기반 ID를 사용함
+        // 나중에 FeedItem에 feedId 필드를 추가하면 item.getFeedId()로 변경하면 됨
+        Long feedId = getTemporaryFeedId(position);
 
         // 기본 텍스트 데이터를 화면에 표시함
         holder.tvUsername.setText(item.getUsername());
@@ -93,7 +91,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         // 프로필 이미지를 설정함
         bindProfileImage(holder, item);
 
-        // 태그 버튼 클릭 시 Adapter 하드코딩이 아니라 Repository를 통해 MockFeedServer에서 가져옴
+        // 태그 버튼 클릭 시 Repository를 통해 태그 목록을 가져옴
         holder.tvTagCount.setOnClickListener(v -> showTaggedUserDialog(feedId, item));
 
         // 지도 표시 여부를 설정함
@@ -195,7 +193,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         View.OnClickListener detailClickListener = v -> {
             Intent intent = new Intent(context, FeedDetailActivity.class);
 
-            // 상세 화면에서도 MockFeedServer에서 태그 목록을 가져올 수 있도록 feedId를 넘김
             intent.putExtra("feedId", feedId);
 
             intent.putExtra("username", item.getUsername());
@@ -279,7 +276,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
 
     /*
      * 프로필 이미지를 설정하는 함수임
-     * 현재 Mock 데이터처럼 profileImageUrl이 비어 있으면 기본 프로필 아이콘을 표시함
      */
     private void bindProfileImage(@NonNull FeedViewHolder holder, FeedItem item) {
         holder.ivProfile.setImageTintList(null);
@@ -304,7 +300,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
 
     /*
      * 태그된 사람 목록을 보여주는 함수임
-     * 태그 목록은 Adapter에서 만들지 않고 FeedRepository를 통해 MockFeedServer에서 가져옴
      */
     private void showTaggedUserDialog(Long feedId, FeedItem item) {
         if (item.getTagCount() <= 0) {
@@ -362,10 +357,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
     }
 
     /*
-     * 현재 FeedItem에 feedId 필드가 없으므로 Mock 서버 테스트용 feedId를 만드는 함수임
-     * 기본 MockFeedServer에는 1번, 2번 피드가 있으므로 position + 1을 사용함
+     * 현재 FeedItem에 feedId 필드가 없으므로 임시 feedId를 만드는 함수임
      */
-    private Long getMockFeedId(int position) {
+    private Long getTemporaryFeedId(int position) {
         return (long) position + 1L;
     }
 
