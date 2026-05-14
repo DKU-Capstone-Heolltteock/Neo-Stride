@@ -21,6 +21,9 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.neostride.app.R;
+import com.neostride.app.feature.tip.model.TipUploadRequest;
+import com.neostride.app.feature.tip.model.TipUploadResponse;
+import com.neostride.app.feature.tip.repository.TipRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +52,8 @@ public class TipUploadActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> gpsRecordLauncher;
     private boolean gpsSelected = false;
     private String selectedRouteMapUri = null;
+
+    private TipRepository tipRepository;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,6 +90,8 @@ public class TipUploadActivity extends AppCompatActivity {
 
         etTitle = findViewById(R.id.et_tip_title);
         etContent = findViewById(R.id.et_tip_content);
+
+        tipRepository = new TipRepository();
 
         initPhotoPicker();
         initGpsRecordLauncher();
@@ -167,6 +174,7 @@ public class TipUploadActivity extends AppCompatActivity {
                             Intent.FLAG_GRANT_READ_URI_PERMISSION
                     );
                 } catch (Exception ignored) {
+                    // 일부 기기에서는 권한 유지가 실패할 수 있으므로 앱 실행 중 표시만 유지함
                 }
             }
         }
@@ -203,19 +211,61 @@ public class TipUploadActivity extends AppCompatActivity {
             return;
         }
 
-        Intent resultIntent = new Intent();
-        resultIntent.putExtra("title", title);
-        resultIntent.putExtra("content", content);
-        resultIntent.putExtra("category", selectedCategory);
-        resultIntent.putExtra("gpsVisible", gpsSelected);
-        resultIntent.putExtra("routeMapUri", selectedRouteMapUri);
-        resultIntent.putParcelableArrayListExtra("imageUris", selectedImageUris);
+        ArrayList<String> imageUrlStrings = new ArrayList<>();
 
-        setResult(Activity.RESULT_OK, resultIntent);
+        for (Uri uri : selectedImageUris) {
+            imageUrlStrings.add(uri.toString());
+        }
 
-        Toast.makeText(this, "팁 작성 완료", Toast.LENGTH_SHORT).show();
+        TipUploadRequest request = new TipUploadRequest(
+                convertCategory(selectedCategory),
+                title,
+                content,
+                gpsSelected,
+                selectedRouteMapUri,
+                imageUrlStrings
+        );
 
-        finish();
+        tipRepository.uploadTip(
+                request,
+                new TipRepository.TipUploadCallback() {
+                    @Override
+                    public void onSuccess(TipUploadResponse response) {
+                        Toast.makeText(
+                                TipUploadActivity.this,
+                                "팁 업로드 성공",
+                                Toast.LENGTH_SHORT
+                        ).show();
+
+                        finish();
+                    }
+
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(
+                                TipUploadActivity.this,
+                                message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
+    }
+
+    private String convertCategory(String category) {
+        switch (category) {
+            case "훈련":
+                return "TRAINING";
+
+            case "코스":
+                return "COURSE";
+
+            case "장비":
+                return "GEAR";
+
+            default:
+                return "FREE";
+        }
     }
 
     private void renderSelectedPhotos() {
