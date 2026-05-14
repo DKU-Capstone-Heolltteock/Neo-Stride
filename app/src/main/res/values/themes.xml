@@ -95,4 +95,15 @@
         <item name="android:gravity">center_vertical</item>
     </style>
 
+
+    <style name="Theme.NeoStride.TipUploadDialog"
+        parent="Theme.MaterialComponents.DayNight.NoActionBar">
+
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowNoTitle">true</item>
+
+    </style>
+
 </resources>

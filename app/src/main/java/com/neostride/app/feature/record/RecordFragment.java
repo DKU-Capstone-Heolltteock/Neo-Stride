@@ -39,15 +39,21 @@ public class RecordFragment extends Fragment {
     // 페이지 인덱스 계산 기준 월 (2024년 1월)
     private final YearMonth baseMonth = YearMonth.of(2024, 1);
 
+    private boolean isTipMode = false;
+
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+
         View view = inflater.inflate(R.layout.fragment_record, container, false);
+        if (getArguments() != null) {
+            isTipMode = getArguments().getBoolean("tip_mode", false);
+        }
 
         tvMonthYear = view.findViewById(R.id.tv_month_year);
         viewPager = view.findViewById(R.id.view_pager_records);
 
-        pagerAdapter = new RecordPagerAdapter(this);
+        pagerAdapter = new RecordPagerAdapter(this, isTipMode);
         viewPager.setAdapter(pagerAdapter);
 
         int currentPos = pagerAdapter.getPositionForMonth(YearMonth.now());
@@ -228,5 +234,16 @@ public class RecordFragment extends Fragment {
 
     private int dp(int value) {
         return (int) (value * getResources().getDisplayMetrics().density);
+    }
+
+    public static RecordFragment newInstance(boolean isTipMode) {
+        RecordFragment fragment = new RecordFragment();
+
+        Bundle args = new Bundle();
+        args.putBoolean("tip_mode", isTipMode);
+
+        fragment.setArguments(args);
+
+        return fragment;
     }
 }

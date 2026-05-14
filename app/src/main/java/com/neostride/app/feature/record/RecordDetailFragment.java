@@ -1,7 +1,9 @@
 package com.neostride.app.feature.record;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -57,7 +59,8 @@ import java.util.Locale;
 //  <p>
 //  - Google Maps에 GPS 경로를 페이스별 색상 폴리라인으로 그린다.
 //  - 내장 {@link PaceLineView}로 시간별 페이스 변화를 색상 꺾은선 그래프로 표시한다.
-//  - 지도 스냅샷을 캐시에 저장한 후 {@link com.neostride.app.feature.feed.FeedUploadDialog}로 피드 작성 화면을 연다.
+//  - 지도 스냅샷을 캐시에 저장한 후 {@link FeedUploadDialog}로 피드 작성 화면을 연다.
+//  - isTipMode=true 일 때는 공유 버튼이 GPS 경로 선택 확인으로 동작한다.
 
 public class RecordDetailFragment extends Fragment implements OnMapReadyCallback {
 
@@ -71,6 +74,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
     // ── 상태 ──
     private boolean isAnalysisExpanded = false;
+    private boolean isTipMode = false;
 
     // ── 페이스 색상 상수 (빠름→느림 기준) ──
     private static final int COLOR_VERY_SLOW = Color.parseColor("#FF3B30");
@@ -93,10 +97,11 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         }
     }
 
-    public static RecordDetailFragment newInstance(RunningRecordResponse record) {
+    public static RecordDetailFragment newInstance(RunningRecordResponse record, boolean isTipMode) {
         RecordDetailFragment fragment = new RecordDetailFragment();
         Bundle args = new Bundle();
         args.putSerializable("record_data", record);
+        args.putBoolean("tip_mode", isTipMode);
         fragment.setArguments(args);
         return fragment;
     }
@@ -118,10 +123,18 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_record_detail, container, false);
-        if (getArguments() != null) recordData = (RunningRecordResponse) getArguments().getSerializable("record_data");
+
+        if (getArguments() != null) {
+            recordData = (RunningRecordResponse) getArguments().getSerializable("record_data");
+            isTipMode  = getArguments().getBoolean("tip_mode", false);
+        }
+
         if (recordData != null) setupBasicUI(view);
-        SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.map_detail);
+
+        SupportMapFragment mapFragment = (SupportMapFragment)
+                getChildFragmentManager().findFragmentById(R.id.map_detail);
         if (mapFragment != null) mapFragment.getMapAsync(this);
+
         setupExpandableCard(view);
         return view;
     }
@@ -138,6 +151,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
                 .setText(formatTime((int) recordData.getTime()));
         ((TextView) view.findViewById(R.id.tv_detail_calories))
                 .setText(String.valueOf((int) recordData.getCalories()));
+
         // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위)
         int paceSeconds = recordData.getPace() < 60
                 ? (int) (recordData.getPace() * 60)
@@ -148,18 +162,18 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
     // ─── 페이스 분석 카드 토글 설정 및 PaceLineView 생성·주입 ───
     private void setupExpandableCard(View view) {
-        View toggleArea = view.findViewById(R.id.layout_expand_toggle);
+        View toggleArea            = view.findViewById(R.id.layout_expand_toggle);
         LinearLayout expandContent = view.findViewById(R.id.layout_expand_content);
-        ImageView arrowIcon = view.findViewById(R.id.iv_expand_arrow);
-        ImageView chartIcon = view.findViewById(R.id.ivPaceChartGradient);
-        ImageView routeCenterIcon = view.findViewById(R.id.ivRouteCenterGradient);
+        ImageView arrowIcon        = view.findViewById(R.id.iv_expand_arrow);
+        ImageView chartIcon        = view.findViewById(R.id.ivPaceChartGradient);
+        ImageView routeCenterIcon  = view.findViewById(R.id.ivRouteCenterGradient);
         FrameLayout chartContainer = view.findViewById(R.id.chart_container);
         LinearLayout layoutSelectedInfo = view.findViewById(R.id.layout_selected_info);
-        TextView tvSelectedTime = view.findViewById(R.id.tv_selected_time);
-        TextView tvSelectedPace = view.findViewById(R.id.tv_selected_pace);
+        TextView tvSelectedTime    = view.findViewById(R.id.tv_selected_time);
+        TextView tvSelectedPace    = view.findViewById(R.id.tv_selected_pace);
 
-        int[] colors = {COLOR_VERY_SLOW, COLOR_SLOW, COLOR_NORMAL, COLOR_FAST, COLOR_VERY_FAST};
-        float[] pos = {0f, 0.25f, 0.5f, 0.75f, 1f};
+        int[]   colors = {COLOR_VERY_SLOW, COLOR_SLOW, COLOR_NORMAL, COLOR_FAST, COLOR_VERY_FAST};
+        float[] pos    = {0f, 0.25f, 0.5f, 0.75f, 1f};
         setGradientTintToIcon(chartIcon, colors, pos);
         setGradientTintToIcon(routeCenterIcon, colors, pos);
 
@@ -209,7 +223,19 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
                 }
             });
             getView().findViewById(R.id.btn_route_center).setOnClickListener(v -> moveCameraToRoute());
-            getView().findViewById(R.id.btn_share_circle).setOnClickListener(v -> captureMapAndOpenFeedDialog());
+
+            ImageView btnShare = getView().findViewById(R.id.btn_share_circle);
+            if (isTipMode) {
+                // 팁 모드: GPS 경로 선택 확인 버튼
+                btnShare.setImageResource(R.drawable.ic_write_feed);
+                btnShare.setOnClickListener(v -> {
+                    Toast.makeText(requireContext(), "GPS 경로가 선택되었습니다", Toast.LENGTH_SHORT).show();
+                    confirmTipGpsSelection();
+                });
+            } else {
+                // 일반 모드: 피드 공유 버튼
+                btnShare.setOnClickListener(v -> captureMapAndOpenFeedDialog());
+            }
         }
 
         try {
@@ -252,7 +278,8 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
     // ─── GPS 경로 전체가 보이도록 지도 카메라를 경계에 맞춰 이동 ───
     private void moveCameraToRoute() {
-        if (mMap == null || recordData == null || recordData.getGpsPath() == null || recordData.getGpsPath().isEmpty()) return;
+        if (mMap == null || recordData == null
+                || recordData.getGpsPath() == null || recordData.getGpsPath().isEmpty()) return;
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
         for (GpsTraceRequest p : recordData.getGpsPath()) {
             builder.include(new LatLng(p.getLatitude(), p.getLongitude()));
@@ -269,22 +296,19 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
             GpsTraceRequest p2 = path.get(i + 1);
             LatLng from = new LatLng(p1.getLatitude(), p1.getLongitude());
             LatLng to   = new LatLng(p2.getLatitude(), p2.getLongitude());
-            double distance = distanceBetween(p1.getLatitude(), p1.getLongitude(), p2.getLatitude(), p2.getLongitude());
-            long time = (parseIsoTime(p2.getTime()) - parseIsoTime(p1.getTime())) / 1000;
+            double dist = distanceBetween(p1.getLatitude(), p1.getLongitude(), p2.getLatitude(), p2.getLongitude());
+            long   time = (parseIsoTime(p2.getTime()) - parseIsoTime(p1.getTime())) / 1000;
             int color = COLOR_NORMAL;
-            if (distance > 0 && time > 0) color = getPaceColor((float) ((time / 60.0) / distance));
+            if (dist > 0 && time > 0) color = getPaceColor((float) ((time / 60.0) / dist));
             mMap.addPolyline(new PolylineOptions().add(from, to).width(14f).color(color).geodesic(true).jointType(JointType.ROUND));
             builder.include(from); builder.include(to);
         }
         mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(builder.build(), 300));
     }
 
-
-//      GPS 경로에서 구간별 페이스를 계산하고 노이즈 필터링 후 PacePoint 목록을 반환한다.
-//      <p>
-//      - 1단계: 인접값 대비 1.5배 초과/0.65배 미만 스파이크를 이웃 평균으로 대체한다.
-//      - 2단계: 7포인트 이동평균을 1회 적용해 부드러운 그래프를 생성한다.
-
+    //  GPS 경로에서 구간별 페이스를 계산하고 노이즈 필터링 후 PacePoint 목록을 반환한다.
+    //  - 1단계: 인접값 대비 1.5배 초과/0.65배 미만 스파이크를 이웃 평균으로 대체
+    //  - 2단계: 7포인트 이동평균 1회 적용
     private List<PacePoint> calculatePacePoints(List<GpsTraceRequest> path) {
         List<PacePoint> points = new ArrayList<>();
         if (path == null || path.size() < 2) return points;
@@ -293,34 +317,31 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         for (int i = 0; i < path.size() - 1; i++) {
             GpsTraceRequest p1 = path.get(i);
             GpsTraceRequest p2 = path.get(i + 1);
-            double dist = distanceBetween(p1.getLatitude(), p1.getLongitude(), p2.getLatitude(), p2.getLongitude());
-            long currentMillis = parseIsoTime(p2.getTime());
-            long diffSec = (currentMillis - parseIsoTime(p1.getTime())) / 1000;
+            double dist    = distanceBetween(p1.getLatitude(), p1.getLongitude(), p2.getLatitude(), p2.getLongitude());
+            long currentMs = parseIsoTime(p2.getTime());
+            long diffSec   = (currentMs - parseIsoTime(p1.getTime())) / 1000;
             if (dist > 0.001 && diffSec > 0) {
-                float pace = (float) ((diffSec / 60.0) / dist);
-                long elapsed = (currentMillis - startMillis) / 1000;
-                String timeLabel = String.format(Locale.KOREA, "%02d:%02d", elapsed / 60, elapsed % 60);
-                points.add(new PacePoint(timeLabel, Math.min(pace, 15f)));
+                float pace   = (float) ((diffSec / 60.0) / dist);
+                long elapsed = (currentMs - startMillis) / 1000;
+                String label = String.format(Locale.KOREA, "%02d:%02d", elapsed / 60, elapsed % 60);
+                points.add(new PacePoint(label, Math.min(pace, 15f)));
             }
         }
 
         if (points.size() < 3) return points;
 
-        // 1단계: 고립된 GPS 노이즈 스파이크 제거 (임계값 1.5x — 1.8x보다 더 적극적으로 제거)
+        // 1단계: 고립된 GPS 노이즈 스파이크 제거
         for (int i = 1; i < points.size() - 1; i++) {
-            float v    = points.get(i).paceValue;
-            float prev = points.get(i - 1).paceValue;
-            float next = points.get(i + 1).paceValue;
-            boolean isSpikeHigh = v > prev * 1.5f && v > next * 1.5f;
-            boolean isSpikeLow  = v < prev * 0.65f && v < next * 0.65f;
-            if (isSpikeHigh || isSpikeLow) points.get(i).paceValue = (prev + next) / 2f;
+            float v = points.get(i).paceValue, prev = points.get(i-1).paceValue, next = points.get(i+1).paceValue;
+            if ((v > prev * 1.5f && v > next * 1.5f) || (v < prev * 0.65f && v < next * 0.65f)) {
+                points.get(i).paceValue = (prev + next) / 2f;
+            }
         }
 
-        // 2단계: 7포인트 이동평균 1회 (200m 이상 인터벌 피크 보존)
+        // 2단계: 7포인트 이동평균
         float[] smoothed = new float[points.size()];
         for (int i = 0; i < points.size(); i++) {
-            int from = Math.max(0, i - 3);
-            int to   = Math.min(points.size() - 1, i + 3);
+            int from = Math.max(0, i - 3), to = Math.min(points.size() - 1, i + 3);
             float sum = 0;
             for (int j = from; j <= to; j++) sum += points.get(j).paceValue;
             smoothed[i] = sum / (to - from + 1);
@@ -330,12 +351,9 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         return points;
     }
 
-
-//      페이스 꺾은선 차트 커스텀 뷰
-//      <p>
-//      - 구간별 페이스를 색상 세그먼트로 분할해 Canvas에 직접 그린다.
-//      - 터치 이벤트로 선택 포인트를 결정해 {@link OnPointSelectedListener}에 콜백한다.
-
+    //  페이스 꺾은선 차트 커스텀 뷰
+    //  - 구간별 페이스를 색상 세그먼트로 분할해 Canvas에 직접 그린다.
+    //  - 터치 이벤트로 선택 포인트를 결정해 OnPointSelectedListener에 콜백한다.
     private class PaceLineView extends View {
         private List<PacePoint> points = new ArrayList<>();
         private final Paint linePaint  = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -348,14 +366,10 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
 
         public PaceLineView(Context context) {
             super(context);
-            linePaint.setStrokeWidth(6f);
-            linePaint.setStrokeCap(Paint.Cap.ROUND);
-            axisPaint.setColor(Color.parseColor("#44FFFFFF"));
-            axisPaint.setStrokeWidth(2f);
-            textPaint.setColor(Color.parseColor("#88FFFFFF"));
-            textPaint.setTextSize(24f);
-            guidePaint.setColor(Color.parseColor("#CCFF00"));
-            guidePaint.setStrokeWidth(3f);
+            linePaint.setStrokeWidth(6f); linePaint.setStrokeCap(Paint.Cap.ROUND);
+            axisPaint.setColor(Color.parseColor("#44FFFFFF")); axisPaint.setStrokeWidth(2f);
+            textPaint.setColor(Color.parseColor("#88FFFFFF")); textPaint.setTextSize(24f);
+            guidePaint.setColor(Color.parseColor("#CCFF00"));  guidePaint.setStrokeWidth(3f);
         }
 
         public void setData(List<PacePoint> data) { this.points = data; invalidate(); }
@@ -382,26 +396,20 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
             canvas.drawText(formatPaceStr(maxPace), 10, paddingTop + h, textPaint);
 
             float stepX = w / (points.size() - 1);
-            int subDivisions = 4;
             for (int i = 0; i < points.size() - 1; i++) {
-                float p1 = points.get(i).paceValue;
-                float p2 = points.get(i + 1).paceValue;
+                float p1 = points.get(i).paceValue, p2 = points.get(i+1).paceValue;
                 float y1 = paddingTop + ((p1 - minPace) / range) * h;
                 float y2 = paddingTop + ((p2 - minPace) / range) * h;
-                float x1 = paddingLeft + (i * stepX);
-                float x2 = paddingLeft + ((i + 1) * stepX);
-                for (int s = 0; s < subDivisions; s++) {
-                    float t1 = (float) s / subDivisions;
-                    float t2 = (float) (s + 1) / subDivisions;
-                    float midPace = p1 + (p2 - p1) * ((t1 + t2) / 2f);
-                    linePaint.setColor(getPaceColor(midPace));
-                    canvas.drawLine(x1 + (x2 - x1) * t1, y1 + (y2 - y1) * t1,
-                                    x1 + (x2 - x1) * t2, y1 + (y2 - y1) * t2, linePaint);
+                float x1 = paddingLeft + (i * stepX), x2 = paddingLeft + ((i+1) * stepX);
+                for (int s = 0; s < 4; s++) {
+                    float t1 = s / 4f, t2 = (s+1) / 4f;
+                    linePaint.setColor(getPaceColor(p1 + (p2 - p1) * ((t1 + t2) / 2f)));
+                    canvas.drawLine(x1 + (x2-x1)*t1, y1 + (y2-y1)*t1, x1 + (x2-x1)*t2, y1 + (y2-y1)*t2, linePaint);
                 }
             }
 
             canvas.drawText(points.get(0).timeStr, paddingLeft, paddingTop + h + 40, textPaint);
-            canvas.drawText(points.get(points.size() - 1).timeStr, paddingLeft + w - 60, paddingTop + h + 40, textPaint);
+            canvas.drawText(points.get(points.size()-1).timeStr, paddingLeft + w - 60, paddingTop + h + 40, textPaint);
 
             if (selectedIndex != -1) {
                 float selX = paddingLeft + (selectedIndex * stepX);
@@ -414,8 +422,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         @Override
         public boolean onTouchEvent(MotionEvent event) {
             if (points.isEmpty()) return false;
-            float w = getWidth() - paddingLeft - paddingRight;
-            float stepX = w / (points.size() - 1);
+            float stepX = (getWidth() - paddingLeft - paddingRight) / (points.size() - 1);
             if (event.getAction() == MotionEvent.ACTION_DOWN || event.getAction() == MotionEvent.ACTION_MOVE) {
                 selectedIndex = Math.round((event.getX() - paddingLeft) / stepX);
                 if (selectedIndex < 0) selectedIndex = 0;
@@ -428,14 +435,15 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
         }
     }
 
-    // 페이스 차트 터치 선택 콜백 인터페이스
     public interface OnPointSelectedListener { void onPointSelected(PacePoint point); }
 
     // ─── 평균 페이스 기반으로 색상 임계값 5단계 동적 계산 ───
     private void updatePaceThresholds() {
         if (recordData == null) return;
-        // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위) → 차트 비교용 분/km로 통일
-        float avgPace = recordData.getPace() < 60 ? recordData.getPace() : recordData.getPace() / 60f;
+        // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위) → 분/km로 통일
+        float avgPace = recordData.getPace() < 60
+                ? recordData.getPace()
+                : recordData.getPace() / 60f;
         paceThresVS = avgPace * 1.20f; paceThresS = avgPace * 1.08f;
         paceThresF  = avgPace * 0.92f; paceThresVF = avgPace * 0.80f;
         thresSet = true;
@@ -449,7 +457,7 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
             return COLOR_VERY_FAST;
         }
         if (pace >= paceThresVS) return COLOR_VERY_SLOW; if (pace >= paceThresS) return COLOR_SLOW;
-        if (pace >= paceThresF) return COLOR_NORMAL;     if (pace >= paceThresVF) return COLOR_FAST;
+        if (pace >= paceThresF)  return COLOR_NORMAL;    if (pace >= paceThresVF) return COLOR_FAST;
         return COLOR_VERY_FAST;
     }
 
@@ -480,6 +488,28 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
             if (c.contains(".")) c = c.substring(0, c.lastIndexOf("."));
             return new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.KOREA).parse(c).getTime();
         } catch (Exception e) { return System.currentTimeMillis(); }
+    }
+
+    // ─── 팁 모드: 지도 스냅샷 후 Activity에 GPS 선택 결과 반환 ───
+    private void confirmTipGpsSelection() {
+        if (mMap == null) { returnTipGpsResult(null); return; }
+        moveCameraToRoute();
+        mMap.snapshot(bitmap -> returnTipGpsResult(saveBitmapToCache(bitmap)));
+    }
+
+    // ─── Activity.setResult로 GPS 경로 데이터 전달 후 종료 ───
+    private void returnTipGpsResult(String routeMapUri) {
+        Intent result = new Intent();
+        result.putExtra("gpsSelected", true);
+        result.putExtra("routeMapUri", routeMapUri);
+        if (recordData != null) {
+            result.putExtra("distance",  recordData.getDistance());
+            result.putExtra("time",      recordData.getTime());
+            result.putExtra("pace",      recordData.getPace());
+            result.putExtra("createdAt", recordData.getCreatedAt());
+        }
+        requireActivity().setResult(Activity.RESULT_OK, result);
+        requireActivity().finish();
     }
 
     private String formatTime(int s) { return String.format(Locale.KOREA, "%02d:%02d", s / 60, s % 60); }

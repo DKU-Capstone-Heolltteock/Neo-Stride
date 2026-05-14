@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 태그된 사람 한 줄 배경색 -->
+    <solid android:color="#2A2A2A" />
+
+    <!-- 한 줄 아이템 모서리를 둥글게 처리함 -->
+    <corners android:radius="16dp" />
+
+    <!-- 은은한 테두리 -->
+    <stroke
+        android:width="1dp"
+        android:color="#333333" />
+
+</shape>

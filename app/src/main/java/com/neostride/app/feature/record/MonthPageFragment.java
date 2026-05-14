@@ -8,8 +8,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.widget.TextView;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -45,10 +45,13 @@ import java.util.Map;
 //  - AI 코칭 기록이 있으면 {@link AiLineChartView}에 실적 vs 목표 페이스를 그린다.
 
 public class MonthPageFragment extends Fragment {
+
     private static final String ARG_MONTH = "arg_month";
+    private static final String ARG_TIP_MODE = "arg_tip_mode";
 
     // ── UI 뷰 ──
     private YearMonth displayMonth;
+    private boolean isTipMode = false;
     private RecyclerView rvCalendar, rvDailyRecords;
     private TextView tvSelectedDate, tvNoRecord;
     private TextView tvStatDistance, tvStatPace, tvStatCalories;
@@ -67,10 +70,11 @@ public class MonthPageFragment extends Fragment {
     private ImageView ivAiGraphArrow;
     private View btnToggleAiGraph;
 
-    public static MonthPageFragment newInstance(YearMonth month) {
+    public static MonthPageFragment newInstance(YearMonth month, boolean isTipMode) {
         MonthPageFragment fragment = new MonthPageFragment();
         Bundle args = new Bundle();
         args.putString(ARG_MONTH, month.toString());
+        args.putBoolean(ARG_TIP_MODE, isTipMode);
         fragment.setArguments(args);
         return fragment;
     }
@@ -82,36 +86,36 @@ public class MonthPageFragment extends Fragment {
 
         if (getArguments() != null) {
             displayMonth = YearMonth.parse(getArguments().getString(ARG_MONTH));
+            isTipMode = getArguments().getBoolean(ARG_TIP_MODE, false);
         }
 
         recordRepository = new RunningRepository();
 
-        rvCalendar = view.findViewById(R.id.rv_calendar);
-        rvDailyRecords = view.findViewById(R.id.rv_daily_records);
-        tvSelectedDate = view.findViewById(R.id.tv_selected_date);
-        tvNoRecord = view.findViewById(R.id.tv_no_record);
-        tvStatDistance = view.findViewById(R.id.tv_stat_distance);
-        tvStatPace = view.findViewById(R.id.tv_stat_pace);
-        tvStatCalories = view.findViewById(R.id.tv_stat_calories);
-        ivCompareDistance = view.findViewById(R.id.iv_compare_distance);
-        ivComparePace = view.findViewById(R.id.iv_compare_pace);
-        ivCompareCalories = view.findViewById(R.id.iv_compare_calories);
-        // AI 달성도 그래프 섹션 뷰 연결
+        rvCalendar          = view.findViewById(R.id.rv_calendar);
+        rvDailyRecords      = view.findViewById(R.id.rv_daily_records);
+        tvSelectedDate      = view.findViewById(R.id.tv_selected_date);
+        tvNoRecord          = view.findViewById(R.id.tv_no_record);
+        tvStatDistance      = view.findViewById(R.id.tv_stat_distance);
+        tvStatPace          = view.findViewById(R.id.tv_stat_pace);
+        tvStatCalories      = view.findViewById(R.id.tv_stat_calories);
+        ivCompareDistance   = view.findViewById(R.id.iv_compare_distance);
+        ivComparePace       = view.findViewById(R.id.iv_compare_pace);
+        ivCompareCalories   = view.findViewById(R.id.iv_compare_calories);
         layoutAiGoalAchievement = view.findViewById(R.id.layout_ai_goal_achievement);
-        layoutAiGraphContent = view.findViewById(R.id.layout_ai_graph_content);
-        tvGraphGoalInfo = view.findViewById(R.id.tv_graph_goal_info);
-        ivAiGraphArrow = view.findViewById(R.id.iv_ai_graph_arrow);
-        btnToggleAiGraph = view.findViewById(R.id.btn_toggle_ai_graph);
+        layoutAiGraphContent    = view.findViewById(R.id.layout_ai_graph_content);
+        tvGraphGoalInfo         = view.findViewById(R.id.tv_graph_goal_info);
+        ivAiGraphArrow          = view.findViewById(R.id.iv_ai_graph_arrow);
+        btnToggleAiGraph        = view.findViewById(R.id.btn_toggle_ai_graph);
         ivAiGraphArrow.setRotation(180f);
 
-        // AI 달성도 그래프 펼치기/접기 리스너 설정
+        // AI 달성도 그래프 펼치기/접기
         btnToggleAiGraph.setOnClickListener(v -> {
             if (layoutAiGraphContent.getVisibility() == View.VISIBLE) {
                 layoutAiGraphContent.setVisibility(View.GONE);
-                ivAiGraphArrow.animate().rotation(180f).setDuration(200).start(); // 화살표 아래로
+                ivAiGraphArrow.animate().rotation(180f).setDuration(200).start();
             } else {
                 layoutAiGraphContent.setVisibility(View.VISIBLE);
-                ivAiGraphArrow.animate().rotation(0f).setDuration(200).start();   // 화살표 위로
+                ivAiGraphArrow.animate().rotation(0f).setDuration(200).start();
             }
         });
 
@@ -123,11 +127,11 @@ public class MonthPageFragment extends Fragment {
                     break;
                 }
             }
-
             if (selectedFullData != null) {
-                RecordDetailFragment detailFragment = RecordDetailFragment.newInstance(selectedFullData);
+                RecordDetailFragment detailFragment = RecordDetailFragment.newInstance(selectedFullData, isTipMode);
+                int containerId = isTipMode ? R.id.tip_record_container : R.id.fragment_container;
                 requireActivity().getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.fragment_container, detailFragment)
+                        .replace(containerId, detailFragment)
                         .addToBackStack(null)
                         .commit();
             } else {
@@ -146,7 +150,6 @@ public class MonthPageFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        // 🌟 화면에 다시 돌아올 때마다(코칭 탭을 갔다가 와도) 즉시 10.0km를 띄웁니다.
         updateAiGoalSection(LocalDate.now());
     }
 
@@ -158,7 +161,6 @@ public class MonthPageFragment extends Fragment {
         });
         rvCalendar.setLayoutManager(new GridLayoutManager(getContext(), 7));
         rvCalendar.setAdapter(calendarAdapter);
-
         fetchMonthDataFromServer();
     }
 
@@ -173,13 +175,12 @@ public class MonthPageFragment extends Fragment {
                     getActivity().runOnUiThread(() -> {
                         updateMonthlyStatistics(records);
                         updateCalendarDistances(records);
-
-                        // 🌟 [추가] 차트 데이터를 필터링해서 그려주는 함수를 호출합니다!
                         updateLineChart(records);
                     });
                 }
             }
-            @Override public void onError(String message) { Log.e("NeoStride", message); }
+            @Override
+            public void onError(String message) { Log.e("NeoStride", message); }
         });
     }
 
@@ -193,13 +194,13 @@ public class MonthPageFragment extends Fragment {
             boolean hasCoachingRecord = false;
             for (RunningRecordResponse res : records) {
                 try {
+                    // UTC → KST 변환 후 날짜 비교
                     LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
                             .atZone(ZoneOffset.UTC)
                             .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
                             .toLocalDate();
                     if (resDate.equals(dayItem.getDate())) {
                         dailyTotalDistance += res.getDistance();
-                        // KST 변환 기준으로 코칭 완료 기록 있으면 dot 덮어쓰기
                         if (res.getPlanId() != null) hasCoachingRecord = true;
                     }
                 } catch (Exception e) { e.printStackTrace(); }
@@ -223,7 +224,10 @@ public class MonthPageFragment extends Fragment {
 
         for (RunningRecordResponse res : records) {
             try {
-                LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate();
+                LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
+                        .atZone(ZoneOffset.UTC)
+                        .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
+                        .toLocalDate();
                 YearMonth resMonth = YearMonth.from(resDate);
                 if (resMonth.equals(displayMonth)) {
                     curDist += res.getDistance(); curCal += res.getCalories(); curSec += res.getTime();
@@ -233,15 +237,18 @@ public class MonthPageFragment extends Fragment {
             } catch (Exception e) { e.printStackTrace(); }
         }
 
-        float curPace = (curDist > 0) ? (float)((curSec/60.0)/curDist) : 0;
-        float prevPace = (prevDist > 0) ? (float)((prevSec/60.0)/prevDist) : 0;
+        float curPace  = (curDist  > 0) ? (float)((curSec  / 60.0) / curDist)  : 0;
+        float prevPace = (prevDist > 0) ? (float)((prevSec / 60.0) / prevDist) : 0;
 
         tvStatDistance.setText(String.format(Locale.getDefault(), "%.2f km", curDist));
         tvStatCalories.setText(String.format(Locale.getDefault(), "%.0f kcal", curCal));
         if (curPace > 0) {
-            int min = (int) curPace; int sec = (int) ((curPace - min) * 60);
+            int min = (int) curPace;
+            int sec = (int) ((curPace - min) * 60);
             tvStatPace.setText(String.format(Locale.getDefault(), "%d:%02d/km", min, sec));
-        } else { tvStatPace.setText("--:--/km"); }
+        } else {
+            tvStatPace.setText("--:--/km");
+        }
 
         updateComparisonUI(ivCompareDistance, curDist, prevDist, true);
         updateComparisonUI(ivComparePace, curPace, prevPace, false);
@@ -256,8 +263,9 @@ public class MonthPageFragment extends Fragment {
         if (improved) {
             view.setImageResource(R.drawable.ic_double_arrow_up);
             view.setColorFilter(Color.parseColor("#CCFF00"), PorterDuff.Mode.SRC_IN);
-        } else if (current == previous) { view.setVisibility(View.GONE); }
-        else {
+        } else if (current == previous) {
+            view.setVisibility(View.GONE);
+        } else {
             view.setImageResource(R.drawable.ic_double_arrow_down);
             view.setColorFilter(Color.parseColor("#FF4444"), PorterDuff.Mode.SRC_IN);
         }
@@ -266,29 +274,24 @@ public class MonthPageFragment extends Fragment {
     // ─── 날짜 셀 선택 시: 선택일 라벨 갱신, AI 목표 섹션 갱신, 해당 일 기록 목록 필터링 ───
     private void onDaySelected(CalendarDayItem day) {
         LocalDate date = day.getDate();
-        String formattedDate = date.getYear() + "년 " + date.getMonthValue() + "월 " + date.getDayOfMonth() + "일 " + date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.KOREAN);
+        String formattedDate = date.getYear() + "년 " + date.getMonthValue() + "월 "
+                + date.getDayOfMonth() + "일 "
+                + date.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.KOREAN);
         tvSelectedDate.setText(formattedDate);
         tvSelectedDate.setVisibility(View.VISIBLE);
         updateAiGoalSection(date);
+
         List<RunningRecordItem> filteredItems = new ArrayList<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
-        // 수정됨: 날짜 기준 Coaching 체크 로직 삭제
-        // 각 개별 기록(res)에 포함된 plan_id 유무로 AI Coaching 여부를 직접 판단합니다.
-
         for (RunningRecordResponse res : allServerRecords) {
             try {
-                LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate();
+                LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
+                        .atZone(ZoneOffset.UTC)
+                        .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
+                        .toLocalDate();
                 if (resDate.equals(date)) {
                     RunningRecordItem item = convertToItem(res);
-
-                    // 🔥 핵심 수정 사항: 개별 기록의 planId가 null이 아니면 AI Coaching으로 표시
-                    if (res.getPlanId() != null) {
-                        item.setAiCoaching(true);
-                    } else {
-                        item.setAiCoaching(false);
-                    }
-
+                    item.setAiCoaching(res.getPlanId() != null);
                     filteredItems.add(item);
                 }
             } catch (Exception e) { e.printStackTrace(); }
@@ -306,16 +309,12 @@ public class MonthPageFragment extends Fragment {
     // ─── GoalStorage에 저장된 플랜이 있으면 AI 달성도 섹션을 표시하고 차트 데이터 주입 ───
     private void updateAiGoalSection(LocalDate date) {
         Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
-
         if (allPlans != null && !allPlans.isEmpty()) {
             layoutAiGoalAchievement.setVisibility(View.VISIBLE);
             GoalStorage.PlanData baseGoal = allPlans.values().iterator().next();
             tvGraphGoalInfo.setText(String.format(Locale.KOREA, "• 설정한 목표 거리 : %.1fkm", baseGoal.totalGoalDistanceKm));
             setupPaceChart(baseGoal.totalGoalPaceStr);
-
-            if (!allServerRecords.isEmpty()) {
-                updateLineChart(allServerRecords);
-            }
+            if (!allServerRecords.isEmpty()) updateLineChart(allServerRecords);
         } else {
             layoutAiGoalAchievement.setVisibility(View.GONE);
         }
@@ -326,9 +325,17 @@ public class MonthPageFragment extends Fragment {
         int totalSeconds = (int) res.getTime();
         String timeStr = String.format("%02d:%02d", totalSeconds / 60, totalSeconds % 60);
         // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위)
-        int paceSeconds = res.getPace() < 60 ? (int)(res.getPace() * 60) : (int) res.getPace();
+        int paceSeconds = res.getPace() < 60
+                ? (int)(res.getPace() * 60)
+                : (int) res.getPace();
         String paceStr = String.format(Locale.getDefault(), "%d:%02d/km", paceSeconds / 60, paceSeconds % 60);
-        return new RunningRecordItem(res.getCreatedAt(), String.format("%.2fkm", res.getDistance()), timeStr, paceStr, (int)res.getCalories() + "kcal");
+        return new RunningRecordItem(
+                res.getCreatedAt(),
+                String.format("%.2fkm", res.getDistance()),
+                timeStr,
+                paceStr,
+                (int) res.getCalories() + "kcal"
+        );
     }
 
     // ─── 해당 월의 캘린더 셀 목록 생성 (앞 빈칸 null 포함, 코칭 상태 주입) ───
@@ -337,13 +344,17 @@ public class MonthPageFragment extends Fragment {
         LocalDate firstOfMonth = month.atDay(1);
         int dayOfWeek = firstOfMonth.getDayOfWeek().getValue() % 7;
         for (int i = 0; i < dayOfWeek; i++) days.add(null);
-        Map<String, GoalStorage.PlanData> allPlans = (getContext() != null) ? GoalStorage.getAllPlans(getContext()) : null;
+
+        Map<String, GoalStorage.PlanData> allPlans =
+                (getContext() != null) ? GoalStorage.getAllPlans(getContext()) : null;
+
         for (int i = 1; i <= month.lengthOfMonth(); i++) {
             LocalDate date = month.atDay(i);
             String coachingStatus = null;
             if (allPlans != null) {
                 String key = date.getYear() + "-" + date.getMonthValue() + "-" + date.getDayOfMonth();
                 GoalStorage.PlanData plan = allPlans.get(key);
+                // getEffectiveStatus: 지난 pending 날짜를 missed로 동적 계산
                 if (plan != null) coachingStatus = plan.getEffectiveStatus(key);
             }
             CalendarDayItem calDay = new CalendarDayItem(date, "", true);
@@ -355,25 +366,15 @@ public class MonthPageFragment extends Fragment {
 
     // ─── 목표 페이스 문자열("5:30/km")을 파싱해 AiLineChartView에 기준선으로 전달 ───
     private void setupPaceChart(String targetPaceStr) {
-        if (getView() != null && targetPaceStr != null) {
-            AiLineChartView chartView = getView().findViewById(R.id.ai_line_chart);
-            if (chartView != null) {
-                try {
-                    // "5:30/km" -> "5:30" 추출
-                    String timePart = targetPaceStr.split("/")[0];
-                    String[] parts = timePart.split(":");
-                    float min = Float.parseFloat(parts[0]);
-                    float sec = Float.parseFloat(parts[1]);
-
-                    // 분 단위 소수점으로 변환 (5 + 30/60 = 5.5)
-                    float paceValue = min + (sec / 60f);
-
-                    chartView.setTargetPace(paceValue); // 🌟 그래프에 목표치 전달
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        }
+        if (getView() == null || targetPaceStr == null) return;
+        AiLineChartView chartView = getView().findViewById(R.id.ai_line_chart);
+        if (chartView == null) return;
+        try {
+            String timePart = targetPaceStr.split("/")[0];
+            String[] parts = timePart.split(":");
+            float paceValue = Float.parseFloat(parts[0]) + Float.parseFloat(parts[1]) / 60f;
+            chartView.setTargetPace(paceValue);
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     // ─── AI 코칭 기록과 날짜별 목표 거리를 추출해 AiLineChartView에 주입 ───
@@ -382,26 +383,25 @@ public class MonthPageFragment extends Fragment {
 
         List<RunningRecordResponse> coachingRecords = new ArrayList<>();
         List<Float> targetList = new ArrayList<>();
-        float finalGoalDist = 0f; // 🌟 최종 목표 거리를 담을 변수
+        float finalGoalDist = 0f;
 
         Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
-
-        // 🌟 저장소에서 최종 목표 거리를 미리 하나 뽑아둡니다.
         if (allPlans != null && !allPlans.isEmpty()) {
             finalGoalDist = allPlans.values().iterator().next().totalGoalDistanceKm;
         }
 
-        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
         for (RunningRecordResponse res : records) {
             if (res.getPlanId() != null) {
                 coachingRecords.add(res);
-
                 float dailyTarget = 0f;
                 try {
-                    java.time.LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.of("Asia/Seoul")).toLocalDate();
+                    LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
+                            .atZone(ZoneOffset.UTC)
+                            .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
+                            .toLocalDate();
                     String dateKey = resDate.getYear() + "-" + resDate.getMonthValue() + "-" + resDate.getDayOfMonth();
-                    GoalStorage.PlanData plan = allPlans.get(dateKey);
+                    GoalStorage.PlanData plan = allPlans != null ? allPlans.get(dateKey) : null;
                     if (plan != null) dailyTarget = plan.distanceKm;
                 } catch (Exception e) { e.printStackTrace(); }
                 targetList.add(dailyTarget);
@@ -410,7 +410,6 @@ public class MonthPageFragment extends Fragment {
 
         AiLineChartView chartView = getView().findViewById(R.id.ai_line_chart);
         if (chartView != null) {
-            // 🌟 최종 목표 거리와 데이터를 모두 주입합니다.
             chartView.setFinalGoalDistance(finalGoalDist);
             chartView.setData(coachingRecords, targetList);
         }
