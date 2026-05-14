@@ -19,9 +19,11 @@
         android:theme="@style/Theme.NeoStride"
         android:usesCleartextTraffic="true">
         <activity
-            android:name=".feature.tip.TipRecordSelectActivity"
+            android:name=".feature.tip.TipDetailActivity"
             android:exported="false" />
-        <!-- 인증 관련 액티비티 -->
+        <activity
+            android:name=".feature.tip.TipRecordSelectActivity"
+            android:exported="false" /> <!-- 인증 관련 액티비티 -->
         <activity
             android:name=".feature.auth.FindIdSuccessActivity"
             android:exported="false" />
