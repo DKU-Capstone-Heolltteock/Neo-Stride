@@ -68,7 +68,7 @@ public class MyPageActivity extends AppCompatActivity {
     private LinearLayout layoutStatus;
     private TabLayout tabLayout;
     private RecyclerView rvMyFeeds;
-    private TextView tvUsername, tvFriends, tvStatusMessage;
+    private TextView tvUsername, tvFriends, tvStatusMessage, tvEmptyState;
     private ImageView ivProfile, ivBadge;
 
     // ── 레포지터리 ──
@@ -145,11 +145,22 @@ public class MyPageActivity extends AppCompatActivity {
     // ─── 피드 타입(me/tagged/comments/likes/bookmarks)에 맞는 API를 호출하여 RecyclerView에 표시 ───
     private void loadFeeds(String type) {
         rvMyFeeds.setAdapter(null);
+        if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+
+        // 탭별 빈 상태 안내 문구
+        final String emptyMsg;
+        switch (type) {
+            case "tagged":    emptyMsg = "아직 나를 태그한 피드가 없어요\n함께 달린 친구에게 태그를 요청해보세요"; break;
+            case "comments":  emptyMsg = "댓글을 단 피드가 없어요\n다른 러너의 피드에 응원 한마디 남겨보세요"; break;
+            case "likes":     emptyMsg = "아직 좋아요한 피드가 없어요\n마음에 드는 피드에 좋아요를 눌러보세요"; break;
+            case "bookmarks": emptyMsg = "아직 북마크한 피드가 없어요\n나중에 다시 보고 싶은 피드를 저장해보세요"; break;
+            default:          emptyMsg = "아직 작성한 피드가 없어요\n첫 번째 러닝 기록을 공유해보세요"; break;
+        }
 
         Callback<List<CommunityContentResponse>> callback = new Callback<List<CommunityContentResponse>>() {
             @Override
             public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
-                if (response.isSuccessful() && response.body() != null) {
+                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
                     MyFeedAdapter adapter = new MyFeedAdapter(response.body());
                     adapter.setOnProfileClickListener((userId, nickname) -> {
                         int myId = TokenManager.getUserId(MyPageActivity.this);
@@ -160,20 +171,31 @@ public class MyPageActivity extends AppCompatActivity {
                         startActivity(intent);
                     });
                     rvMyFeeds.setAdapter(adapter);
+                    if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+                } else {
+                    // 빈 목록 또는 오류 → 안내 문구 표시
+                    if (tvEmptyState != null) {
+                        tvEmptyState.setText(emptyMsg);
+                        tvEmptyState.setVisibility(View.VISIBLE);
+                    }
                 }
             }
             @Override
             public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
                 Log.e("API_ERROR", type + " 로드 실패: " + t.getMessage());
+                if (tvEmptyState != null) {
+                    tvEmptyState.setText(emptyMsg);
+                    tvEmptyState.setVisibility(View.VISIBLE);
+                }
             }
         };
 
         // 타입에 따라 리포지토리 함수 선택
         switch (type) {
-            case "me": repository.getMyFeeds(callback); break;
-            case "tagged": repository.getTaggedFeeds(callback); break;
-            case "comments": repository.getCommentedFeeds(callback); break;
-            case "likes": repository.getLikedFeeds(callback); break;
+            case "me":        repository.getMyFeeds(callback); break;
+            case "tagged":    repository.getTaggedFeeds(callback); break;
+            case "comments":  repository.getCommentedFeeds(callback); break;
+            case "likes":     repository.getLikedFeeds(callback); break;
             case "bookmarks": repository.getBookmarkedFeeds(callback); break;
         }
     }
@@ -195,6 +217,7 @@ public class MyPageActivity extends AppCompatActivity {
         ivProfile.setOnClickListener(v -> showImagePickDialog());
         ivBadge = findViewById(R.id.iv_badge);
         tvFriends = findViewById(R.id.tv_friends);
+        tvEmptyState = findViewById(R.id.tv_empty_state);
 
         // 배지 아이콘 참조 및 클릭 리스너 설정
         ivBadge = findViewById(R.id.iv_badge);

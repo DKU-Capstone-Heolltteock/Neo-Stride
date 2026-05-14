@@ -43,6 +43,7 @@ public class FriendActivity extends AppCompatActivity {
     private final String[] statusKeys = {"friends", "sent", "received", "blocked"};
     private int currentTabIndex = 0;
     private View badgeReceivedRequests;
+    private TextView tvEmptyState;
 
     private int getCurrentTabIndex() { return currentTabIndex; }
 
@@ -91,6 +92,7 @@ public class FriendActivity extends AppCompatActivity {
 
         // 3. UI 컴포넌트 설정 (뒤로가기 버튼 및 탭 초기화)
         badgeReceivedRequests = findViewById(R.id.badge_received_requests);
+        tvEmptyState = findViewById(R.id.tv_empty_state);
         findViewById(R.id.btn_back).setOnClickListener(v -> finish());
         initTabs();
 
@@ -148,15 +150,36 @@ public class FriendActivity extends AppCompatActivity {
 
      // 서버로부터 상태별 데이터를 가져옵니다.
     private void loadData(String status) {
+        // 탭별 빈 상태 안내 문구
+        final String emptyMsg;
+        switch (status) {
+            case "sent":     emptyMsg = "보낸 친구 요청이 없어요"; break;
+            case "received": emptyMsg = "아직 받은 친구 요청이 없어요"; break;
+            case "blocked":  emptyMsg = "차단한 사용자가 없어요"; break;
+            default:         emptyMsg = "아직 친구가 없어요\n다른 러너를 찾아 친구 요청을 보내보세요"; break;
+        }
+
         repository.fetchFriendList(status, list -> {
-            if (list != null) {
-                adapter.setFriendList(list, status);
-                // 받은 요청 탭에 빨간 점 표시 여부 갱신
-                if ("received".equals(status)) {
-                    runOnUiThread(() -> badgeReceivedRequests.setVisibility(
-                            list.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE));
+            runOnUiThread(() -> {
+                if (list != null && !list.isEmpty()) {
+                    adapter.setFriendList(list, status);
+                    if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+                    // 받은 요청 탭 빨간 점
+                    if ("received".equals(status)) {
+                        badgeReceivedRequests.setVisibility(View.VISIBLE);
+                    }
+                } else {
+                    // 빈 목록 → 어댑터 초기화 + 안내 문구 표시
+                    adapter.setFriendList(new ArrayList<>(), status);
+                    if (tvEmptyState != null) {
+                        tvEmptyState.setText(emptyMsg);
+                        tvEmptyState.setVisibility(View.VISIBLE);
+                    }
+                    if ("received".equals(status)) {
+                        badgeReceivedRequests.setVisibility(View.GONE);
+                    }
                 }
-            }
+            });
         });
     }
 
