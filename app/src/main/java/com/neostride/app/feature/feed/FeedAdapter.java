@@ -92,7 +92,13 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         bindProfileImage(holder, item);
 
         // 태그 버튼 클릭 시 Repository를 통해 태그 목록을 가져옴
-        holder.tvTagCount.setOnClickListener(v -> showTaggedUserDialog(feedId, item));
+        holder.tvTagCount.setOnClickListener(
+                v -> showTaggedUserDialog(
+                        feedId,
+                        item,
+                        holder.itemView.getContext()
+                )
+        );
 
         // 지도 표시 여부를 설정함
         if (item.isMapVisible()
@@ -301,7 +307,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
     /*
      * 태그된 사람 목록을 보여주는 함수임
      */
-    private void showTaggedUserDialog(Long feedId, FeedItem item) {
+    private void showTaggedUserDialog(Long feedId, FeedItem item, Context context) {
         if (item.getTagCount() <= 0) {
             Toast.makeText(
                     context,
@@ -311,7 +317,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
             return;
         }
 
-        FeedRepository feedRepository = new FeedRepository();
+        FeedRepository feedRepository = new FeedRepository(context);
 
         feedRepository.getTaggedUsers(
                 feedId,

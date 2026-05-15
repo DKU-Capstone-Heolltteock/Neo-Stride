@@ -20,7 +20,7 @@ import androidx.appcompat.widget.SwitchCompat;
 
 import com.neostride.app.R;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
-import com.neostride.app.feature.feed.model.FeedUploadResponse;
+import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.repository.FeedRepository;
 import com.neostride.app.feature.running.model.RunningRecordResponse;
 
@@ -183,13 +183,13 @@ public class FeedUploadDialog {
                 selectedTagCount
         );
 
-        FeedRepository feedRepository = new FeedRepository();
+        FeedRepository feedRepository = new FeedRepository(context);
 
         feedRepository.uploadFeed(
                 request,
-                new FeedRepository.RepositoryCallback<FeedUploadResponse>() {
+                new FeedRepository.RepositoryCallback<FeedResponse>() {
                     @Override
-                    public void onSuccess(FeedUploadResponse result) {
+                    public void onSuccess(FeedResponse result) {
                         if (onFeedUploadedListener != null) {
                             onFeedUploadedListener.onFeedUploaded(result);
                         }
@@ -379,6 +379,6 @@ public class FeedUploadDialog {
      * 피드 업로드 성공 결과를 외부로 전달하기 위한 인터페이스임
      */
     public interface OnFeedUploadedListener {
-        void onFeedUploaded(FeedUploadResponse response);
+        void onFeedUploaded(FeedResponse response);
     }
 }

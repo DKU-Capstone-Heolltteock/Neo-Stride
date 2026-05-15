@@ -16,7 +16,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.neostride.app.R;
 import com.neostride.app.activity.MainActivity;
 import com.neostride.app.feature.feed.model.FeedItem;
-import com.neostride.app.feature.feed.model.FeedUploadResponse;
+import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.repository.FeedRepository;
 
 import java.util.ArrayList;
@@ -66,7 +66,8 @@ public class FeedFragment extends Fragment {
         rvFeedList = view.findViewById(R.id.rv_feed_list);
 
         // Repository를 생성함
-        feedRepository = new FeedRepository();
+        // Repository를 생성함
+        feedRepository = new FeedRepository(requireContext());
 
         // 피드 데이터를 담을 리스트를 빈 리스트로 초기화함
         feedItemList = new ArrayList<>();
@@ -117,9 +118,9 @@ public class FeedFragment extends Fragment {
      * 서버 모드에서는 실제 서버 데이터를 받아옴
      */
     private void loadFeedList() {
-        feedRepository.getFeedList(new FeedRepository.RepositoryCallback<List<FeedUploadResponse>>() {
+        feedRepository.getFeedList(new FeedRepository.RepositoryCallback<List<FeedResponse>>() {
             @Override
-            public void onSuccess(List<FeedUploadResponse> data) {
+            public void onSuccess(List<FeedResponse> data) {
                 // Fragment가 이미 화면에서 사라진 경우 UI 작업을 하지 않음
                 if (!isAdded()) {
                     return;
@@ -129,7 +130,7 @@ public class FeedFragment extends Fragment {
                 feedItemList.clear();
 
                 // Repository에서 받은 응답 목록을 화면용 FeedItem 목록으로 변환함
-                for (FeedUploadResponse feedResponse : data) {
+                for (FeedResponse feedResponse : data) {
                     FeedItem feedItem = convertResponseToFeedItem(feedResponse);
                     feedItemList.add(feedItem);
                 }
@@ -157,7 +158,7 @@ public class FeedFragment extends Fragment {
     /*
      * 서버 응답 DTO 또는 Mock 응답 DTO를 RecyclerView에서 사용할 FeedItem 객체로 변환하는 함수임
      */
-    private FeedItem convertResponseToFeedItem(FeedUploadResponse response) {
+    private FeedItem convertResponseToFeedItem(FeedResponse response) {
         return new FeedItem(
                 getSafeText(response.getProfileImageUrl()),
                 getSafeText(response.getNickname(), "알 수 없음"),

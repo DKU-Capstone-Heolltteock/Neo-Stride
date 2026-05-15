@@ -102,7 +102,7 @@ public class FeedDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_feed_detail);
 
-        feedRepository = new FeedRepository();
+        feedRepository = new FeedRepository(this);
 
         getIntentData();
 

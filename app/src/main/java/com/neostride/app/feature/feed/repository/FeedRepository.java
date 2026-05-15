@@ -1,9 +1,12 @@
 package com.neostride.app.feature.feed.repository;
 
+import android.content.Context;
+
 import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.feed.api.FeedApi;
+import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
-import com.neostride.app.feature.feed.model.FeedUploadResponse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +14,8 @@ import java.util.List;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+
+import com.neostride.app.common.network.MockApiClient;
 
 /*
  * 피드 관련 데이터 처리를 담당하는 Repository 클래스임
@@ -20,23 +25,35 @@ public class FeedRepository {
 
     private final FeedApi feedApi;
 
+    // 로그인한 사용자 ID를 가져오기 위해 Context를 저장함
+    private final Context context;
+
     /*
      * FeedRepository 생성자임
      * ApiClient를 통해 FeedApi 객체를 생성함
+     * Context는 TokenManager에서 로그인한 사용자 ID를 가져오기 위해 사용함
      */
-    public FeedRepository() {
-        feedApi = ApiClient.getInstance().create(FeedApi.class);
+    public FeedRepository(Context context) {
+        this.context = context.getApplicationContext();
+        //feedApi = ApiClient.getInstance().create(FeedApi.class);
+        feedApi = MockApiClient.getInstance().create(FeedApi.class);
     }
 
     /*
      * 피드 목록을 조회하는 함수임
+     * Swagger 기준으로 GET /feeds 요청에는 X-User-Id 헤더가 필요함
      */
-    public void getFeedList(RepositoryCallback<List<FeedUploadResponse>> callback) {
-        feedApi.getFeedList().enqueue(new Callback<List<FeedUploadResponse>>() {
+    public void getFeedList(RepositoryCallback<List<FeedResponse>> callback) {
+
+        // 현재 로그인한 사용자 ID를 가져옴
+        int userId = TokenManager.getUserId(context);
+
+        // FeedApi의 getFeedList 함수에 X-User-Id 헤더 값으로 userId를 전달함
+        feedApi.getFeedList((long) userId).enqueue(new Callback<List<FeedResponse>>() {
             @Override
             public void onResponse(
-                    Call<List<FeedUploadResponse>> call,
-                    Response<List<FeedUploadResponse>> response
+                    Call<List<FeedResponse>> call,
+                    Response<List<FeedResponse>> response
             ) {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
@@ -47,7 +64,7 @@ public class FeedRepository {
 
             @Override
             public void onFailure(
-                    Call<List<FeedUploadResponse>> call,
+                    Call<List<FeedResponse>> call,
                     Throwable t
             ) {
                 callback.onError("서버 연결 실패: " + t.getMessage());
@@ -60,13 +77,13 @@ public class FeedRepository {
      */
     public void uploadFeed(
             FeedUploadRequest request,
-            RepositoryCallback<FeedUploadResponse> callback
+            RepositoryCallback<FeedResponse> callback
     ) {
-        feedApi.uploadFeed(request).enqueue(new Callback<FeedUploadResponse>() {
+        feedApi.uploadFeed(request).enqueue(new Callback<FeedResponse>() {
             @Override
             public void onResponse(
-                    Call<FeedUploadResponse> call,
-                    Response<FeedUploadResponse> response
+                    Call<FeedResponse> call,
+                    Response<FeedResponse> response
             ) {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
@@ -77,7 +94,7 @@ public class FeedRepository {
 
             @Override
             public void onFailure(
-                    Call<FeedUploadResponse> call,
+                    Call<FeedResponse> call,
                     Throwable t
             ) {
                 callback.onError("서버 연결 실패: " + t.getMessage());
