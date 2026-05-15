@@ -24,6 +24,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.neostride.app.R;
+import com.neostride.app.feature.feed.model.FeedDetailResponse;
 import com.neostride.app.feature.feed.repository.FeedRepository;
 import com.neostride.app.feature.mypage.MyPageActivity;
 
@@ -32,7 +33,7 @@ import java.util.List;
 
 /*
  * 피드 상세 화면을 담당하는 Activity 클래스임
- * 피드 목록에서 선택한 피드 정보를 받아 상세 내용을 표시함
+ * 피드 목록에서 선택한 피드의 feedId를 받아 상세 API를 호출하고 상세 내용을 표시함
  */
 public class FeedDetailActivity extends AppCompatActivity {
 
@@ -78,6 +79,8 @@ public class FeedDetailActivity extends AppCompatActivity {
     private boolean isBookmarked = false;
 
     private Long feedId;
+    private Long writerId;
+    private boolean isMine = false;
 
     private String username;
     private String time;
@@ -102,15 +105,24 @@ public class FeedDetailActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_feed_detail);
 
+        // 피드 관련 API 호출을 담당하는 Repository를 생성함
         feedRepository = new FeedRepository(this);
 
+        // 목록 화면에서 전달받은 Intent 데이터를 먼저 가져옴
         getIntentData();
 
+        // XML View들을 Java 변수와 연결함
         initViews();
 
+        // Intent로 받은 기존 데이터를 먼저 화면에 표시함
+        // 상세 API가 느리거나 실패해도 기본 화면이 보이도록 하기 위함
         bindFeedData();
 
+        // 버튼 클릭 이벤트들을 연결함
         setupClickEvents();
+
+        // feedId를 이용해 상세 API를 호출하고, 성공 시 화면을 다시 갱신함
+        loadFeedDetail();
     }
 
     /*
@@ -143,33 +155,14 @@ public class FeedDetailActivity extends AppCompatActivity {
 
         imageUrls = getIntent().getStringArrayListExtra("imageUrls");
 
-        if (username == null || username.trim().isEmpty()) {
-            username = "알 수 없음";
-        }
+        username = getSafeText(username, "알 수 없음");
+        time = getSafeText(time, "시간 정보 없음");
+        title = getSafeText(title);
+        content = getSafeText(content);
 
-        if (time == null || time.trim().isEmpty()) {
-            time = "방금 전";
-        }
-
-        if (title == null) {
-            title = "";
-        }
-
-        if (content == null) {
-            content = "";
-        }
-
-        if (distance == null || distance.trim().isEmpty()) {
-            distance = "0.00 km";
-        }
-
-        if (duration == null || duration.trim().isEmpty()) {
-            duration = "00:00";
-        }
-
-        if (pace == null || pace.trim().isEmpty()) {
-            pace = "0:00/km";
-        }
+        distance = getSafeText(distance, "0.00 km");
+        duration = getSafeText(duration, "00:00");
+        pace = getSafeText(pace, "0:00/km");
 
         if (imageUrls == null) {
             imageUrls = new ArrayList<>();
@@ -217,7 +210,85 @@ public class FeedDetailActivity extends AppCompatActivity {
     }
 
     /*
-     * 전달받은 피드 데이터를 화면에 표시하는 함수임
+     * feedId를 이용해 서버 또는 Mock 서버에서 피드 상세 정보를 조회하는 함수임
+     */
+    private void loadFeedDetail() {
+        if (feedId == null) {
+            Toast.makeText(
+                    this,
+                    "피드 ID가 없어 상세 정보를 불러올 수 없습니다",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        feedRepository.getFeedDetail(
+                feedId,
+                new FeedRepository.RepositoryCallback<FeedDetailResponse>() {
+                    @Override
+                    public void onSuccess(FeedDetailResponse response) {
+                        applyFeedDetailResponse(response);
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        Toast.makeText(
+                                FeedDetailActivity.this,
+                                message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
+    }
+
+    /*
+     * 피드 상세 조회 응답을 Activity 내부 데이터에 반영하고 화면을 다시 그리는 함수임
+     */
+    private void applyFeedDetailResponse(FeedDetailResponse response) {
+        if (response == null) {
+            return;
+        }
+
+        feedId = response.getFeedId();
+        writerId = response.getWriterId();
+
+        username = getSafeText(response.getNickname(), "알 수 없음");
+        time = getSafeText(response.getCreatedAt(), "시간 정보 없음");
+        title = getSafeText(response.getTitle());
+        content = getSafeText(response.getContent());
+
+        tagCount = response.getTaggedCount();
+        likeCount = response.getLikeCount();
+        commentCount = response.getCommentCount();
+
+        // 상세 API에서 받은 좋아요/북마크/작성자 여부를 반영함
+        isLiked = response.isLiked();
+        isBookmarked = response.isBookmarked();
+        isMine = response.isMine();
+
+        // 상세 API에서 받은 좋아요 수를 기준값으로 다시 설정함
+        displayLikeCount = likeCount;
+
+        distance = getSafeText(response.getDistance(), "0.00 km");
+        duration = getSafeText(response.getDuration(), "00:00");
+        pace = getSafeText(response.getPace(), "0:00/km");
+
+        mapVisible = response.isMapVisible();
+        routeMapImageUri = response.getRouteMapImageUri();
+
+        if (response.getImageUrls() != null) {
+            imageUrls = new ArrayList<>(response.getImageUrls());
+        } else {
+            imageUrls = new ArrayList<>();
+        }
+
+        // 상세 API 응답값으로 화면을 다시 갱신함
+        bindFeedData();
+    }
+
+    /*
+     * 피드 데이터를 화면에 표시하는 함수임
      */
     private void bindFeedData() {
         tvUsername.setText(username);
@@ -239,12 +310,18 @@ public class FeedDetailActivity extends AppCompatActivity {
         }
 
         if (ivBookmark != null) {
-            ivBookmark.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+            if (isBookmarked) {
+                ivBookmark.setImageTintList(
+                        ColorStateList.valueOf(Color.parseColor("#B8FF06"))
+                );
+            } else {
+                ivBookmark.setImageTintList(ColorStateList.valueOf(Color.WHITE));
+            }
         }
 
-        setLikeColor(false);
+        setLikeColor(isLiked);
 
-        if (!imageUrls.isEmpty()) {
+        if (imageUrls != null && !imageUrls.isEmpty()) {
             ivFeedPhoto.setVisibility(View.VISIBLE);
             ivFeedPhoto.setImageURI(Uri.parse(imageUrls.get(0)));
         } else {
@@ -262,6 +339,9 @@ public class FeedDetailActivity extends AppCompatActivity {
 
         ivRouteArrow.setRotation(0f);
         ivRecordArrow.setRotation(0f);
+
+        isRouteOpen = false;
+        isRecordOpen = false;
     }
 
     /*
@@ -289,8 +369,7 @@ public class FeedDetailActivity extends AppCompatActivity {
         }
 
         /*
-         * 태그 숫자 클릭 시 Activity 내부 하드코딩이 아니라
-         * Repository를 통해 MockFeedServer에서 태그된 사용자 목록을 가져옴
+         * 태그 숫자 클릭 시 Repository를 통해 태그된 사용자 목록을 가져옴
          */
         tvTagCount.setOnClickListener(v -> loadTaggedUsers());
 
@@ -322,6 +401,15 @@ public class FeedDetailActivity extends AppCompatActivity {
      * 태그된 사용자 목록을 Repository에서 가져오는 함수임
      */
     private void loadTaggedUsers() {
+        if (feedId == null) {
+            Toast.makeText(
+                    this,
+                    "피드 ID가 없어 태그 정보를 불러올 수 없습니다",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
         if (tagCount <= 0) {
             Toast.makeText(
                     this,
@@ -373,6 +461,8 @@ public class FeedDetailActivity extends AppCompatActivity {
 
     /*
      * 좋아요 상태를 변경하는 함수임
+     * 현재는 프론트 화면에서만 좋아요 상태를 임시 변경함
+     * 추후 좋아요 API 연결 시 서버 응답의 liked, likeCount 값으로 갱신해야 함
      */
     private void toggleLike() {
         isLiked = !isLiked;
@@ -422,6 +512,8 @@ public class FeedDetailActivity extends AppCompatActivity {
 
     /*
      * 북마크 상태를 변경하는 함수임
+     * 현재는 프론트 화면에서만 북마크 상태를 임시 변경함
+     * 추후 북마크 API 연결 시 서버 응답의 bookmarked 값으로 갱신해야 함
      */
     private void toggleBookmark() {
         isBookmarked = !isBookmarked;
@@ -443,7 +535,7 @@ public class FeedDetailActivity extends AppCompatActivity {
 
     /*
      * 태그된 사람 목록을 커스텀 Dialog로 보여주는 함수임
-     * 태그 목록 데이터는 MockFeedServer에서 전달받은 값을 사용함
+     * 태그 목록 데이터는 Repository에서 전달받은 값을 사용함
      */
     private void showTaggedUserDialog(List<String> taggedUsers) {
         Dialog dialog = new Dialog(this);
@@ -627,6 +719,28 @@ public class FeedDetailActivity extends AppCompatActivity {
             layoutRecordContent.setVisibility(View.GONE);
             ivRecordArrow.setRotation(0f);
         }
+    }
+
+    /*
+     * null 값을 빈 문자열로 바꿔주는 함수임
+     */
+    private String getSafeText(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value;
+    }
+
+    /*
+     * null 또는 빈 문자열일 때 기본값을 넣어주는 함수임
+     */
+    private String getSafeText(String value, String defaultValue) {
+        if (value == null || value.trim().isEmpty()) {
+            return defaultValue;
+        }
+
+        return value;
     }
 
     /*

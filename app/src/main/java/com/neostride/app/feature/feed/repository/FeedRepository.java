@@ -3,8 +3,10 @@ package com.neostride.app.feature.feed.repository;
 import android.content.Context;
 
 import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.common.network.MockApiClient;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.feed.api.FeedApi;
+import com.neostride.app.feature.feed.model.FeedDetailResponse;
 import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
 
@@ -15,11 +17,9 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-import com.neostride.app.common.network.MockApiClient;
-
 /*
  * 피드 관련 데이터 처리를 담당하는 Repository 클래스임
- * 실제 서버 API를 통해 피드 목록 조회, 피드 업로드를 처리함
+ * 실제 서버 API 또는 Mock API를 통해 피드 목록 조회, 피드 상세 조회, 피드 업로드를 처리함
  */
 public class FeedRepository {
 
@@ -30,18 +30,23 @@ public class FeedRepository {
 
     /*
      * FeedRepository 생성자임
-     * ApiClient를 통해 FeedApi 객체를 생성함
+     * ApiClient 또는 MockApiClient를 통해 FeedApi 객체를 생성함
      * Context는 TokenManager에서 로그인한 사용자 ID를 가져오기 위해 사용함
      */
     public FeedRepository(Context context) {
         this.context = context.getApplicationContext();
-        //feedApi = ApiClient.getInstance().create(FeedApi.class);
+
+        // 실제 서버 연결 시 사용함
+        // feedApi = ApiClient.getInstance().create(FeedApi.class);
+
+        // 개발 중 Mock 서버 테스트용으로 사용함
+        // push/merge 전에는 실제 서버용 ApiClient로 되돌리는 것을 권장함
         feedApi = MockApiClient.getInstance().create(FeedApi.class);
     }
 
     /*
      * 피드 목록을 조회하는 함수임
-     * Swagger 기준으로 GET /feeds 요청에는 X-User-Id 헤더가 필요함
+     * GET /api/feeds 요청에는 X-User-Id 헤더가 필요함
      */
     public void getFeedList(RepositoryCallback<List<FeedResponse>> callback) {
 
@@ -73,7 +78,43 @@ public class FeedRepository {
     }
 
     /*
+     * 피드 상세 정보를 조회하는 함수임
+     * GET /api/feeds/{feedId} 요청에는 X-User-Id 헤더가 필요함
+     * 상세 화면 전용 FeedDetailResponse를 반환함
+     */
+    public void getFeedDetail(
+            Long feedId,
+            RepositoryCallback<FeedDetailResponse> callback
+    ) {
+        int userId = TokenManager.getUserId(context);
+
+        feedApi.getFeedDetail((long) userId, feedId).enqueue(new Callback<FeedDetailResponse>() {
+            @Override
+            public void onResponse(
+                    Call<FeedDetailResponse> call,
+                    Response<FeedDetailResponse> response
+            ) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError("피드 상세 조회 실패: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(
+                    Call<FeedDetailResponse> call,
+                    Throwable t
+            ) {
+                callback.onError("서버 연결 실패: " + t.getMessage());
+            }
+        });
+    }
+
+    /*
      * 피드 업로드를 처리하는 함수임
+     * 현재 업로드 기능은 미완성 상태임
+     * 사진 업로드는 추후 multipart 방식으로 수정될 수 있음
      */
     public void uploadFeed(
             FeedUploadRequest request,

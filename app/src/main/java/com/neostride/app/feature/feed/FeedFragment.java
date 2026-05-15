@@ -158,8 +158,12 @@ public class FeedFragment extends Fragment {
     /*
      * 서버 응답 DTO 또는 Mock 응답 DTO를 RecyclerView에서 사용할 FeedItem 객체로 변환하는 함수임
      */
+    /*
+     * 서버 응답 DTO 또는 Mock 응답 DTO를 RecyclerView에서 사용할 FeedItem 객체로 변환하는 함수임
+     */
     private FeedItem convertResponseToFeedItem(FeedResponse response) {
         return new FeedItem(
+                response.getFeedId(),
                 getSafeText(response.getProfileImageUrl()),
                 getSafeText(response.getNickname(), "알 수 없음"),
                 getSafeText(response.getCreatedAt(), "방금 전"),
@@ -175,6 +179,7 @@ public class FeedFragment extends Fragment {
                 response.getRouteMapImageUri(),
                 response.getImageUrls()
         );
+
     }
 
     /*

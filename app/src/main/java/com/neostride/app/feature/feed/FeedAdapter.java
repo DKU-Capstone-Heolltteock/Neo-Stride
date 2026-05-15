@@ -70,9 +70,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
     public void onBindViewHolder(@NonNull FeedViewHolder holder, int position) {
         FeedItem item = feedItemList.get(position);
 
-        // 현재 FeedItem에 feedId가 없으므로 임시로 position 기반 ID를 사용함
-        // 나중에 FeedItem에 feedId 필드를 추가하면 item.getFeedId()로 변경하면 됨
-        Long feedId = getTemporaryFeedId(position);
+        Long feedId = item.getFeedId();
 
         // 기본 텍스트 데이터를 화면에 표시함
         holder.tvUsername.setText(item.getUsername());
@@ -362,12 +360,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         );
     }
 
-    /*
-     * 현재 FeedItem에 feedId 필드가 없으므로 임시 feedId를 만드는 함수임
-     */
-    private Long getTemporaryFeedId(int position) {
-        return (long) position + 1L;
-    }
 
     /*
      * dp 값을 px 값으로 변환하는 함수임
