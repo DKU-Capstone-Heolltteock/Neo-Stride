@@ -9,6 +9,7 @@ import com.neostride.app.feature.feed.api.FeedApi;
 import com.neostride.app.feature.feed.model.FeedDetailResponse;
 import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
+import com.neostride.app.feature.feed.model.TagUser;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -144,6 +145,42 @@ public class FeedRepository {
     }
 
     /*
+     * 태그할 친구 목록을 조회하는 함수임
+     * FeedApi의 친구 목록 API를 호출하고 결과를 화면으로 전달함
+     */
+    public void getFriendList(
+            RepositoryCallback<List<TagUser>> callback
+    ) {
+        int userId = TokenManager.getUserId(context);
+
+        feedApi.getFriendList(
+                (long) userId,
+                "ACCEPTED"
+        ).enqueue(new Callback<List<TagUser>>() {
+            @Override
+            public void onResponse(
+                    Call<List<TagUser>> call,
+                    Response<List<TagUser>> response
+            ) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError("친구 목록 조회 실패: " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(
+                    Call<List<TagUser>> call,
+                    Throwable t
+            ) {
+                callback.onError("서버 연결 실패: " + t.getMessage());
+            }
+        });
+    }
+
+
+    /*
      * 태그된 사용자 목록을 조회하는 함수임
      * 현재 서버에 태그 조회 API가 없으면 빈 리스트를 반환함
      */
@@ -162,4 +199,6 @@ public class FeedRepository {
 
         void onError(String message);
     }
+
+
 }

@@ -14,37 +14,39 @@ import okhttp3.ResponseBody;
  */
 public class MockInterceptor implements Interceptor {
 
+    // 업로드된 피드 Mock 데이터를 임시 저장함
+    private static String uploadedFeedJson = null;
+
     @Override
     public Response intercept(Chain chain) throws IOException {
         String path = chain.request().url().encodedPath();
         String method = chain.request().method();
 
-        /*
-         * 피드 목록 조회 Mock API임
-         * GET /api/feeds 요청을 가로채서 가짜 피드 목록 JSON을 반환함
-         */
-        if (method.equals("GET") && path.equals("/api/feeds")) {
+        if (method.equals("GET") && path.equals("/api/community/feeds")) {
             return makeJsonResponse(chain, getMockFeedListJson());
         }
 
-        /*
-         * 피드 상세 조회 Mock API임
-         * GET /api/feeds/{feedId} 요청을 가로채서 feedId에 맞는 가짜 상세 JSON을 반환함
-         */
-        if (method.equals("GET") && path.matches("/api/feeds/\\d+")) {
+        if (method.equals("GET") && path.matches("/api/community/feeds/\\d+")) {
             Long feedId = extractFeedId(path);
             return makeJsonResponse(chain, getMockFeedDetailJson(feedId));
         }
 
+        if (method.equals("POST") && path.equals("/api/community/feeds")) {
+            uploadedFeedJson = getMockUploadFeedJson();
+            return makeJsonResponse(chain, uploadedFeedJson);
+        }
+
         /*
-         * 위에서 처리하지 않은 요청은 원래 네트워크 요청으로 넘김
+         * 친구 목록 조회 Mock API임
+         * GET /community/friends 요청을 가로채서 가짜 친구 목록을 반환함
          */
+        if (method.equals("GET") && path.equals("/api/community/friends")) {
+            return makeJsonResponse(chain, getMockFriendListJson());
+        }
+
         return chain.proceed(chain.request());
     }
 
-    /*
-     * /api/feeds/{feedId} 형태의 path에서 feedId만 추출하는 함수임
-     */
     private Long extractFeedId(String path) {
         try {
             String feedIdText = path.substring(path.lastIndexOf("/") + 1);
@@ -54,9 +56,6 @@ public class MockInterceptor implements Interceptor {
         }
     }
 
-    /*
-     * Mock JSON 응답을 OkHttp Response 형태로 만들어 반환함
-     */
     private Response makeJsonResponse(Chain chain, String json) {
         return new Response.Builder()
                 .code(200)
@@ -73,52 +72,78 @@ public class MockInterceptor implements Interceptor {
 
     /*
      * GET /api/feeds 요청에 대해 반환할 가짜 피드 목록 JSON임
-     * 목록 화면용 FeedResponse 구조와 필드명을 맞춤
+     * 업로드된 Mock 피드가 있으면 목록 맨 위에 추가함
      */
     private String getMockFeedListJson() {
-        return "["
-                + "{"
-                + "\"feedId\":1,"
-                + "\"profileImageUrl\":\"\","
-                + "\"nickname\":\"mock_runner\","
-                + "\"createdAt\":\"방금 전\","
-                + "\"title\":\"목서버 피드 테스트\","
-                + "\"content\":\"GET /api/feeds 연결 확인용 목데이터입니다.\","
-                + "\"taggedCount\":2,"
-                + "\"likeCount\":12,"
-                + "\"commentCount\":3,"
-                + "\"distance\":\"5.20 km\","
-                + "\"duration\":\"00:32:10\","
-                + "\"pace\":\"6'11\\\"\","
-                + "\"mapVisible\":false,"
-                + "\"routeMapImageUri\":\"\","
-                + "\"imageUrls\":[]"
-                + "},"
-                + "{"
-                + "\"feedId\":2,"
-                + "\"profileImageUrl\":\"\","
-                + "\"nickname\":\"neo_stride\","
-                + "\"createdAt\":\"10분 전\","
-                + "\"title\":\"오늘 러닝 완료\","
-                + "\"content\":\"가볍게 3km 뛰고 왔습니다.\","
-                + "\"taggedCount\":0,"
-                + "\"likeCount\":8,"
-                + "\"commentCount\":1,"
-                + "\"distance\":\"3.00 km\","
-                + "\"duration\":\"00:18:40\","
-                + "\"pace\":\"6'13\\\"\","
-                + "\"mapVisible\":false,"
-                + "\"routeMapImageUri\":\"\","
-                + "\"imageUrls\":[]"
-                + "}"
-                + "]";
+        String defaultFeeds =
+                "{"
+                        + "\"feedId\":1,"
+                        + "\"profileImageUrl\":\"\","
+                        + "\"nickname\":\"mock_runner\","
+                        + "\"createdAt\":\"방금 전\","
+                        + "\"title\":\"목서버 피드 테스트\","
+                        + "\"content\":\"GET /api/feeds 연결 확인용 목데이터입니다.\","
+                        + "\"taggedCount\":2,"
+                        + "\"likeCount\":12,"
+                        + "\"commentCount\":3,"
+                        + "\"distance\":\"5.20 km\","
+                        + "\"duration\":\"00:32:10\","
+                        + "\"pace\":\"6'11\\\"\","
+                        + "\"mapVisible\":false,"
+                        + "\"routeMapImageUri\":\"\","
+                        + "\"imageUrls\":[]"
+                        + "},"
+                        + "{"
+                        + "\"feedId\":2,"
+                        + "\"profileImageUrl\":\"\","
+                        + "\"nickname\":\"neo_stride\","
+                        + "\"createdAt\":\"10분 전\","
+                        + "\"title\":\"오늘 러닝 완료\","
+                        + "\"content\":\"가볍게 3km 뛰고 왔습니다.\","
+                        + "\"taggedCount\":0,"
+                        + "\"likeCount\":8,"
+                        + "\"commentCount\":1,"
+                        + "\"distance\":\"3.00 km\","
+                        + "\"duration\":\"00:18:40\","
+                        + "\"pace\":\"6'13\\\"\","
+                        + "\"mapVisible\":false,"
+                        + "\"routeMapImageUri\":\"\","
+                        + "\"imageUrls\":[]"
+                        + "}";
+
+        if (uploadedFeedJson != null) {
+            return "[" + uploadedFeedJson + "," + defaultFeeds + "]";
+        }
+
+        return "[" + defaultFeeds + "]";
     }
 
-    /*
-     * GET /api/feeds/{feedId} 요청에 대해 반환할 가짜 피드 상세 JSON임
-     * 상세 화면용 FeedDetailResponse 구조와 필드명을 맞춤
-     */
     private String getMockFeedDetailJson(Long feedId) {
+        if (feedId == 999L && uploadedFeedJson != null) {
+            return "{"
+                    + "\"feedId\":999,"
+                    + "\"writerId\":999,"
+                    + "\"profileImageUrl\":\"\","
+                    + "\"nickname\":\"mock_runner\","
+                    + "\"createdAt\":\"방금 전\","
+                    + "\"title\":\"업로드 성공 테스트\","
+                    + "\"content\":\"Mock 업로드 응답 데이터입니다.\","
+                    + "\"taggedCount\":0,"
+                    + "\"likeCount\":0,"
+                    + "\"commentCount\":0,"
+                    + "\"liked\":false,"
+                    + "\"bookmarked\":false,"
+                    + "\"mine\":true,"
+                    + "\"distance\":\"0.04 km\","
+                    + "\"duration\":\"00:10\","
+                    + "\"pace\":\"4:10/km\","
+                    + "\"mapVisible\":true,"
+                    + "\"routeMapImageUri\":\"\","
+                    + "\"imageUrls\":[],"
+                    + "\"comments\":[]"
+                    + "}";
+        }
+
         if (feedId == 2L) {
             return "{"
                     + "\"feedId\":2,"
@@ -140,17 +165,7 @@ public class MockInterceptor implements Interceptor {
                     + "\"mapVisible\":false,"
                     + "\"routeMapImageUri\":\"\","
                     + "\"imageUrls\":[],"
-                    + "\"comments\":["
-                    + "{"
-                    + "\"commentId\":201,"
-                    + "\"writerId\":301,"
-                    + "\"nickname\":\"runner_comment\","
-                    + "\"profileImageUrl\":\"\","
-                    + "\"content\":\"상세 댓글 목데이터입니다.\","
-                    + "\"createdAt\":\"5분 전\","
-                    + "\"mine\":false"
-                    + "}"
-                    + "]"
+                    + "\"comments\":[]"
                     + "}";
         }
 
@@ -161,7 +176,7 @@ public class MockInterceptor implements Interceptor {
                 + "\"nickname\":\"mock_runner\","
                 + "\"createdAt\":\"방금 전\","
                 + "\"title\":\"목서버 피드 상세 테스트\","
-                + "\"content\":\"GET /api/feeds/1 상세 조회 Mock 데이터입니다.\\n피드 상세 API 연결 확인용입니다.\","
+                + "\"content\":\"GET /api/feeds/1 상세 조회 Mock 데이터입니다.\","
                 + "\"taggedCount\":2,"
                 + "\"likeCount\":12,"
                 + "\"commentCount\":3,"
@@ -174,26 +189,63 @@ public class MockInterceptor implements Interceptor {
                 + "\"mapVisible\":false,"
                 + "\"routeMapImageUri\":\"\","
                 + "\"imageUrls\":[],"
-                + "\"comments\":["
-                + "{"
-                + "\"commentId\":101,"
-                + "\"writerId\":201,"
-                + "\"nickname\":\"comment_user1\","
+                + "\"comments\":[]"
+                + "}";
+    }
+
+    /*
+     * POST /api/feeds 요청에 대해 반환할 가짜 업로드 성공 JSON임
+     */
+    private String getMockUploadFeedJson() {
+        return "{"
+                + "\"feedId\":999,"
                 + "\"profileImageUrl\":\"\","
-                + "\"content\":\"첫 번째 댓글입니다.\","
-                + "\"createdAt\":\"1분 전\","
-                + "\"mine\":false"
+                + "\"nickname\":\"mock_runner\","
+                + "\"createdAt\":\"방금 전\","
+                + "\"title\":\"업로드 성공 테스트\","
+                + "\"content\":\"Mock 업로드 응답 데이터입니다.\","
+                + "\"taggedCount\":0,"
+                + "\"likeCount\":0,"
+                + "\"commentCount\":0,"
+                + "\"distance\":\"0.04 km\","
+                + "\"duration\":\"00:10\","
+                + "\"pace\":\"4:10/km\","
+                + "\"mapVisible\":true,"
+                + "\"routeMapImageUri\":\"\","
+                + "\"imageUrls\":[]"
+                + "}";
+    }
+
+    /*
+     * 친구 목록 Mock JSON 데이터임
+     * 사람 태그 다이얼로그 테스트용 데이터임
+     */
+    private String getMockFriendListJson() {
+        return "["
+                + "{"
+                + "\"user_id\":1,"
+                + "\"nickname\":\"neo_runner\","
+                + "\"badge_tier\":\"GOLD\","
+                + "\"friend_count\":120,"
+                + "\"profile_image_url\":\"\","
+                + "\"status\":\"ACCEPTED\""
                 + "},"
                 + "{"
-                + "\"commentId\":102,"
-                + "\"writerId\":101,"
-                + "\"nickname\":\"mock_runner\","
-                + "\"profileImageUrl\":\"\","
-                + "\"content\":\"내가 작성한 댓글 예시입니다.\","
-                + "\"createdAt\":\"방금 전\","
-                + "\"mine\":true"
+                + "\"user_id\":2,"
+                + "\"nickname\":\"marathon_kim\","
+                + "\"badge_tier\":\"SILVER\","
+                + "\"friend_count\":87,"
+                + "\"profile_image_url\":\"\","
+                + "\"status\":\"ACCEPTED\""
+                + "},"
+                + "{"
+                + "\"user_id\":3,"
+                + "\"nickname\":\"night_runner\","
+                + "\"badge_tier\":\"BRONZE\","
+                + "\"friend_count\":42,"
+                + "\"profile_image_url\":\"\","
+                + "\"status\":\"ACCEPTED\""
                 + "}"
-                + "]"
-                + "}";
+                + "]";
     }
 }

@@ -25,7 +25,7 @@ public class MockApiClient {
                     .build();
 
             retrofit = new Retrofit.Builder()
-                    .baseUrl("http://mock.neostride.local/")
+                    .baseUrl("http://127.0.0.1/")
                     .client(client)
                     .addConverterFactory(GsonConverterFactory.create())
                     .build();

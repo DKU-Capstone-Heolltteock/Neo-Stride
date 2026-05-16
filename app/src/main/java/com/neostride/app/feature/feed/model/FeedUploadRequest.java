@@ -4,6 +4,8 @@ import java.util.List;
 
 /*
  * 피드 업로드 요청 DTO 클래스임
+ * 앱에서 서버로 POST /feeds 요청을 보낼 때 사용하는 데이터 구조임
+ * Swagger의 Request body 필드명과 동일하게 맞춤
  */
 public class FeedUploadRequest {
 
