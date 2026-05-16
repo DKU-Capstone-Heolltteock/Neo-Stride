@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 검색 상단 영역 배경색임 -->
+    <solid android:color="#202020" />
+
+    <!-- 피드/팁 화면처럼 하단 양쪽을 둥글게 처리함 -->
+    <corners
+        android:bottomLeftRadius="28dp"
+        android:bottomRightRadius="28dp" />
+
+</shape>

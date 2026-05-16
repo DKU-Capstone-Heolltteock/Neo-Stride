@@ -61,6 +61,45 @@ public class MockInterceptor implements Interceptor {
         String method = chain.request().method();
 
         /*
+         * 피드 검색 Mock API임
+         * GET /api/community/search/feeds 요청을 가로채서 피드 목록 형식의 검색 결과를 반환함
+         */
+        if (method.equals("GET") && path.equals("/api/community/search/feeds")) {
+            String keyword = chain.request().url().queryParameter("keyword");
+            return makeJsonResponse(chain, getMockSearchFeedListJson(keyword));
+        }
+
+        /*
+         * 팁 검색 Mock API임
+         * GET /api/community/search/tips 요청을 가로채서 팁 목록 형식의 검색 결과를 반환함
+         */
+        if (method.equals("GET") && path.equals("/api/community/search/tips")) {
+            String keyword = chain.request().url().queryParameter("keyword");
+            String category = chain.request().url().queryParameter("category");
+
+            return makeJsonResponse(chain, getMockSearchTipListJson(keyword, category));
+        }
+
+        /*
+         * 프로필 검색 Mock API임
+         * GET /api/community/search/profiles 요청을 가로채서 유저 검색 결과를 반환함
+         */
+        if (method.equals("GET") && path.equals("/api/community/search/profiles")) {
+            String keyword = chain.request().url().queryParameter("keyword");
+            return makeJsonResponse(chain, getMockSearchProfileListJson(keyword));
+        }
+
+        /*
+         * 친구 검색 Mock API임
+         * GET /api/community/search/friends 요청을 가로채서 친구 검색 결과를 반환함
+         */
+        if (method.equals("GET") && path.equals("/api/community/search/friends")) {
+            String keyword = chain.request().url().queryParameter("keyword");
+            return makeJsonResponse(chain, getMockSearchFriendListJson(keyword));
+        }
+
+
+        /*
          * 피드 목록 조회 Mock API임
          * GET /api/community/feeds 요청을 가로채서 가짜 피드 목록을 반환함
          */
@@ -1268,6 +1307,478 @@ public class MockInterceptor implements Interceptor {
     }
 
     /*
+     * GET /api/community/search/feeds 요청에 대해 반환할 피드 검색 Mock JSON 데이터임
+     * 기존 피드 목록에서 사용하는 FeedResponse 형식과 동일하게 반환함
+     */
+    private String getMockSearchFeedListJson(String keyword) {
+        String safeKeyword = getSafeSearchKeyword(keyword);
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+
+        boolean hasItem = false;
+
+        hasItem = appendSearchFeedItem(
+                builder,
+                hasItem,
+                1L,
+                101L,
+                "mock_runner",
+                "방금 전",
+                "목서버 피드 테스트",
+                "GET /api/feeds 연결 확인용 목데이터입니다.",
+                2,
+                12,
+                3,
+                "5.20 km",
+                "00:32:10",
+                "6'11\\\"",
+                false,
+                "",
+                safeKeyword
+        );
+
+        hasItem = appendSearchFeedItem(
+                builder,
+                hasItem,
+                2L,
+                102L,
+                "neo_stride",
+                "10분 전",
+                "오늘 러닝 완료",
+                "가볍게 3km 뛰고 왔습니다.",
+                0,
+                8,
+                1,
+                "3.00 km",
+                "00:18:40",
+                "6'13\\\"",
+                false,
+                "",
+                safeKeyword
+        );
+
+        hasItem = appendSearchFeedItem(
+                builder,
+                hasItem,
+                999L,
+                101L,
+                "mock_runner",
+                "방금 전",
+                "업로드 성공 테스트",
+                "Mock 업로드 응답 데이터입니다.",
+                0,
+                0,
+                0,
+                "0.04 km",
+                "00:10",
+                "4:10/km",
+                true,
+                "",
+                safeKeyword
+        );
+
+        builder.append("]");
+        return builder.toString();
+    }
+
+    /*
+     * 피드 검색 결과 JSON 배열에 피드 1개를 조건부로 추가하는 함수임
+     */
+    private boolean appendSearchFeedItem(
+            StringBuilder builder,
+            boolean hasItem,
+            Long feedId,
+            Long writerId,
+            String nickname,
+            String createdAt,
+            String title,
+            String content,
+            int taggedCount,
+            int likeCount,
+            int commentCount,
+            String distance,
+            String duration,
+            String pace,
+            boolean mapVisible,
+            String routeMapImageUri,
+            String keyword
+    ) {
+        if (!matchesSearchKeyword(title, content, nickname, keyword)) {
+            return hasItem;
+        }
+
+        if (hasItem) {
+            builder.append(",");
+        }
+
+        builder.append("{")
+                .append("\"feedId\":").append(feedId).append(",")
+                .append("\"writerId\":").append(writerId).append(",")
+                .append("\"profileImageUrl\":\"\",")
+                .append("\"nickname\":\"").append(escapeJson(nickname)).append("\",")
+                .append("\"createdAt\":\"").append(escapeJson(createdAt)).append("\",")
+                .append("\"title\":\"").append(escapeJson(title)).append("\",")
+                .append("\"content\":\"").append(escapeJson(content)).append("\",")
+                .append("\"taggedCount\":").append(taggedCount).append(",")
+                .append("\"likeCount\":").append(likeCount).append(",")
+                .append("\"commentCount\":").append(commentCount).append(",")
+                .append("\"distance\":\"").append(escapeJson(distance)).append("\",")
+                .append("\"duration\":\"").append(escapeJson(duration)).append("\",")
+                .append("\"pace\":\"").append(escapeJson(pace)).append("\",")
+                .append("\"mapVisible\":").append(mapVisible).append(",")
+                .append("\"routeMapImageUri\":\"").append(escapeJson(routeMapImageUri)).append("\",")
+                .append("\"imageUrls\":[]")
+                .append("}");
+
+        return true;
+    }
+
+    /*
+     * GET /api/community/search/tips 요청에 대해 반환할 팁 검색 Mock JSON 데이터임
+     * 기존 팁 목록에서 사용하는 TipResponse 형식과 동일하게 반환함
+     */
+    private String getMockSearchTipListJson(String keyword, String category) {
+        String safeKeyword = getSafeSearchKeyword(keyword);
+        String safeCategory = category == null || category.trim().isEmpty()
+                ? "ALL"
+                : category.trim().toUpperCase();
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+
+        boolean hasItem = false;
+
+        if (safeCategory.equals("ALL") || safeCategory.equals("TRAINING")) {
+            hasItem = appendSearchTipItem(
+                    builder,
+                    hasItem,
+                    1L,
+                    101L,
+                    "mock_tip_runner",
+                    true,
+                    "GOLD",
+                    "TRAINING",
+                    "제발!!!!!천천히 뛰세요!",
+                    "처음에는 속도보다 꾸준함이 중요합니다. 5분 뛰고 2분 걷는 방식으로 시작하면 부상 위험을 줄일 수 있습니다.",
+                    false,
+                    12,
+                    3,
+                    false,
+                    true,
+                    "방금 전",
+                    safeKeyword
+            );
+        }
+
+        if (safeCategory.equals("ALL") || safeCategory.equals("COURSE")) {
+            hasItem = appendSearchTipItem(
+                    builder,
+                    hasItem,
+                    2L,
+                    102L,
+                    "neo_stride",
+                    true,
+                    "SILVER",
+                    "COURSE",
+                    "야간 러닝 코스 추천",
+                    "가로등이 많고 사람이 적당히 있는 코스를 선택하는 것이 좋습니다. 너무 어두운 길은 피하는 것이 안전합니다.",
+                    true,
+                    8,
+                    1,
+                    true,
+                    false,
+                    "10분 전",
+                    safeKeyword
+            );
+        }
+
+        if (safeCategory.equals("ALL") || safeCategory.equals("GEAR")) {
+            hasItem = appendSearchTipItem(
+                    builder,
+                    hasItem,
+                    3L,
+                    103L,
+                    "gear_master",
+                    false,
+                    "NONE",
+                    "GEAR",
+                    "러닝화는 쿠션보다 발에 맞는지가 먼저입니다",
+                    "처음 러닝화를 고를 때는 브랜드보다 발볼, 착화감, 통증 여부를 먼저 확인하는 것이 좋습니다.",
+                    false,
+                    5,
+                    0,
+                    false,
+                    true,
+                    "1시간 전",
+                    safeKeyword
+            );
+        }
+
+        if (safeCategory.equals("ALL") || safeCategory.equals("FREE")) {
+            hasItem = appendSearchTipItem(
+                    builder,
+                    hasItem,
+                    4L,
+                    104L,
+                    "free_runner",
+                    false,
+                    "NONE",
+                    "FREE",
+                    "자유 러닝 잡담방",
+                    "오늘 러닝하면서 느낀 점을 자유롭게 공유해요.",
+                    false,
+                    2,
+                    1,
+                    false,
+                    false,
+                    "2시간 전",
+                    safeKeyword
+            );
+        }
+
+        builder.append("]");
+        return builder.toString();
+    }
+
+    /*
+     * 팁 검색 결과 JSON 배열에 팁 1개를 조건부로 추가하는 함수임
+     */
+    private boolean appendSearchTipItem(
+            StringBuilder builder,
+            boolean hasItem,
+            Long tipId,
+            Long writerId,
+            String nickname,
+            boolean badgeOwned,
+            String badgeType,
+            String category,
+            String title,
+            String content,
+            boolean gpsVisible,
+            int likeCount,
+            int commentCount,
+            boolean liked,
+            boolean bookmarked,
+            String createdAt,
+            String keyword
+    ) {
+        if (!matchesSearchKeyword(title, content, nickname, keyword)) {
+            return hasItem;
+        }
+
+        if (hasItem) {
+            builder.append(",");
+        }
+
+        builder.append("{")
+                .append("\"tipId\":").append(tipId).append(",")
+                .append("\"writerId\":").append(writerId).append(",")
+                .append("\"nickname\":\"").append(escapeJson(nickname)).append("\",")
+                .append("\"profileImageUrl\":\"\",")
+                .append("\"badgeOwned\":").append(badgeOwned).append(",")
+                .append("\"badgeType\":\"").append(escapeJson(badgeType)).append("\",")
+                .append("\"category\":\"").append(escapeJson(category)).append("\",")
+                .append("\"title\":\"").append(escapeJson(title)).append("\",")
+                .append("\"content\":\"").append(escapeJson(content)).append("\",")
+                .append("\"gpsVisible\":").append(gpsVisible).append(",")
+                .append("\"routeMapImageUrl\":\"\",")
+                .append("\"imageUrls\":[],")
+                .append("\"likeCount\":").append(likeCount).append(",")
+                .append("\"commentCount\":").append(commentCount).append(",")
+                .append("\"liked\":").append(liked).append(",")
+                .append("\"bookmarked\":").append(bookmarked).append(",")
+                .append("\"createdAt\":\"").append(escapeJson(createdAt)).append("\"")
+                .append("}");
+
+        return true;
+    }
+
+    /*
+     * GET /api/community/search/profiles 요청에 대해 반환할 프로필 검색 Mock JSON 데이터임
+     */
+    private String getMockSearchProfileListJson(String keyword) {
+        String safeKeyword = getSafeSearchKeyword(keyword);
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+
+        boolean hasItem = false;
+
+        hasItem = appendSearchUserItem(
+                builder,
+                hasItem,
+                101L,
+                "mock_runner",
+                "오늘도 네온처럼 달리는 중",
+                12,
+                "GOLD",
+                true,
+                safeKeyword
+        );
+
+        hasItem = appendSearchUserItem(
+                builder,
+                hasItem,
+                102L,
+                "neo_stride",
+                "저녁 러닝 좋아합니다.",
+                87,
+                "SILVER",
+                true,
+                safeKeyword
+        );
+
+        hasItem = appendSearchUserItem(
+                builder,
+                hasItem,
+                103L,
+                "gear_master",
+                "러닝화랑 장비 리뷰 좋아함",
+                42,
+                "BRONZE",
+                false,
+                safeKeyword
+        );
+
+        builder.append("]");
+        return builder.toString();
+    }
+
+    /*
+     * GET /api/community/search/friends 요청에 대해 반환할 친구 검색 Mock JSON 데이터임
+     */
+    private String getMockSearchFriendListJson(String keyword) {
+        String safeKeyword = getSafeSearchKeyword(keyword);
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+
+        boolean hasItem = false;
+
+        hasItem = appendSearchUserItem(
+                builder,
+                hasItem,
+                1L,
+                "neo_runner",
+                "함께 달리는 친구",
+                120,
+                "GOLD",
+                true,
+                safeKeyword
+        );
+
+        hasItem = appendSearchUserItem(
+                builder,
+                hasItem,
+                2L,
+                "marathon_kim",
+                "마라톤 준비 중",
+                87,
+                "SILVER",
+                true,
+                safeKeyword
+        );
+
+        hasItem = appendSearchUserItem(
+                builder,
+                hasItem,
+                3L,
+                "night_runner",
+                "야간 러닝 선호",
+                42,
+                "BRONZE",
+                true,
+                safeKeyword
+        );
+
+        builder.append("]");
+        return builder.toString();
+    }
+
+    /*
+     * 프로필/친구 검색 결과 JSON 배열에 유저 1명을 조건부로 추가하는 함수임
+     */
+    private boolean appendSearchUserItem(
+            StringBuilder builder,
+            boolean hasItem,
+            Long userId,
+            String nickname,
+            String statusMessage,
+            int friendCount,
+            String badgeTier,
+            boolean friend,
+            String keyword
+    ) {
+        if (!matchesSearchKeyword(nickname, statusMessage, badgeTier, keyword)) {
+            return hasItem;
+        }
+
+        if (hasItem) {
+            builder.append(",");
+        }
+
+        builder.append("{")
+                .append("\"userId\":").append(userId).append(",")
+                .append("\"nickname\":\"").append(escapeJson(nickname)).append("\",")
+                .append("\"profileImageUrl\":\"\",")
+                .append("\"statusMessage\":\"").append(escapeJson(statusMessage)).append("\",")
+                .append("\"friendCount\":").append(friendCount).append(",")
+                .append("\"badgeTier\":\"").append(escapeJson(badgeTier)).append("\",")
+                .append("\"friend\":").append(friend)
+                .append("}");
+
+        return true;
+    }
+
+    /*
+     * 검색어 null 처리를 담당하는 함수임
+     */
+    private String getSafeSearchKeyword(String keyword) {
+        if (keyword == null) {
+            return "";
+        }
+
+        return keyword.trim().toLowerCase();
+    }
+
+    /*
+     * 검색어가 title/content/nickname 중 하나에 포함되는지 확인하는 함수임
+     */
+    private boolean matchesSearchKeyword(
+            String title,
+            String content,
+            String nickname,
+            String keyword
+    ) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return true;
+        }
+
+        String safeTitle = title == null ? "" : title.toLowerCase();
+        String safeContent = content == null ? "" : content.toLowerCase();
+        String safeNickname = nickname == null ? "" : nickname.toLowerCase();
+
+        return safeTitle.contains(keyword)
+                || safeContent.contains(keyword)
+                || safeNickname.contains(keyword);
+    }
+
+    /*
+     * JSON 문자열 안에서 문제가 될 수 있는 문자를 이스케이프 처리하는 함수임
+     */
+    private String escapeJson(String text) {
+        if (text == null) {
+            return "";
+        }
+
+        return text
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"");
+    }
+
+
+    /*
      * 계정관리 Mock JSON 데이터임
      */
     private String getMockAccountJson() {
@@ -1277,4 +1788,7 @@ public class MockInterceptor implements Interceptor {
                 + "\"profile_photo\":\"\""
                 + "}";
     }
+
+
+
 }
