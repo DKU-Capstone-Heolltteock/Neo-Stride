@@ -1,7 +1,6 @@
 package com.neostride.app.feature.runnerpage.repository;
 
 import com.neostride.app.common.network.ApiClient;
-import com.neostride.app.common.network.MockApiClient;
 import com.neostride.app.feature.badge.model.BadgeDetailResponse;
 import com.neostride.app.feature.mypage.model.CommunityContentResponse;
 import com.neostride.app.feature.runnerpage.api.RunnerPageService;
@@ -23,13 +22,14 @@ public class RunnerPageRepository {
 
     private final RunnerPageService apiService;
 
-    /*임시 목서버 대체
+
     public RunnerPageRepository() {
         this.apiService = ApiClient.getInstance().create(RunnerPageService.class);
-    }*/
-    public RunnerPageRepository() {
-        this.apiService = MockApiClient.getInstance().create(RunnerPageService.class);
     }
+    //임시목서버
+    /*public RunnerPageRepository() {
+        this.apiService = MockApiClient.getInstance().create(RunnerPageService.class);
+    }*/
 
     // 러너 프로필을 조회해 Retrofit Callback으로 반환
     public void getRunnerProfile(int userId, Callback<RunnerProfileResponse> callback) {

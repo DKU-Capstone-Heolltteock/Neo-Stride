@@ -2,7 +2,7 @@ package com.neostride.app.feature.tip.repository;
 
 import android.util.Log;
 
-import com.neostride.app.common.network.MockApiClient;
+import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.feature.tip.api.TipApi;
 import com.neostride.app.feature.tip.model.TipDetailResponse;
 import com.neostride.app.feature.tip.model.TipResponse;
@@ -33,8 +33,14 @@ public class TipRepository {
      * 개발 중에는 MockApiClient를 사용해 목서버 응답을 받음
      * 실제 서버 연결 시에는 ApiClient로 되돌려야 함
      */
-    public TipRepository() {
+    /*public TipRepository() {
         tipApi = MockApiClient
+                .getInstance()
+                .create(TipApi.class);
+    }*/
+
+    public TipRepository() {
+        tipApi = ApiClient
                 .getInstance()
                 .create(TipApi.class);
     }

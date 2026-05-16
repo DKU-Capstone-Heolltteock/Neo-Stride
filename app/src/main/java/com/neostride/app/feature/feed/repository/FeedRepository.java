@@ -3,7 +3,7 @@ package com.neostride.app.feature.feed.repository;
 import android.content.Context;
 
 import com.neostride.app.common.network.ApiClient;
-import com.neostride.app.common.network.MockApiClient;
+//import com.neostride.app.common.network.MockApiClient;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.feed.api.FeedApi;
 import com.neostride.app.feature.feed.model.FeedDetailResponse;
@@ -42,11 +42,11 @@ public class FeedRepository {
         this.context = context.getApplicationContext();
 
         // 실제 서버 연결 시 사용함
-        // feedApi = ApiClient.getInstance().create(FeedApi.class);
+        feedApi = ApiClient.getInstance().create(FeedApi.class);
 
         // 개발 중 Mock 서버 테스트용으로 사용함
-        // push/merge 전에는 실제 서버용 ApiClient로 되돌리는 것을 권장함
-        feedApi = MockApiClient.getInstance().create(FeedApi.class);
+        /* push/merge 전에는 실제 서버용 ApiClient로 되돌리는 것을 권장함
+        feedApi = MockApiClient.getInstance().create(FeedApi.class);*/
     }
 
     /*

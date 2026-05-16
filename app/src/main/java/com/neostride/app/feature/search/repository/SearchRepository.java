@@ -2,7 +2,7 @@ package com.neostride.app.feature.search.repository;
 
 import android.content.Context;
 
-import com.neostride.app.common.network.MockApiClient;
+import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.search.api.SearchApi;
 import com.neostride.app.feature.search.model.SearchUserResponse;
@@ -63,10 +63,16 @@ public class SearchRepository {
      * SearchRepository 생성자임
      * 현재는 서버 미완성 상태를 고려해 MockApiClient를 사용함
      */
+    /*
     public SearchRepository(Context context) {
         this.context = context.getApplicationContext();
         this.searchApi = MockApiClient.getInstance().create(SearchApi.class);
+    }*/
+    public SearchRepository(Context context) {
+        this.context = context.getApplicationContext();
+        this.searchApi = ApiClient.getInstance().create(SearchApi.class);
     }
+
 
     /*
      * 피드 검색 요청을 실행하는 함수임

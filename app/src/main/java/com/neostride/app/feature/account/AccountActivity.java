@@ -27,7 +27,6 @@ import androidx.core.content.ContextCompat;
 import com.bumptech.glide.Glide;
 import com.google.android.material.imageview.ShapeableImageView;
 import com.neostride.app.R;
-import com.neostride.app.common.network.MockApiClient;
 import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.account.api.AccountApi;
@@ -99,8 +98,9 @@ public class AccountActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_account);
 
-        //임시비활성화accountApi = ApiClient.getInstance().create(AccountApi.class);
-        accountApi = MockApiClient.getInstance().create(AccountApi.class);
+        accountApi = ApiClient.getInstance().create(AccountApi.class);
+        //목서버 연결용
+        //accountApi = MockApiClient.getInstance().create(AccountApi.class);
 
         initViews();
         fetchAccountInfo();
