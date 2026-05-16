@@ -345,6 +345,7 @@ public class FeedUploadDialog {
             case "배지홀더에게만":
                 return "BADGE_HOLDER";
 
+            case "전체":
             case "모두":
             case "전체 공개":
             case "공개":
@@ -354,7 +355,6 @@ public class FeedUploadDialog {
                 android.util.Log.e("FeedUploadCheck", "알 수 없는 공개범위 값 = " + privacyText);
                 return "FRIEND";
         }
-
     }
 
     /*
