@@ -32,6 +32,8 @@ import com.neostride.app.feature.mypage.MyPageActivity;
 import com.neostride.app.feature.feed.model.FeedLikeResponse;
 import com.neostride.app.feature.feed.model.FeedBookmarkResponse;
 import com.neostride.app.feature.feed.model.FeedCommentRequest;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -478,7 +480,7 @@ public class FeedDetailActivity extends AppCompatActivity {
         layoutRouteHeader.setOnClickListener(v -> toggleRouteContent());
         layoutRecordHeader.setOnClickListener(v -> toggleRecordContent());
 
-        View.OnClickListener profileClickListener = v -> openUserProfile(username);
+        View.OnClickListener profileClickListener = v -> openWriterProfile();
 
         if (ivProfile != null) {
             ivProfile.setOnClickListener(profileClickListener);
@@ -658,13 +660,22 @@ public class FeedDetailActivity extends AppCompatActivity {
     }
 
     /*
-     * 해당 유저 프로필 또는 마이페이지로 이동하는 함수임
+     * 피드 작성자의 프로필로 이동하는 함수임
+     * 내 글이면 마이페이지로 이동하고, 남의 글이면 러너페이지로 이동함
      */
-    private void openUserProfile(String targetUsername) {
-        Intent intent = new Intent(this, MyPageActivity.class);
+    private void openWriterProfile() {
+        int myId = TokenManager.getUserId(this);
 
-        intent.putExtra("username", targetUsername);
+        if (writerId == null || isMine || writerId == myId) {
+            Intent intent = new Intent(this, MyPageActivity.class);
+            intent.putExtra("username", username);
+            startActivity(intent);
+            return;
+        }
 
+        Intent intent = new Intent(this, RunnerPageActivity.class);
+        intent.putExtra("user_id", writerId.intValue());
+        intent.putExtra("nickname", username);
         startActivity(intent);
     }
 
@@ -892,7 +903,12 @@ public class FeedDetailActivity extends AppCompatActivity {
 
             userRow.setOnClickListener(v -> {
                 dialog.dismiss();
-                openUserProfile(taggedUser);
+
+                Toast.makeText(
+                        FeedDetailActivity.this,
+                        taggedUser + " 프로필 이동은 사용자 ID 연결 후 구현 예정",
+                        Toast.LENGTH_SHORT
+                ).show();
             });
 
             rootLayout.addView(userRow);

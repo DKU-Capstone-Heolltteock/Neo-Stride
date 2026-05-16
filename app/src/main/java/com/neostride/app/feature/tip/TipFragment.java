@@ -2,6 +2,9 @@ package com.neostride.app.feature.tip;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -258,6 +261,7 @@ public class TipFragment extends Fragment {
 
     /*
      * 카테고리 선택 처리 함수임
+     * 선택된 카테고리는 각자 다른 네온색 배경으로 표시함
      */
     private void selectCategory(TextView selectedButton, String category) {
         btnAll.setSelected(false);
@@ -270,7 +274,97 @@ public class TipFragment extends Fragment {
 
         selectedCategory = category;
 
+        updateCategoryButtonStyle(category);
+
         applyFilter();
+    }
+
+    /*
+     * 카테고리 버튼 전체 스타일을 갱신하는 함수임
+     * 선택된 버튼은 카테고리별 네온색으로 표시하고,
+     * 선택되지 않은 버튼은 어두운 배경으로 표시함
+     */
+    private void updateCategoryButtonStyle(String category) {
+        setUnselectedCategoryButton(btnAll);
+        setUnselectedCategoryButton(btnFree);
+        setUnselectedCategoryButton(btnTraining);
+        setUnselectedCategoryButton(btnCourse);
+        setUnselectedCategoryButton(btnGear);
+
+        switch (category) {
+            case "전체":
+                setSelectedCategoryButton(btnAll, "#CCFF00");
+                break;
+
+            case "자유":
+                setSelectedCategoryButton(btnFree, "#00E5FF");
+                break;
+
+            case "훈련":
+                setSelectedCategoryButton(btnTraining, "#FF3DFF");
+                break;
+
+            case "코스":
+                setSelectedCategoryButton(btnCourse, "#FFB300");
+                break;
+
+            case "장비":
+                setSelectedCategoryButton(btnGear, "#00FF85");
+                break;
+        }
+    }
+
+    /*
+     * 선택되지 않은 카테고리 버튼 스타일을 적용하는 함수임
+     */
+    private void setUnselectedCategoryButton(TextView button) {
+        if (button == null) {
+            return;
+        }
+
+        button.setBackground(makeUnselectedCategoryBackground());
+        button.setTextColor(Color.WHITE);
+        button.setTypeface(null, Typeface.BOLD);
+    }
+
+    /*
+     * 선택된 카테고리 버튼 스타일을 적용하는 함수임
+     */
+    private void setSelectedCategoryButton(TextView button, String colorCode) {
+        if (button == null) {
+            return;
+        }
+
+        button.setBackground(makeSelectedCategoryBackground(colorCode));
+        button.setTextColor(Color.BLACK);
+        button.setTypeface(null, Typeface.BOLD);
+    }
+
+    /*
+     * 선택된 카테고리 버튼의 둥근 네온 배경을 만드는 함수임
+     */
+    private GradientDrawable makeSelectedCategoryBackground(String colorCode) {
+        GradientDrawable drawable = new GradientDrawable();
+
+        drawable.setShape(GradientDrawable.RECTANGLE);
+        drawable.setColor(Color.parseColor(colorCode));
+        drawable.setCornerRadius(dp(18));
+
+        return drawable;
+    }
+
+    /*
+     * 선택되지 않은 카테고리 버튼의 둥근 어두운 배경을 만드는 함수임
+     */
+    private GradientDrawable makeUnselectedCategoryBackground() {
+        GradientDrawable drawable = new GradientDrawable();
+
+        drawable.setShape(GradientDrawable.RECTANGLE);
+        drawable.setColor(Color.parseColor("#2A2A2A"));
+        drawable.setStroke(dp(1), Color.parseColor("#555555"));
+        drawable.setCornerRadius(dp(18));
+
+        return drawable;
     }
 
     /*
@@ -320,5 +414,12 @@ public class TipFragment extends Fragment {
             default:
                 return category;
         }
+    }
+
+    /*
+     * dp 값을 px 값으로 변환하는 함수임
+     */
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 }

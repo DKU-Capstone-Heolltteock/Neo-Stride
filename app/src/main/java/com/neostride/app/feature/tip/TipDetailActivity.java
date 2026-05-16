@@ -1,13 +1,15 @@
 package com.neostride.app.feature.tip;
 
+import android.content.Context;
+import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
-import android.content.Context;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -19,6 +21,9 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
 import com.neostride.app.R;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.mypage.MyPageActivity;
+import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 import com.neostride.app.feature.tip.model.TipCommentResponse;
 import com.neostride.app.feature.tip.model.TipDetailResponse;
 import com.neostride.app.feature.tip.repository.TipRepository;
@@ -89,6 +94,12 @@ public class TipDetailActivity extends AppCompatActivity {
 
     // 현재 상세 화면의 팁 ID임
     private Long tipId;
+
+    // 팁 작성자 ID임
+    private Long writerId;
+
+    // 팁 작성자 닉네임임
+    private String nickname = "";
 
     private int likeCount = 0;
     private int commentCount = 0;
@@ -212,6 +223,10 @@ public class TipDetailActivity extends AppCompatActivity {
             return;
         }
 
+        // 작성자 정보를 저장함
+        writerId = response.getWriterId();
+        nickname = getSafeText(response.getNickname(), "알 수 없음");
+
         likeCount = response.getLikeCount();
         commentCount = response.getCommentCount();
 
@@ -219,10 +234,15 @@ public class TipDetailActivity extends AppCompatActivity {
         isBookmarked = response.isBookmarked();
         isMine = response.isMine();
 
-        tvNickname.setText(getSafeText(response.getNickname(), "알 수 없음"));
+        tvNickname.setText(nickname);
         tvTime.setText("· " + getSafeText(response.getCreatedAt(), "방금 전"));
 
-        tvCategory.setText(convertCategoryToKorean(response.getCategory()));
+        /*
+         * 카테고리 알림판은 배경을 채우지 않고
+         * 글자색과 윤곽선만 카테고리별 네온색으로 변경함
+         */
+        applyCategoryOutlineStyle(tvCategory, response.getCategory());
+
         tvTitle.setText(getSafeText(response.getTitle(), ""));
         tvContent.setText(getSafeText(response.getContent(), ""));
 
@@ -480,6 +500,20 @@ public class TipDetailActivity extends AppCompatActivity {
 
         tvMore.setOnClickListener(v -> showMoreMenu());
 
+        /*
+         * 작성자 프로필 이미지 또는 닉네임 클릭 시
+         * 내 글이면 마이페이지, 남의 글이면 러너페이지로 이동함
+         */
+        View.OnClickListener profileClickListener = v -> openWriterProfile();
+
+        if (ivProfile != null) {
+            ivProfile.setOnClickListener(profileClickListener);
+        }
+
+        if (tvNickname != null) {
+            tvNickname.setOnClickListener(profileClickListener);
+        }
+
         if (tvLikeCount != null) {
             tvLikeCount.setOnClickListener(v -> toggleLike());
         }
@@ -546,6 +580,26 @@ public class TipDetailActivity extends AppCompatActivity {
                 createComment(comment);
             });
         }
+    }
+
+    /*
+     * 팁 작성자의 프로필로 이동하는 함수임
+     * 내 글이면 마이페이지로 이동하고, 남의 글이면 러너페이지로 이동함
+     */
+    private void openWriterProfile() {
+        int myId = TokenManager.getUserId(this);
+
+        if (writerId == null || isMine || writerId == myId) {
+            Intent intent = new Intent(this, MyPageActivity.class);
+            intent.putExtra("username", nickname);
+            startActivity(intent);
+            return;
+        }
+
+        Intent intent = new Intent(this, RunnerPageActivity.class);
+        intent.putExtra("user_id", writerId.intValue());
+        intent.putExtra("nickname", nickname);
+        startActivity(intent);
     }
 
     /*
@@ -799,6 +853,63 @@ public class TipDetailActivity extends AppCompatActivity {
         });
 
         popupMenu.show();
+    }
+
+    /*
+     * 팁 상세 카테고리 알림판 스타일을 적용하는 함수임
+     * 배경은 투명하게 유지하고 글자색과 윤곽선만 카테고리별 네온색으로 변경함
+     */
+    private void applyCategoryOutlineStyle(TextView categoryView, String category) {
+        if (categoryView == null) {
+            return;
+        }
+
+        int categoryColor = Color.parseColor(getCategoryColorCode(category));
+
+        categoryView.setText(convertCategoryToKorean(category));
+        categoryView.setTextColor(categoryColor);
+        categoryView.setTypeface(null, Typeface.BOLD);
+
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.RECTANGLE);
+
+        // 배경을 채우지 않고 투명하게 유지함
+        drawable.setColor(Color.TRANSPARENT);
+
+        // 글자와 같은 색으로 윤곽선만 표시함
+        drawable.setStroke(dp(1), categoryColor);
+
+        // 사진처럼 둥근 알림판 형태로 표시함
+        drawable.setCornerRadius(dp(14));
+
+        categoryView.setBackground(drawable);
+    }
+
+    /*
+     * 카테고리별 네온 색상 코드를 반환하는 함수임
+     */
+    private String getCategoryColorCode(String category) {
+        String koreanCategory = convertCategoryToKorean(category);
+
+        switch (koreanCategory) {
+            case "전체":
+                return "#CCFF00";
+
+            case "자유":
+                return "#00E5FF";
+
+            case "훈련":
+                return "#FF3DFF";
+
+            case "코스":
+                return "#FFB300";
+
+            case "장비":
+                return "#00FF85";
+
+            default:
+                return "#CCFF00";
+        }
     }
 
     /*

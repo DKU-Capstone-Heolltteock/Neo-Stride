@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -19,13 +21,13 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
 import com.neostride.app.R;
+import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.mypage.MyPageActivity;
+import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 import com.neostride.app.feature.tip.model.TipBookmarkResponse;
 import com.neostride.app.feature.tip.model.TipItem;
 import com.neostride.app.feature.tip.model.TipLikeResponse;
 import com.neostride.app.feature.tip.repository.TipRepository;
-import com.neostride.app.common.network.TokenManager;
-import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -104,7 +106,10 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
 
         // 팁 게시글 기본 정보를 화면에 표시함
         holder.tvNickname.setText(getSafeText(item.getNickname(), "알 수 없음"));
-        holder.tvCategory.setText(convertCategoryToKorean(item.getCategory()));
+
+        // 카테고리 알림판에 카테고리별 네온 색상을 적용함
+        applyCategoryBadgeStyle(holder.tvCategory, item.getCategory());
+
         holder.tvTitle.setText(getSafeText(item.getTitle(), ""));
         holder.tvContent.setText(getSafeText(item.getContent(), ""));
         holder.tvLikeCount.setText(String.valueOf(getCurrentLikeCount(item)));
@@ -172,7 +177,8 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         holder.tvCommentCount.setOnClickListener(v -> openTipDetail(item));
 
         /*
-         * 프사/닉네임 클릭 시 마이페이지로 이동함
+         * 프사/닉네임 클릭 시 내 계정이면 마이페이지,
+         * 남의 계정이면 러너페이지로 이동함
          */
         holder.ivProfile.setOnClickListener(v -> openProfile(item));
         holder.tvNickname.setOnClickListener(v -> openProfile(item));
@@ -364,7 +370,7 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
 
     /*
      * 프로필 화면으로 이동하는 함수임
-     * 현재 프로젝트의 MyPageActivity로 이동함
+     * 내 계정이면 MyPageActivity로 이동하고, 남의 계정이면 RunnerPageActivity로 이동함
      */
     private void openProfile(TipItem item) {
         Long writerId = item.getWriterId();
@@ -486,6 +492,64 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         popupMenu.show();
     }
 
+    //** 팁 목록 카테고리 알림판 스타일을 적용하는 함수임
+    // * 배경은 투명하게 유지하고, 글자색과 윤곽선만 카테고리별 네온색으로 변경함
+    // */
+    private void applyCategoryBadgeStyle(TextView categoryView, String category) {
+        if (categoryView == null) {
+            return;
+        }
+
+        int categoryColor = Color.parseColor(getCategoryColorCode(category));
+
+        categoryView.setText(convertCategoryToKorean(category));
+        categoryView.setTextColor(categoryColor);
+        categoryView.setTypeface(null, Typeface.BOLD);
+
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.RECTANGLE);
+
+        // 배경은 채우지 않고 투명하게 유지함
+        drawable.setColor(Color.TRANSPARENT);
+
+        // 글자와 같은 색으로 윤곽선만 표시함
+        drawable.setStroke(dp(1), categoryColor);
+
+        // 사진처럼 둥근 알림판 형태로 표시함
+        drawable.setCornerRadius(dp(14));
+
+        categoryView.setBackground(drawable);
+    }
+
+
+
+    /*
+     * 카테고리별 네온 색상 코드를 반환하는 함수임
+     */
+    private String getCategoryColorCode(String category) {
+        String koreanCategory = convertCategoryToKorean(category);
+
+        switch (koreanCategory) {
+            case "전체":
+                return "#CCFF00";
+
+            case "자유":
+                return "#00E5FF";
+
+            case "훈련":
+                return "#FF3DFF";
+
+            case "코스":
+                return "#FFB300";
+
+            case "장비":
+                return "#00FF85";
+
+            default:
+                return "#CCFF00";
+        }
+    }
+
     /*
      * 서버 카테고리 값을 화면 표시용 한글 카테고리로 변환하는 함수임
      * 서버에서 이미 한글로 오면 그대로 반환함
@@ -579,6 +643,17 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         }
 
         return value;
+    }
+
+    /*
+     * dp 값을 px 값으로 변환하는 함수임
+     */
+    private int dp(int value) {
+        if (context == null) {
+            return value;
+        }
+
+        return (int) (value * context.getResources().getDisplayMetrics().density + 0.5f);
     }
 
     /*
