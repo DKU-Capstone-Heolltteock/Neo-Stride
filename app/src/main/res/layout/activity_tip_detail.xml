@@ -263,64 +263,26 @@
                         android:layout_height="1dp"
                         android:background="#7A7A7A" />
 
-                    <!-- 댓글 1 -->
+                    <!-- 댓글 목록 영역 -->
                     <LinearLayout
+                        android:id="@+id/layout_tip_detail_comments"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
-                        android:orientation="vertical">
+                        android:orientation="vertical" />
 
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="32dp"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-
-                            <ImageView
-                                android:layout_width="25dp"
-                                android:layout_height="25dp"
-                                android:src="@drawable/ic_profile" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="7dp"
-                                android:text="GosuRunner444 · 4분 전"
-                                android:textColor="#FFFFFF"
-                                android:textSize="13sp"
-                                android:textStyle="bold" />
-
-                            <Space
-                                android:layout_width="0dp"
-                                android:layout_height="1dp"
-                                android:layout_weight="1" />
-
-                            <TextView
-                                android:layout_width="30dp"
-                                android:layout_height="30dp"
-                                android:gravity="center"
-                                android:text="•••"
-                                android:textColor="#FFFFFF"
-                                android:textSize="14sp" />
-                        </LinearLayout>
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="32dp"
-                            android:layout_marginTop="2dp"
-                            android:text="헐떡헐떡.."
-                            android:textColor="#DADADA"
-                            android:textSize="13sp" />
-                    </LinearLayout>
-
-                    <!-- 댓글 구분선 -->
-                    <View
+                    <!-- 댓글이 없을 때 표시할 문구 -->
+                    <TextView
+                        android:id="@+id/tv_tip_detail_empty_comment"
                         android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="12dp"
-                        android:background="#6A6A6A" />
-
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:gravity="center"
+                        android:text="아직 댓글이 없습니다."
+                        android:textColor="#8A8A8A"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
                 </LinearLayout>
 
             </LinearLayout>

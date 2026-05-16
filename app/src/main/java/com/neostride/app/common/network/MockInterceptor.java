@@ -35,13 +35,37 @@ public class MockInterceptor implements Interceptor {
             uploadedFeedJson = getMockUploadFeedJson();
             return makeJsonResponse(chain, uploadedFeedJson);
         }
-
         /*
          * 친구 목록 조회 Mock API임
          * GET /community/friends 요청을 가로채서 가짜 친구 목록을 반환함
          */
         if (method.equals("GET") && path.equals("/api/community/friends")) {
             return makeJsonResponse(chain, getMockFriendListJson());
+        }
+
+        /*
+         * 팁 목록 조회 Mock API임
+         * GET /api/community/tips 요청을 가로채서 가짜 팁 목록을 반환함
+         */
+        if (method.equals("GET") && path.equals("/api/community/tips")) {
+            return makeJsonResponse(chain, getMockTipListJson());
+        }
+
+        /*
+         * 팁 업로드 Mock API임
+         * POST /api/community/tips 요청을 가로채서 가짜 업로드 성공 응답을 반환함
+         */
+        if (method.equals("POST") && path.equals("/api/community/tips")) {
+            return makeJsonResponse(chain, getMockUploadTipJson());
+        }
+
+        /*
+         * 팁 상세 조회 Mock API임
+         * GET /api/community/tips/{tipId} 요청을 가로채서 가짜 팁 상세 정보를 반환함
+         */
+        if (method.equals("GET") && path.matches("/api/community/tips/\\d+")) {
+            Long tipId = extractTipId(path);
+            return makeJsonResponse(chain, getMockTipDetailJson(tipId));
         }
 
         return chain.proceed(chain.request());
@@ -51,6 +75,19 @@ public class MockInterceptor implements Interceptor {
         try {
             String feedIdText = path.substring(path.lastIndexOf("/") + 1);
             return Long.parseLong(feedIdText);
+        } catch (Exception e) {
+            return 1L;
+        }
+    }
+
+    /*
+     * 요청 경로에서 tipId를 추출하는 함수임
+     * 예: /api/community/tips/3 -> 3
+     */
+    private Long extractTipId(String path) {
+        try {
+            String tipIdText = path.substring(path.lastIndexOf("/") + 1);
+            return Long.parseLong(tipIdText);
         } catch (Exception e) {
             return 1L;
         }
@@ -116,6 +153,119 @@ public class MockInterceptor implements Interceptor {
         }
 
         return "[" + defaultFeeds + "]";
+    }
+
+    /*
+     * GET /api/community/tips/{tipId} 요청에 대해 반환할 가짜 팁 상세 JSON임
+     */
+    private String getMockTipDetailJson(Long tipId) {
+        if (tipId == 2L) {
+            return "{"
+                    + "\"tipId\":2,"
+                    + "\"writerId\":102,"
+                    + "\"nickname\":\"neo_stride\","
+                    + "\"profileImageUrl\":\"\","
+                    + "\"badgeOwned\":true,"
+                    + "\"badgeType\":\"SILVER\","
+                    + "\"category\":\"COURSE\","
+                    + "\"title\":\"야간 러닝 코스 추천\","
+                    + "\"content\":\"가로등이 많고 사람이 적당히 있는 코스를 선택하는 것이 좋습니다.\\n너무 어두운 길은 피하는 것이 안전합니다.\\n상세 API Mock 호출 성공 데이터입니다.\","
+                    + "\"gpsVisible\":true,"
+                    + "\"routeMapImageUrl\":\"\","
+                    + "\"imageUrls\":[],"
+                    + "\"likeCount\":8,"
+                    + "\"commentCount\":2,"
+                    + "\"liked\":true,"
+                    + "\"bookmarked\":false,"
+                    + "\"mine\":false,"
+                    + "\"createdAt\":\"10분 전\","
+                    + "\"comments\":["
+                    + "{"
+                    + "\"commentId\":201,"
+                    + "\"writerId\":301,"
+                    + "\"nickname\":\"night_runner\","
+                    + "\"profileImageUrl\":\"\","
+                    + "\"content\":\"저도 야간에는 밝은 길 위주로 뛰는 게 좋더라고요.\","
+                    + "\"createdAt\":\"5분 전\","
+                    + "\"mine\":false"
+                    + "},"
+                    + "{"
+                    + "\"commentId\":202,"
+                    + "\"writerId\":302,"
+                    + "\"nickname\":\"course_master\","
+                    + "\"profileImageUrl\":\"\","
+                    + "\"content\":\"코스 추천 감사합니다!\","
+                    + "\"createdAt\":\"2분 전\","
+                    + "\"mine\":false"
+                    + "}"
+                    + "]"
+                    + "}";
+        }
+
+        if (tipId == 3L) {
+            return "{"
+                    + "\"tipId\":3,"
+                    + "\"writerId\":103,"
+                    + "\"nickname\":\"gear_master\","
+                    + "\"profileImageUrl\":\"\","
+                    + "\"badgeOwned\":false,"
+                    + "\"badgeType\":\"NONE\","
+                    + "\"category\":\"GEAR\","
+                    + "\"title\":\"러닝화는 쿠션보다 발에 맞는지가 먼저입니다\","
+                    + "\"content\":\"처음 러닝화를 고를 때는 브랜드보다 발볼, 착화감, 통증 여부를 먼저 확인하는 것이 좋습니다.\\n발에 맞지 않는 신발은 장거리 러닝에서 통증을 만들 수 있습니다.\","
+                    + "\"gpsVisible\":false,"
+                    + "\"routeMapImageUrl\":\"\","
+                    + "\"imageUrls\":[],"
+                    + "\"likeCount\":5,"
+                    + "\"commentCount\":0,"
+                    + "\"liked\":false,"
+                    + "\"bookmarked\":true,"
+                    + "\"mine\":false,"
+                    + "\"createdAt\":\"1시간 전\","
+                    + "\"comments\":[]"
+                    + "}";
+        }
+
+        return "{"
+                + "\"tipId\":1,"
+                + "\"writerId\":101,"
+                + "\"nickname\":\"mock_tip_runner\","
+                + "\"profileImageUrl\":\"\","
+                + "\"badgeOwned\":true,"
+                + "\"badgeType\":\"GOLD\","
+                + "\"category\":\"TRAINING\","
+                + "\"title\":\"제발!!!!!천천히 뛰세요!\","
+                + "\"content\":\"처음에는 속도보다 꾸준함이 중요합니다.\\n5분 뛰고 2분 걷는 방식으로 시작하면 부상 위험을 줄일 수 있습니다.\\n처음부터 빠르게 뛰면 쉽게 지치고 무릎이나 발목에 부담이 갈 수 있습니다.\","
+                + "\"gpsVisible\":false,"
+                + "\"routeMapImageUrl\":\"\","
+                + "\"imageUrls\":[],"
+                + "\"likeCount\":12,"
+                + "\"commentCount\":3,"
+                + "\"liked\":false,"
+                + "\"bookmarked\":true,"
+                + "\"mine\":true,"
+                + "\"createdAt\":\"방금 전\","
+                + "\"comments\":["
+                + "{"
+                + "\"commentId\":101,"
+                + "\"writerId\":201,"
+                + "\"nickname\":\"beginner_runner\","
+                + "\"profileImageUrl\":\"\","
+                + "\"content\":\"초보자인데 도움 됐습니다!\","
+                + "\"createdAt\":\"3분 전\","
+                + "\"mine\":false"
+                + "},"
+                + "{"
+                + "\"commentId\":102,"
+                + "\"writerId\":101,"
+                + "\"nickname\":\"mock_tip_runner\","
+                + "\"profileImageUrl\":\"\","
+                + "\"content\":\"천천히 늘려가면 훨씬 오래 뛸 수 있어요.\","
+                + "\"createdAt\":\"1분 전\","
+                + "\"mine\":true"
+                + "}"
+                + "]"
+                + "}";
     }
 
     private String getMockFeedDetailJson(Long feedId) {
@@ -247,5 +397,89 @@ public class MockInterceptor implements Interceptor {
                 + "\"status\":\"ACCEPTED\""
                 + "}"
                 + "]";
+    }
+
+    /*
+     * GET /api/community/tips 요청에 대해 반환할 가짜 팁 목록 JSON임
+     * 피드 목록과 동일하게 배열 형태로 반환함
+     */
+    private String getMockTipListJson() {
+        return "["
+                + "{"
+                + "\"tipId\":1,"
+                + "\"nickname\":\"mock_tip_runner\","
+                + "\"profileImageUrl\":\"\","
+                + "\"badgeOwned\":true,"
+                + "\"badgeType\":\"GOLD\","
+                + "\"category\":\"TRAINING\","
+                + "\"title\":\"제발!!!!!천천히 뛰세요!\","
+                + "\"content\":\"처음에는 속도보다 꾸준함이 중요합니다. 5분 뛰고 2분 걷는 방식으로 시작하면 부상 위험을 줄일 수 있습니다.\","
+                + "\"gpsVisible\":false,"
+                + "\"routeMapImageUrl\":\"\","
+                + "\"imageUrls\":[],"
+                + "\"likeCount\":12,"
+                + "\"commentCount\":3,"
+                + "\"liked\":false,"
+                + "\"bookmarked\":false,"
+                + "\"createdAt\":\"방금 전\""
+                + "},"
+                + "{"
+                + "\"tipId\":2,"
+                + "\"nickname\":\"neo_stride\","
+                + "\"profileImageUrl\":\"\","
+                + "\"badgeOwned\":true,"
+                + "\"badgeType\":\"SILVER\","
+                + "\"category\":\"COURSE\","
+                + "\"title\":\"야간 러닝 코스 추천\","
+                + "\"content\":\"가로등이 많고 사람이 적당히 있는 코스를 선택하는 것이 좋습니다. 너무 어두운 길은 피하는 것이 안전합니다.\","
+                + "\"gpsVisible\":true,"
+                + "\"routeMapImageUrl\":\"\","
+                + "\"imageUrls\":[],"
+                + "\"likeCount\":8,"
+                + "\"commentCount\":1,"
+                + "\"liked\":true,"
+                + "\"bookmarked\":false,"
+                + "\"createdAt\":\"10분 전\""
+                + "},"
+                + "{"
+                + "\"tipId\":3,"
+                + "\"nickname\":\"gear_master\","
+                + "\"profileImageUrl\":\"\","
+                + "\"badgeOwned\":false,"
+                + "\"badgeType\":\"NONE\","
+                + "\"category\":\"GEAR\","
+                + "\"title\":\"러닝화는 쿠션보다 발에 맞는지가 먼저입니다\","
+                + "\"content\":\"처음 러닝화를 고를 때는 브랜드보다 발볼, 착화감, 통증 여부를 먼저 확인하는 것이 좋습니다.\","
+                + "\"gpsVisible\":false,"
+                + "\"routeMapImageUrl\":\"\","
+                + "\"imageUrls\":[],"
+                + "\"likeCount\":5,"
+                + "\"commentCount\":0,"
+                + "\"liked\":false,"
+                + "\"bookmarked\":true,"
+                + "\"createdAt\":\"1시간 전\""
+                + "}"
+                + "]";
+    }
+
+    /*
+     * POST /api/community/tips 요청에 대해 반환할 가짜 팁 업로드 성공 JSON임
+     */
+    private String getMockUploadTipJson() {
+        return "{"
+                + "\"tipId\":999,"
+                + "\"nickname\":\"mock_tip_runner\","
+                + "\"profileImageUrl\":\"\","
+                + "\"badgeOwned\":true,"
+                + "\"category\":\"자유\","
+                + "\"title\":\"팁 업로드 성공 테스트\","
+                + "\"content\":\"Mock 팁 업로드 응답 데이터입니다.\","
+                + "\"gpsVisible\":false,"
+                + "\"routeMapImageUrl\":\"\","
+                + "\"imageUrls\":[],"
+                + "\"likeCount\":0,"
+                + "\"commentCount\":0,"
+                + "\"createdAt\":\"방금 전\""
+                + "}";
     }
 }

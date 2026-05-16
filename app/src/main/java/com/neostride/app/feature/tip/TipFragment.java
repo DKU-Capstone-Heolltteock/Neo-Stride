@@ -2,8 +2,8 @@ package com.neostride.app.feature.tip;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,10 +20,19 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.neostride.app.R;
 import com.neostride.app.feature.tip.model.TipItem;
+import com.neostride.app.feature.tip.model.TipResponse;
+import com.neostride.app.feature.tip.repository.TipRepository;
 
 import java.util.ArrayList;
+import java.util.List;
 
+/*
+ * 팁 목록 화면 Fragment 클래스임
+ * 팁 게시글 목록 조회, 카테고리 필터링, 팁 작성 화면 이동을 담당함
+ */
 public class TipFragment extends Fragment {
+
+    private static final String TAG = "TipFragment";
 
     private RecyclerView rvTipList;
 
@@ -34,12 +43,18 @@ public class TipFragment extends Fragment {
     private TextView btnGear;
 
     private TipAdapter tipAdapter;
+
+    // 서버에서 가져온 전체 팁 목록을 저장함
     private final ArrayList<TipItem> tipList = new ArrayList<>();
+
+    // 선택된 카테고리에 따라 화면에 보여줄 팁 목록을 저장함
     private final ArrayList<TipItem> filteredTipList = new ArrayList<>();
 
     private String selectedCategory = "전체";
 
     private ActivityResultLauncher<Intent> tipUploadLauncher;
+
+    private TipRepository tipRepository;
 
     public TipFragment() {
         // Fragment 기본 생성자가 필요함
@@ -62,30 +77,34 @@ public class TipFragment extends Fragment {
     ) {
         super.onViewCreated(view, savedInstanceState);
 
+        // Repository를 초기화함
+        tipRepository = new TipRepository();
+
+        // 업로드 결과를 받기 위한 런처를 초기화함
         initUploadLauncher();
 
+        // RecyclerView를 초기화함
         rvTipList = view.findViewById(R.id.rv_tip_list);
         rvTipList.setLayoutManager(new LinearLayoutManager(requireContext()));
 
         tipAdapter = new TipAdapter(filteredTipList);
         rvTipList.setAdapter(tipAdapter);
 
+        // 카테고리 버튼을 연결함
         btnAll = view.findViewById(R.id.btn_tip_all);
         btnFree = view.findViewById(R.id.btn_tip_free);
         btnTraining = view.findViewById(R.id.btn_tip_training);
         btnCourse = view.findViewById(R.id.btn_tip_course);
         btnGear = view.findViewById(R.id.btn_tip_gear);
 
-        addDummyTips();
-
-        selectCategory(btnAll, "전체");
-
+        // 카테고리 클릭 이벤트를 설정함
         btnAll.setOnClickListener(v -> selectCategory(btnAll, "전체"));
         btnFree.setOnClickListener(v -> selectCategory(btnFree, "자유"));
         btnTraining.setOnClickListener(v -> selectCategory(btnTraining, "훈련"));
         btnCourse.setOnClickListener(v -> selectCategory(btnCourse, "코스"));
         btnGear.setOnClickListener(v -> selectCategory(btnGear, "장비"));
 
+        // 글쓰기 버튼 클릭 시 팁 업로드 화면으로 이동함
         View btnWriteTip = view.findViewById(R.id.btn_write_tip);
         if (btnWriteTip != null) {
             btnWriteTip.setOnClickListener(v -> {
@@ -93,77 +112,89 @@ public class TipFragment extends Fragment {
                 tipUploadLauncher.launch(intent);
             });
         }
+
+        // 기본 카테고리를 전체로 선택함
+        selectCategory(btnAll, "전체");
+
+        // 서버 또는 목서버에서 팁 목록을 조회함
+        loadTipList();
     }
 
     /*
      * 팁 업로드 결과를 받기 위한 런처 초기화 함수임
+     * 업로드 성공 후 돌아오면 서버 목록을 다시 조회함
      */
     private void initUploadLauncher() {
         tipUploadLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null) {
-                        return;
+                    if (result.getResultCode() == Activity.RESULT_OK) {
+                        Toast.makeText(requireContext(), "팁이 등록되었습니다", Toast.LENGTH_SHORT).show();
+
+                        // 업로드 후 최신 목록을 서버에서 다시 조회함
+                        loadTipList();
                     }
-
-                    Intent data = result.getData();
-
-                    String title = data.getStringExtra("title");
-                    String content = data.getStringExtra("content");
-                    String category = data.getStringExtra("category");
-                    boolean gpsVisible = data.getBooleanExtra("gpsVisible", false);
-
-                    ArrayList<Uri> imageUris =
-                            data.getParcelableArrayListExtra("imageUris");
-
-                    TipItem newTip = new TipItem(
-                            "zinza",
-                            category,
-                            title,
-                            content,
-                            true,
-                            gpsVisible,
-                            imageUris,
-                            0,
-                            0
-                    );
-
-                    tipList.add(0, newTip);
-
-                    applyFilter();
-
-                    Toast.makeText(requireContext(), "팁이 등록되었습니다", Toast.LENGTH_SHORT).show();
                 }
         );
     }
 
     /*
-     * 임시 팁 데이터를 추가하는 함수임
+     * 서버에서 팁 목록을 조회하는 함수임
+     * 피드 목록과 동일하게 List<TipResponse> 형태로 응답을 받음
      */
-    private void addDummyTips() {
-        tipList.add(new TipItem(
-                "zinza",
-                "훈련",
-                "초보 러너는 처음부터 빠르게 뛰면 안 됩니다",
-                "처음에는 속도보다 꾸준함이 중요합니다. 5분 뛰고 2분 걷는 방식으로 시작하면 부상 위험을 줄일 수 있습니다.",
-                true,
-                false,
-                new ArrayList<>(),
-                12,
-                3
-        ));
+    private void loadTipList() {
+        tipRepository.getTips(new TipRepository.TipListCallback() {
+            @Override
+            public void onSuccess(List<TipResponse> response) {
+                Log.d(TAG, "loadTipList success");
 
-        tipList.add(new TipItem(
-                "zinza",
-                "코스",
-                "야간 러닝 코스 추천",
-                "가로등이 많고 사람이 적당히 있는 코스를 선택하는 것이 좋습니다. 너무 어두운 길은 피하는 것이 안전합니다.",
-                true,
-                true,
-                new ArrayList<>(),
-                8,
-                1
-        ));
+                tipList.clear();
+
+                if (response != null) {
+                    for (TipResponse serverTip : response) {
+                        TipItem item = convertToTipItem(serverTip);
+                        tipList.add(item);
+                    }
+                }
+
+                applyFilter();
+            }
+
+            @Override
+            public void onFailure(String message) {
+                Log.e(TAG, "loadTipList failure = " + message);
+
+                Toast.makeText(
+                        requireContext(),
+                        "팁 목록을 불러오지 못했습니다: " + message,
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                tipList.clear();
+                applyFilter();
+            }
+        });
+    }
+
+    /*
+     * 서버 응답 DTO를 화면 표시용 TipItem으로 변환하는 함수임
+     */
+    private TipItem convertToTipItem(TipResponse serverTip) {
+        return new TipItem(
+                serverTip.getTipId(),
+                serverTip.getNickname(),
+                serverTip.getProfileImageUrl(),
+                serverTip.getCategory(),
+                serverTip.getTitle(),
+                serverTip.getContent(),
+                serverTip.isBadgeOwned(),
+                serverTip.isGpsVisible(),
+                serverTip.getImageUrls(),
+                serverTip.getRouteMapImageUrl(),
+                serverTip.getLikeCount(),
+                serverTip.getCommentCount(),
+                serverTip.getCreatedAt()
+        );
     }
 
     /*
@@ -193,12 +224,40 @@ public class TipFragment extends Fragment {
             filteredTipList.addAll(tipList);
         } else {
             for (TipItem item : tipList) {
-                if (item.getCategory().equals(selectedCategory)) {
+                if (item.getCategory() != null
+                        && convertCategoryToKorean(item.getCategory()).equals(selectedCategory)) {
                     filteredTipList.add(item);
                 }
             }
         }
 
         tipAdapter.notifyDataSetChanged();
+    }
+
+    /*
+     * 서버 카테고리 값을 화면의 한글 카테고리 값으로 변환하는 함수임
+     * 서버에서 이미 한글로 오면 그대로 반환함
+     */
+    private String convertCategoryToKorean(String category) {
+        if (category == null) {
+            return "자유";
+        }
+
+        switch (category) {
+            case "FREE":
+                return "자유";
+
+            case "TRAINING":
+                return "훈련";
+
+            case "COURSE":
+                return "코스";
+
+            case "GEAR":
+                return "장비";
+
+            default:
+                return category;
+        }
     }
 }

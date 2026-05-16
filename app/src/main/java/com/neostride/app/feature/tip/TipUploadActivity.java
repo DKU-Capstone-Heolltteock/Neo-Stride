@@ -27,6 +27,7 @@ import com.neostride.app.feature.tip.repository.TipRepository;
 
 import java.util.ArrayList;
 import java.util.List;
+import android.util.Log;
 
 public class TipUploadActivity extends AppCompatActivity {
 
@@ -211,21 +212,63 @@ public class TipUploadActivity extends AppCompatActivity {
             return;
         }
 
+        /*
+         * 서버로 보낼 이미지 URL 문자열 리스트를 생성함
+         * 현재는 실제 이미지 업로드 서버가 없으므로 로컬 Uri 문자열을 임시로 보냄
+         */
         ArrayList<String> imageUrlStrings = new ArrayList<>();
 
         for (Uri uri : selectedImageUris) {
             imageUrlStrings.add(uri.toString());
         }
 
+        /*
+         * 화면에서 선택한 한글 카테고리를 서버가 받을 값으로 변환함
+         * 자유 -> FREE
+         * 훈련 -> TRAINING
+         * 코스 -> COURSE
+         * 장비 -> GEAR
+         */
+        String serverCategory = convertCategory(selectedCategory);
+
+        /*
+         * GPS 경로 이미지가 없으면 null 대신 빈 문자열로 보냄
+         * null을 그대로 보내면 서버에서 처리 방식에 따라 오류가 날 수 있음
+         */
+        String routeMapImageUrl = selectedRouteMapUri == null
+                ? ""
+                : selectedRouteMapUri;
+
+        /*
+         * 팁 업로드 요청 DTO를 생성함
+         */
         TipUploadRequest request = new TipUploadRequest(
-                convertCategory(selectedCategory),
+                serverCategory,
                 title,
                 content,
                 gpsSelected,
-                selectedRouteMapUri,
+                routeMapImageUrl,
                 imageUrlStrings
         );
 
+        /*
+         * 임시 로그를 출력함
+         * 완료 버튼 클릭 시 서버로 전송되는 request 형태를 Logcat에서 확인하기 위함
+         */
+        Log.e("TipUploadCheck",
+                "request = {"
+                        + "\"category\":\"" + serverCategory + "\", "
+                        + "\"title\":\"" + title + "\", "
+                        + "\"content\":\"" + content + "\", "
+                        + "\"gpsVisible\":" + gpsSelected + ", "
+                        + "\"routeMapImageUrl\":\"" + routeMapImageUrl + "\", "
+                        + "\"imageUrls\":" + imageUrlStrings
+                        + "}"
+        );
+
+        /*
+         * Repository를 통해 팁 업로드 API를 호출함
+         */
         tipRepository.uploadTip(
                 request,
                 new TipRepository.TipUploadCallback() {
@@ -236,6 +279,12 @@ public class TipUploadActivity extends AppCompatActivity {
                                 "팁 업로드 성공",
                                 Toast.LENGTH_SHORT
                         ).show();
+
+                        /*
+                         * 업로드 성공 결과를 이전 화면인 TipFragment로 전달함
+                         * TipFragment는 이 결과를 받고 목록을 다시 조회할 수 있음
+                         */
+                        setResult(Activity.RESULT_OK);
 
                         finish();
                     }
@@ -251,7 +300,6 @@ public class TipUploadActivity extends AppCompatActivity {
                 }
         );
     }
-
     private String convertCategory(String category) {
         switch (category) {
             case "훈련":
