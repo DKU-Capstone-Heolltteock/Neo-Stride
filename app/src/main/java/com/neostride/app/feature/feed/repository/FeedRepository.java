@@ -10,6 +10,10 @@ import com.neostride.app.feature.feed.model.FeedDetailResponse;
 import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
 import com.neostride.app.feature.feed.model.TagUser;
+import com.neostride.app.feature.feed.model.FeedLikeResponse;
+import com.neostride.app.feature.feed.model.FeedBookmarkResponse;
+import com.neostride.app.feature.feed.model.FeedCommentRequest;
+import com.neostride.app.feature.feed.model.FeedCommentResponse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,6 +115,92 @@ public class FeedRepository {
             }
         });
     }
+
+    /*
+     * 피드 좋아요 토글 API를 호출하는 함수임
+     * 성공 시 좋아요 여부와 최신 좋아요 수를 반환함
+     */
+    public void toggleFeedLike(
+            Long feedId,
+            RepositoryCallback<FeedLikeResponse> callback
+    ) {
+        feedApi.toggleFeedLike(feedId).enqueue(new Callback<FeedLikeResponse>() {
+            @Override
+            public void onResponse(
+                    Call<FeedLikeResponse> call,
+                    Response<FeedLikeResponse> response
+            ) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError("피드 좋아요 처리에 실패했습니다");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FeedLikeResponse> call, Throwable t) {
+                callback.onError("피드 좋아요 요청 실패: " + t.getMessage());
+            }
+        });
+    }
+
+    /*
+     * 피드 북마크 토글 API를 호출하는 함수임
+     * 성공 시 북마크 여부를 반환함
+     */
+    public void toggleFeedBookmark(
+            Long feedId,
+            RepositoryCallback<FeedBookmarkResponse> callback
+    ) {
+        feedApi.toggleFeedBookmark(feedId).enqueue(new Callback<FeedBookmarkResponse>() {
+            @Override
+            public void onResponse(
+                    Call<FeedBookmarkResponse> call,
+                    Response<FeedBookmarkResponse> response
+            ) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError("피드 북마크 처리에 실패했습니다");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FeedBookmarkResponse> call, Throwable t) {
+                callback.onError("피드 북마크 요청 실패: " + t.getMessage());
+            }
+        });
+    }
+
+    /*
+     * 피드 댓글 작성 API를 호출하는 함수임
+     * 성공 시 서버가 생성한 댓글 정보를 반환함
+     */
+    public void createFeedComment(
+            Long feedId,
+            FeedCommentRequest request,
+            RepositoryCallback<FeedCommentResponse> callback
+    ) {
+        feedApi.createFeedComment(feedId, request).enqueue(new Callback<FeedCommentResponse>() {
+            @Override
+            public void onResponse(
+                    Call<FeedCommentResponse> call,
+                    Response<FeedCommentResponse> response
+            ) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError("피드 댓글 작성에 실패했습니다");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FeedCommentResponse> call, Throwable t) {
+                callback.onError("피드 댓글 작성 요청 실패: " + t.getMessage());
+            }
+        });
+    }
+
 
     /*
      * 피드 업로드를 처리하는 함수임

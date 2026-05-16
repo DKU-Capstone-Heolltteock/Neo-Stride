@@ -20,6 +20,24 @@ public class MockInterceptor implements Interceptor {
     private static String uploadedFeedJson = null;
 
     /*
+     * 피드 좋아요 상태를 목서버 내부에서 임시 저장하는 Map임
+     * key는 feedId, value는 좋아요 여부임
+     */
+    private static final Map<Long, Boolean> mockFeedLikeStateMap = new HashMap<>();
+
+    /*
+     * 피드 북마크 상태를 목서버 내부에서 임시 저장하는 Map임
+     * key는 feedId, value는 북마크 여부임
+     */
+    private static final Map<Long, Boolean> mockFeedBookmarkStateMap = new HashMap<>();
+
+    /*
+     * 피드 좋아요 개수를 목서버 내부에서 임시 저장하는 Map임
+     * key는 feedId, value는 좋아요 개수임
+     */
+    private static final Map<Long, Integer> mockFeedLikeCountMap = new HashMap<>();
+
+    /*
      * 팁 좋아요 상태를 목서버 내부에서 임시 저장하는 Map임
      * key는 tipId, value는 좋아요 여부임
      */
@@ -54,6 +72,33 @@ public class MockInterceptor implements Interceptor {
         if (method.equals("POST") && path.equals("/api/community/feeds")) {
             uploadedFeedJson = getMockUploadFeedJson();
             return makeJsonResponse(chain, uploadedFeedJson);
+        }
+
+        /*
+         * 피드 좋아요 토글 Mock API임
+         * POST /api/community/feeds/{feedId}/likes 요청을 가로채서 가짜 좋아요 응답을 반환함
+         */
+        if (method.equals("POST") && path.matches("/api/community/feeds/\\d+/likes")) {
+            Long feedId = extractFeedIdFromActionPath(path);
+            return makeJsonResponse(chain, getMockFeedLikeJson(feedId));
+        }
+
+        /*
+         * 피드 북마크 토글 Mock API임
+         * POST /api/community/feeds/{feedId}/bookmarks 요청을 가로채서 가짜 북마크 응답을 반환함
+         */
+        if (method.equals("POST") && path.matches("/api/community/feeds/\\d+/bookmarks")) {
+            Long feedId = extractFeedIdFromActionPath(path);
+            return makeJsonResponse(chain, getMockFeedBookmarkJson(feedId));
+        }
+
+        /*
+         * 피드 댓글 작성 Mock API임
+         * POST /api/community/feeds/{feedId}/comments 요청을 가로채서 가짜 댓글 작성 응답을 반환함
+         */
+        if (method.equals("POST") && path.matches("/api/community/feeds/\\d+/comments")) {
+            Long feedId = extractFeedIdFromActionPath(path);
+            return makeJsonResponse(chain, getMockCreateFeedCommentJson(feedId));
         }
 
         /*
@@ -142,6 +187,20 @@ public class MockInterceptor implements Interceptor {
     }
 
     /*
+     * 좋아요/북마크 같은 피드 액션 API 경로에서 feedId를 추출하는 함수임
+     * 예: /api/community/feeds/1/likes -> 1
+     * 예: /api/community/feeds/1/bookmarks -> 1
+     */
+    private Long extractFeedIdFromActionPath(String path) {
+        try {
+            String[] parts = path.split("/");
+            return Long.parseLong(parts[4]);
+        } catch (Exception e) {
+            return 1L;
+        }
+    }
+
+    /*
      * 좋아요/북마크/댓글 작성 같은 액션 API 경로에서 tipId를 추출하는 함수임
      * 예: /api/community/tips/3/likes -> 3
      * 예: /api/community/tips/3/bookmarks -> 3
@@ -169,6 +228,80 @@ public class MockInterceptor implements Interceptor {
                 .addHeader("content-type", "application/json")
                 .build();
     }
+
+    /*
+     * feedId별 기본 좋아요 상태를 반환하는 함수임
+     */
+    private boolean getDefaultFeedLiked(Long feedId) {
+        if (feedId == 2L) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /*
+     * feedId별 기본 북마크 상태를 반환하는 함수임
+     */
+    private boolean getDefaultFeedBookmarked(Long feedId) {
+        if (feedId == 1L) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /*
+     * feedId별 기본 좋아요 개수를 반환하는 함수임
+     */
+    private int getDefaultFeedLikeCount(Long feedId) {
+        if (feedId == 2L) {
+            return 8;
+        }
+
+        if (feedId == 999L) {
+            return 0;
+        }
+
+        return 12;
+    }
+
+    /*
+     * 현재 목서버에 저장된 피드 좋아요 상태를 반환하는 함수임
+     * 아직 토글된 적이 없으면 기본값을 반환함
+     */
+    private boolean getCurrentFeedLiked(Long feedId) {
+        if (mockFeedLikeStateMap.containsKey(feedId)) {
+            return mockFeedLikeStateMap.get(feedId);
+        }
+
+        return getDefaultFeedLiked(feedId);
+    }
+
+    /*
+     * 현재 목서버에 저장된 피드 북마크 상태를 반환하는 함수임
+     * 아직 토글된 적이 없으면 기본값을 반환함
+     */
+    private boolean getCurrentFeedBookmarked(Long feedId) {
+        if (mockFeedBookmarkStateMap.containsKey(feedId)) {
+            return mockFeedBookmarkStateMap.get(feedId);
+        }
+
+        return getDefaultFeedBookmarked(feedId);
+    }
+
+    /*
+     * 현재 목서버에 저장된 피드 좋아요 개수를 반환하는 함수임
+     * 아직 토글된 적이 없으면 기본값을 반환함
+     */
+    private int getCurrentFeedLikeCount(Long feedId) {
+        if (mockFeedLikeCountMap.containsKey(feedId)) {
+            return mockFeedLikeCountMap.get(feedId);
+        }
+
+        return getDefaultFeedLikeCount(feedId);
+    }
+
 
     /*
      * tipId별 기본 좋아요 상태를 반환하는 함수임
@@ -409,7 +542,19 @@ public class MockInterceptor implements Interceptor {
                 + "}";
     }
 
+    /*
+     * GET /api/community/feeds/{feedId} 요청에 대해 반환할 가짜 피드 상세 JSON임
+     * 피드 상세 화면 댓글 UI 테스트를 위해 comments 배열을 포함함
+     */
+    /*
+     * GET /api/community/feeds/{feedId} 요청에 대해 반환할 가짜 피드 상세 JSON임
+     * 좋아요/북마크 상태는 목서버 Map에 저장된 최신 상태를 반영함
+     */
     private String getMockFeedDetailJson(Long feedId) {
+        boolean liked = getCurrentFeedLiked(feedId);
+        boolean bookmarked = getCurrentFeedBookmarked(feedId);
+        int likeCount = getCurrentFeedLikeCount(feedId);
+
         if (feedId == 999L && uploadedFeedJson != null) {
             return "{"
                     + "\"feedId\":999,"
@@ -420,10 +565,10 @@ public class MockInterceptor implements Interceptor {
                     + "\"title\":\"업로드 성공 테스트\","
                     + "\"content\":\"Mock 업로드 응답 데이터입니다.\","
                     + "\"taggedCount\":0,"
-                    + "\"likeCount\":0,"
+                    + "\"likeCount\":" + likeCount + ","
                     + "\"commentCount\":0,"
-                    + "\"liked\":false,"
-                    + "\"bookmarked\":false,"
+                    + "\"liked\":" + liked + ","
+                    + "\"bookmarked\":" + bookmarked + ","
                     + "\"mine\":true,"
                     + "\"distance\":\"0.04 km\","
                     + "\"duration\":\"00:10\","
@@ -445,10 +590,10 @@ public class MockInterceptor implements Interceptor {
                     + "\"title\":\"오늘 러닝 완료 - 상세\","
                     + "\"content\":\"가볍게 3km 뛰고 왔습니다.\\n상세 API인 GET /api/feeds/2 호출에 성공했습니다.\","
                     + "\"taggedCount\":0,"
-                    + "\"likeCount\":8,"
+                    + "\"likeCount\":" + likeCount + ","
                     + "\"commentCount\":1,"
-                    + "\"liked\":true,"
-                    + "\"bookmarked\":false,"
+                    + "\"liked\":" + liked + ","
+                    + "\"bookmarked\":" + bookmarked + ","
                     + "\"mine\":false,"
                     + "\"distance\":\"3.00 km\","
                     + "\"duration\":\"00:18:40\","
@@ -456,7 +601,17 @@ public class MockInterceptor implements Interceptor {
                     + "\"mapVisible\":false,"
                     + "\"routeMapImageUri\":\"\","
                     + "\"imageUrls\":[],"
-                    + "\"comments\":[]"
+                    + "\"comments\":["
+                    + "{"
+                    + "\"commentId\":201,"
+                    + "\"writerId\":301,"
+                    + "\"nickname\":\"night_runner\","
+                    + "\"profileImageUrl\":\"\","
+                    + "\"content\":\"오늘 페이스 좋네요! 저도 저녁에 뛰어야겠습니다.\","
+                    + "\"createdAt\":\"4분 전\","
+                    + "\"mine\":false"
+                    + "}"
+                    + "]"
                     + "}";
         }
 
@@ -467,12 +622,12 @@ public class MockInterceptor implements Interceptor {
                 + "\"nickname\":\"mock_runner\","
                 + "\"createdAt\":\"방금 전\","
                 + "\"title\":\"목서버 피드 상세 테스트\","
-                + "\"content\":\"GET /api/feeds/1 상세 조회 Mock 데이터입니다.\","
+                + "\"content\":\"GET /api/feeds/1 상세 조회 Mock 데이터입니다.\\n댓글 카드 UI와 점3개 메뉴 테스트용 데이터도 함께 내려줍니다.\","
                 + "\"taggedCount\":2,"
-                + "\"likeCount\":12,"
+                + "\"likeCount\":" + likeCount + ","
                 + "\"commentCount\":3,"
-                + "\"liked\":false,"
-                + "\"bookmarked\":true,"
+                + "\"liked\":" + liked + ","
+                + "\"bookmarked\":" + bookmarked + ","
                 + "\"mine\":true,"
                 + "\"distance\":\"5.20 km\","
                 + "\"duration\":\"00:32:10\","
@@ -480,10 +635,37 @@ public class MockInterceptor implements Interceptor {
                 + "\"mapVisible\":false,"
                 + "\"routeMapImageUri\":\"\","
                 + "\"imageUrls\":[],"
-                + "\"comments\":[]"
+                + "\"comments\":["
+                + "{"
+                + "\"commentId\":101,"
+                + "\"writerId\":201,"
+                + "\"nickname\":\"Ongcheon1004\","
+                + "\"profileImageUrl\":\"\","
+                + "\"content\":\"헬떡헬떡..\","
+                + "\"createdAt\":\"4분 전\","
+                + "\"mine\":false"
+                + "},"
+                + "{"
+                + "\"commentId\":102,"
+                + "\"writerId\":202,"
+                + "\"nickname\":\"YoonHyeon7942\","
+                + "\"profileImageUrl\":\"\","
+                + "\"content\":\"헬떡헬떡22..\","
+                + "\"createdAt\":\"2분 전\","
+                + "\"mine\":false"
+                + "},"
+                + "{"
+                + "\"commentId\":103,"
+                + "\"writerId\":101,"
+                + "\"nickname\":\"mock_runner\","
+                + "\"profileImageUrl\":\"\","
+                + "\"content\":\"이건 내가 쓴 댓글 테스트입니다. 점3개 누르면 수정/삭제가 떠야 합니다.\","
+                + "\"createdAt\":\"방금 전\","
+                + "\"mine\":true"
+                + "}"
+                + "]"
                 + "}";
     }
-
     /*
      * POST /api/community/feeds 요청에 대해 반환할 가짜 업로드 성공 JSON임
      */
@@ -688,6 +870,63 @@ public class MockInterceptor implements Interceptor {
                 + "\"nickname\":\"mock_tip_runner\","
                 + "\"profileImageUrl\":\"\","
                 + "\"content\":\"목서버 댓글 작성 성공\","
+                + "\"createdAt\":\"방금 전\","
+                + "\"mine\":true"
+                + "}";
+    }
+
+    /*
+     * POST /api/community/feeds/{feedId}/likes 요청에 대해 반환할 가짜 좋아요 응답 JSON임
+     * 같은 버튼을 다시 누르면 좋아요가 취소되도록 목서버 내부 상태를 토글함
+     */
+    private String getMockFeedLikeJson(Long feedId) {
+        boolean currentLiked = getCurrentFeedLiked(feedId);
+        int currentLikeCount = getCurrentFeedLikeCount(feedId);
+
+        boolean nextLiked = !currentLiked;
+
+        if (nextLiked) {
+            currentLikeCount++;
+        } else {
+            currentLikeCount = Math.max(0, currentLikeCount - 1);
+        }
+
+        mockFeedLikeStateMap.put(feedId, nextLiked);
+        mockFeedLikeCountMap.put(feedId, currentLikeCount);
+
+        return "{"
+                + "\"feedId\":" + feedId + ","
+                + "\"liked\":" + nextLiked + ","
+                + "\"likeCount\":" + currentLikeCount
+                + "}";
+    }
+
+    /*
+     * POST /api/community/feeds/{feedId}/bookmarks 요청에 대해 반환할 가짜 북마크 응답 JSON임
+     * 같은 버튼을 다시 누르면 북마크가 취소되도록 목서버 내부 상태를 토글함
+     */
+    private String getMockFeedBookmarkJson(Long feedId) {
+        boolean currentBookmarked = getCurrentFeedBookmarked(feedId);
+        boolean nextBookmarked = !currentBookmarked;
+
+        mockFeedBookmarkStateMap.put(feedId, nextBookmarked);
+
+        return "{"
+                + "\"feedId\":" + feedId + ","
+                + "\"bookmarked\":" + nextBookmarked
+                + "}";
+    }
+
+    /*
+     * POST /api/community/feeds/{feedId}/comments 요청에 대해 반환할 가짜 댓글 작성 응답 JSON임
+     */
+    private String getMockCreateFeedCommentJson(Long feedId) {
+        return "{"
+                + "\"commentId\":999,"
+                + "\"writerId\":999,"
+                + "\"nickname\":\"mock_runner\","
+                + "\"profileImageUrl\":\"\","
+                + "\"content\":\"목서버 피드 댓글 작성 성공\","
                 + "\"createdAt\":\"방금 전\","
                 + "\"mine\":true"
                 + "}";

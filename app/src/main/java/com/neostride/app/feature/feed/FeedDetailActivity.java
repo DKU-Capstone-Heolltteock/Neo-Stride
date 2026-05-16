@@ -13,6 +13,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -24,9 +25,13 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.neostride.app.R;
+import com.neostride.app.feature.feed.model.FeedCommentResponse;
 import com.neostride.app.feature.feed.model.FeedDetailResponse;
 import com.neostride.app.feature.feed.repository.FeedRepository;
 import com.neostride.app.feature.mypage.MyPageActivity;
+import com.neostride.app.feature.feed.model.FeedLikeResponse;
+import com.neostride.app.feature.feed.model.FeedBookmarkResponse;
+import com.neostride.app.feature.feed.model.FeedCommentRequest;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +41,8 @@ import java.util.List;
  * 피드 목록에서 선택한 피드의 feedId를 받아 상세 API를 호출하고 상세 내용을 표시함
  */
 public class FeedDetailActivity extends AppCompatActivity {
+
+    private static final String NEON_COLOR = "#B8FF06";
 
     private ImageView btnBack;
 
@@ -52,6 +59,7 @@ public class FeedDetailActivity extends AppCompatActivity {
 
     private ImageView ivProfile;
     private ImageView ivBookmark;
+    private FrameLayout layoutBookmarkBox;
 
     private TextView tvUsername;
     private TextView tvTime;
@@ -66,6 +74,9 @@ public class FeedDetailActivity extends AppCompatActivity {
     private TextView tvDistance;
     private TextView tvDuration;
     private TextView tvPace;
+
+    private LinearLayout layoutCommentList;
+    private TextView tvEmptyComment;
 
     private EditText etComment;
     private ImageView btnSendComment;
@@ -99,6 +110,8 @@ public class FeedDetailActivity extends AppCompatActivity {
     private boolean mapVisible;
     private String routeMapImageUri;
     private ArrayList<String> imageUrls;
+
+    private List<FeedCommentResponse> commentList = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -190,6 +203,7 @@ public class FeedDetailActivity extends AppCompatActivity {
 
         ivProfile = findViewById(R.id.iv_detail_profile);
         ivBookmark = findViewById(R.id.iv_detail_bookmark);
+        layoutBookmarkBox = findViewById(R.id.layout_detail_bookmark_box);
 
         tvUsername = findViewById(R.id.tv_detail_username);
         tvTime = findViewById(R.id.tv_detail_time);
@@ -204,6 +218,9 @@ public class FeedDetailActivity extends AppCompatActivity {
         tvDistance = findViewById(R.id.tv_detail_distance);
         tvDuration = findViewById(R.id.tv_detail_duration);
         tvPace = findViewById(R.id.tv_detail_pace);
+
+        layoutCommentList = findViewById(R.id.layout_comment_list);
+        tvEmptyComment = findViewById(R.id.tv_empty_comment);
 
         etComment = findViewById(R.id.et_detail_comment);
         btnSendComment = findViewById(R.id.btn_send_comment);
@@ -262,12 +279,10 @@ public class FeedDetailActivity extends AppCompatActivity {
         likeCount = response.getLikeCount();
         commentCount = response.getCommentCount();
 
-        // 상세 API에서 받은 좋아요/북마크/작성자 여부를 반영함
         isLiked = response.isLiked();
         isBookmarked = response.isBookmarked();
         isMine = response.isMine();
 
-        // 상세 API에서 받은 좋아요 수를 기준값으로 다시 설정함
         displayLikeCount = likeCount;
 
         distance = getSafeText(response.getDistance(), "0.00 km");
@@ -283,7 +298,17 @@ public class FeedDetailActivity extends AppCompatActivity {
             imageUrls = new ArrayList<>();
         }
 
-        // 상세 API 응답값으로 화면을 다시 갱신함
+        if (response.getComments() != null) {
+            commentList = new ArrayList<>(response.getComments());
+        } else {
+            commentList = new ArrayList<>();
+        }
+
+        // 서버 commentCount가 0인데 comments 배열이 내려오는 경우를 대비해 화면 표시용 댓글 수를 보정함
+        if (commentCount <= 0 && !commentList.isEmpty()) {
+            commentCount = commentList.size();
+        }
+
         bindFeedData();
     }
 
@@ -309,17 +334,8 @@ public class FeedDetailActivity extends AppCompatActivity {
             ivProfile.setImageResource(R.drawable.ic_profile);
         }
 
-        if (ivBookmark != null) {
-            if (isBookmarked) {
-                ivBookmark.setImageTintList(
-                        ColorStateList.valueOf(Color.parseColor("#B8FF06"))
-                );
-            } else {
-                ivBookmark.setImageTintList(ColorStateList.valueOf(Color.WHITE));
-            }
-        }
-
         setLikeColor(isLiked);
+        setBookmarkColor(isBookmarked);
 
         if (imageUrls != null && !imageUrls.isEmpty()) {
             ivFeedPhoto.setVisibility(View.VISIBLE);
@@ -334,6 +350,8 @@ public class FeedDetailActivity extends AppCompatActivity {
             ivRouteMap.setImageResource(R.drawable.bg_feed_detail_empty_route);
         }
 
+        bindComments(commentList);
+
         layoutRouteContent.setVisibility(View.GONE);
         layoutRecordContent.setVisibility(View.GONE);
 
@@ -345,13 +363,119 @@ public class FeedDetailActivity extends AppCompatActivity {
     }
 
     /*
+     * 상세 API 응답으로 받은 댓글 목록을 화면에 표시하는 함수임
+     */
+    private void bindComments(List<FeedCommentResponse> comments) {
+        if (layoutCommentList == null || tvEmptyComment == null) {
+            return;
+        }
+
+        layoutCommentList.removeAllViews();
+
+        if (comments == null || comments.isEmpty()) {
+            tvEmptyComment.setVisibility(View.VISIBLE);
+            return;
+        }
+
+        tvEmptyComment.setVisibility(View.GONE);
+
+        for (FeedCommentResponse comment : comments) {
+            View commentView = createCommentView(comment);
+            layoutCommentList.addView(commentView);
+        }
+    }
+
+    /*
+     * 댓글 1개 View를 코드로 생성하는 함수임
+     * 댓글을 각각 독립된 네온 카드처럼 보이게 구성함
+     */
+    private View createCommentView(FeedCommentResponse comment) {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundResource(R.drawable.bg_feed_comment_neon_item);
+        root.setPadding(dp(12), dp(10), dp(10), dp(10));
+
+        LinearLayout.LayoutParams rootParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        rootParams.setMargins(0, 0, 0, dp(10));
+        root.setLayoutParams(rootParams);
+
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setOrientation(LinearLayout.HORIZONTAL);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout.LayoutParams topRowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(32)
+        );
+        topRow.setLayoutParams(topRowParams);
+
+        ImageView profile = new ImageView(this);
+        LinearLayout.LayoutParams profileParams =
+                new LinearLayout.LayoutParams(dp(26), dp(26));
+        profile.setLayoutParams(profileParams);
+        profile.setImageResource(R.drawable.ic_profile);
+        profile.setImageTintList(null);
+
+        TextView nameAndTime = new TextView(this);
+        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        nameParams.setMargins(dp(8), 0, 0, 0);
+        nameAndTime.setLayoutParams(nameParams);
+        nameAndTime.setText(
+                getSafeText(comment.getNickname(), "알 수 없음")
+                        + " · "
+                        + getSafeText(comment.getCreatedAt(), "방금 전")
+        );
+        nameAndTime.setTextColor(Color.WHITE);
+        nameAndTime.setTextSize(13);
+        nameAndTime.setTypeface(null, Typeface.BOLD);
+
+        TextView more = new TextView(this);
+        LinearLayout.LayoutParams moreParams =
+                new LinearLayout.LayoutParams(dp(32), dp(32));
+        more.setLayoutParams(moreParams);
+        more.setGravity(Gravity.CENTER);
+        more.setText("⋯");
+        more.setTextColor(Color.WHITE);
+        more.setTextSize(20);
+        more.setTypeface(null, Typeface.BOLD);
+        more.setOnClickListener(v -> showCommentMoreMenu(more, comment));
+
+        topRow.addView(profile);
+        topRow.addView(nameAndTime);
+        topRow.addView(more);
+
+        TextView contentView = new TextView(this);
+        LinearLayout.LayoutParams contentParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        contentParams.setMargins(dp(34), dp(4), dp(4), 0);
+        contentView.setLayoutParams(contentParams);
+        contentView.setText(getSafeText(comment.getContent(), ""));
+        contentView.setTextColor(Color.parseColor("#D8D8D8"));
+        contentView.setTextSize(13);
+        contentView.setLineSpacing(dp(2), 1.0f);
+
+        root.addView(topRow);
+        root.addView(contentView);
+
+        return root;
+    }
+
+    /*
      * 버튼과 영역 클릭 이벤트를 연결하는 함수임
      */
     private void setupClickEvents() {
         btnBack.setOnClickListener(v -> finish());
 
         layoutRouteHeader.setOnClickListener(v -> toggleRouteContent());
-
         layoutRecordHeader.setOnClickListener(v -> toggleRecordContent());
 
         View.OnClickListener profileClickListener = v -> openUserProfile(username);
@@ -364,14 +488,17 @@ public class FeedDetailActivity extends AppCompatActivity {
 
         tvLikeCount.setOnClickListener(v -> toggleLike());
 
+        tvCommentCount.setOnClickListener(v -> focusCommentInput());
+
+        tvTagCount.setOnClickListener(v -> loadTaggedUsers());
+
         if (ivBookmark != null) {
             ivBookmark.setOnClickListener(v -> toggleBookmark());
         }
 
-        /*
-         * 태그 숫자 클릭 시 Repository를 통해 태그된 사용자 목록을 가져옴
-         */
-        tvTagCount.setOnClickListener(v -> loadTaggedUsers());
+        if (layoutBookmarkBox != null) {
+            layoutBookmarkBox.setOnClickListener(v -> toggleBookmark());
+        }
 
         tvMore.setOnClickListener(v -> showMoreMenu());
 
@@ -387,14 +514,96 @@ public class FeedDetailActivity extends AppCompatActivity {
                 return;
             }
 
+            createFeedComment(comment);
+        });
+    }
+
+    /*
+     * 댓글 입력창으로 포커스를 이동하고 키보드를 여는 함수임
+     */
+    private void focusCommentInput() {
+        if (etComment == null) {
+            return;
+        }
+
+        etComment.requestFocus();
+
+        etComment.postDelayed(() -> {
+            InputMethodManager inputMethodManager =
+                    (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+
+            if (inputMethodManager != null) {
+                inputMethodManager.showSoftInput(
+                        etComment,
+                        InputMethodManager.SHOW_IMPLICIT
+                );
+            }
+        }, 120);
+    }
+
+    /*
+     * 피드 댓글 작성 API를 호출하는 함수임
+     * 성공 시 새 댓글을 댓글 목록에 추가하고 화면을 다시 갱신함
+     */
+    private void createFeedComment(String content) {
+        if (feedId == null) {
             Toast.makeText(
                     this,
-                    "댓글 기능 연결 예정",
+                    "피드 ID가 없어 댓글을 작성할 수 없습니다",
                     Toast.LENGTH_SHORT
             ).show();
+            return;
+        }
 
-            etComment.setText("");
-        });
+        FeedCommentRequest request = new FeedCommentRequest(content);
+
+        feedRepository.createFeedComment(
+                feedId,
+                request,
+                new FeedRepository.RepositoryCallback<FeedCommentResponse>() {
+                    @Override
+                    public void onSuccess(FeedCommentResponse data) {
+                        if (data == null) {
+                            Toast.makeText(
+                                    FeedDetailActivity.this,
+                                    "댓글 작성 응답이 비어 있습니다",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            return;
+                        }
+
+                        // 새 댓글을 기존 댓글 목록 맨 위에 추가함
+                        commentList.add(0, data);
+
+                        // 댓글 수를 1 증가시킴
+                        commentCount++;
+
+                        // 댓글 수 TextView를 갱신함
+                        tvCommentCount.setText(String.valueOf(commentCount));
+
+                        // 댓글 목록을 다시 그림
+                        bindComments(commentList);
+
+                        // 입력창을 비움
+                        etComment.setText("");
+
+                        Toast.makeText(
+                                FeedDetailActivity.this,
+                                "댓글이 작성되었습니다",
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        Toast.makeText(
+                                FeedDetailActivity.this,
+                                message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /*
@@ -460,25 +669,51 @@ public class FeedDetailActivity extends AppCompatActivity {
     }
 
     /*
-     * 좋아요 상태를 변경하는 함수임
-     * 현재는 프론트 화면에서만 좋아요 상태를 임시 변경함
-     * 추후 좋아요 API 연결 시 서버 응답의 liked, likeCount 값으로 갱신해야 함
+     * 피드 좋아요 상태를 변경하는 함수임
+     * Repository를 통해 좋아요 토글 API를 호출하고 서버 응답값으로 화면을 갱신함
      */
     private void toggleLike() {
-        isLiked = !isLiked;
-
-        if (isLiked) {
-            displayLikeCount++;
-        } else {
-            displayLikeCount--;
-
-            if (displayLikeCount < likeCount) {
-                displayLikeCount = likeCount;
-            }
+        if (feedId == null) {
+            Toast.makeText(
+                    this,
+                    "피드 ID가 없어 좋아요를 처리할 수 없습니다",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
         }
 
-        tvLikeCount.setText(String.valueOf(displayLikeCount));
-        setLikeColor(isLiked);
+        feedRepository.toggleFeedLike(
+                feedId,
+                new FeedRepository.RepositoryCallback<FeedLikeResponse>() {
+                    @Override
+                    public void onSuccess(FeedLikeResponse data) {
+                        if (data == null) {
+                            Toast.makeText(
+                                    FeedDetailActivity.this,
+                                    "좋아요 응답이 비어 있습니다",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            return;
+                        }
+
+                        isLiked = data.isLiked();
+                        likeCount = data.getLikeCount();
+                        displayLikeCount = data.getLikeCount();
+
+                        tvLikeCount.setText(String.valueOf(displayLikeCount));
+                        setLikeColor(isLiked);
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        Toast.makeText(
+                                FeedDetailActivity.this,
+                                message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /*
@@ -488,7 +723,7 @@ public class FeedDetailActivity extends AppCompatActivity {
         int color;
 
         if (liked) {
-            color = Color.parseColor("#B8FF06");
+            color = Color.parseColor(NEON_COLOR);
         } else {
             color = Color.WHITE;
         }
@@ -511,20 +746,60 @@ public class FeedDetailActivity extends AppCompatActivity {
     }
 
     /*
-     * 북마크 상태를 변경하는 함수임
-     * 현재는 프론트 화면에서만 북마크 상태를 임시 변경함
-     * 추후 북마크 API 연결 시 서버 응답의 bookmarked 값으로 갱신해야 함
+     * 피드 북마크 상태를 변경하는 함수임
+     * Repository를 통해 북마크 토글 API를 호출하고 서버 응답값으로 화면을 갱신함
      */
     private void toggleBookmark() {
-        isBookmarked = !isBookmarked;
+        if (feedId == null) {
+            Toast.makeText(
+                    this,
+                    "피드 ID가 없어 북마크를 처리할 수 없습니다",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
 
+        feedRepository.toggleFeedBookmark(
+                feedId,
+                new FeedRepository.RepositoryCallback<FeedBookmarkResponse>() {
+                    @Override
+                    public void onSuccess(FeedBookmarkResponse data) {
+                        if (data == null) {
+                            Toast.makeText(
+                                    FeedDetailActivity.this,
+                                    "북마크 응답이 비어 있습니다",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                            return;
+                        }
+
+                        isBookmarked = data.isBookmarked();
+                        setBookmarkColor(isBookmarked);
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        Toast.makeText(
+                                FeedDetailActivity.this,
+                                message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
+    }
+
+    /*
+     * 북마크 아이콘 색상을 변경하는 함수임
+     */
+    private void setBookmarkColor(boolean bookmarked) {
         if (ivBookmark == null) {
             return;
         }
 
-        if (isBookmarked) {
+        if (bookmarked) {
             ivBookmark.setImageTintList(
-                    ColorStateList.valueOf(Color.parseColor("#B8FF06"))
+                    ColorStateList.valueOf(Color.parseColor(NEON_COLOR))
             );
         } else {
             ivBookmark.setImageTintList(
@@ -602,7 +877,7 @@ public class FeedDetailActivity extends AppCompatActivity {
 
             TextView moveText = new TextView(this);
             moveText.setText("보기");
-            moveText.setTextColor(Color.parseColor("#B8FF06"));
+            moveText.setTextColor(Color.parseColor(NEON_COLOR));
             moveText.setTextSize(13);
             moveText.setTypeface(null, Typeface.BOLD);
 
@@ -625,7 +900,7 @@ public class FeedDetailActivity extends AppCompatActivity {
 
         TextView closeButton = new TextView(this);
         closeButton.setText("닫기");
-        closeButton.setTextColor(Color.parseColor("#B8FF06"));
+        closeButton.setTextColor(Color.parseColor(NEON_COLOR));
         closeButton.setTextSize(16);
         closeButton.setTypeface(null, Typeface.BOLD);
         closeButton.setGravity(Gravity.CENTER);
@@ -657,31 +932,83 @@ public class FeedDetailActivity extends AppCompatActivity {
 
     /*
      * 우측 점 세 개 메뉴를 보여주는 함수임
+     * 본인 글이면 수정/삭제, 남의 글이면 신고/차단 메뉴를 보여줌
      */
     private void showMoreMenu() {
         PopupMenu popupMenu = new PopupMenu(this, tvMore);
 
-        popupMenu.getMenu().add("수정");
-        popupMenu.getMenu().add("삭제");
+        if (isMine) {
+            popupMenu.getMenu().add("수정");
+            popupMenu.getMenu().add("삭제");
+        } else {
+            popupMenu.getMenu().add("신고");
+            popupMenu.getMenu().add("차단");
+        }
 
         popupMenu.setOnMenuItemClickListener(menuItem -> {
             String menuTitle = menuItem.getTitle().toString();
 
             if (menuTitle.equals("수정")) {
-                Toast.makeText(
-                        this,
-                        "수정 기능 연결 예정",
-                        Toast.LENGTH_SHORT
-                ).show();
+                Toast.makeText(this, "수정 기능 연결 예정", Toast.LENGTH_SHORT).show();
                 return true;
             }
 
             if (menuTitle.equals("삭제")) {
-                Toast.makeText(
-                        this,
-                        "삭제 기능 연결 예정",
-                        Toast.LENGTH_SHORT
-                ).show();
+                Toast.makeText(this, "삭제 기능 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+
+            if (menuTitle.equals("신고")) {
+                Toast.makeText(this, "신고 기능 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+
+            if (menuTitle.equals("차단")) {
+                Toast.makeText(this, "작성자 차단 기능 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+
+            return false;
+        });
+
+        popupMenu.show();
+    }
+
+    /*
+     * 댓글 점 세 개 메뉴를 보여주는 함수임
+     * 본인 댓글이면 수정/삭제, 남의 댓글이면 신고/차단 메뉴를 보여줌
+     */
+    private void showCommentMoreMenu(View anchorView, FeedCommentResponse comment) {
+        PopupMenu popupMenu = new PopupMenu(this, anchorView);
+
+        if (comment.isMine()) {
+            popupMenu.getMenu().add("수정");
+            popupMenu.getMenu().add("삭제");
+        } else {
+            popupMenu.getMenu().add("신고");
+            popupMenu.getMenu().add("차단");
+        }
+
+        popupMenu.setOnMenuItemClickListener(menuItem -> {
+            String menuTitle = menuItem.getTitle().toString();
+
+            if (menuTitle.equals("수정")) {
+                Toast.makeText(this, "댓글 수정 API 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+
+            if (menuTitle.equals("삭제")) {
+                Toast.makeText(this, "댓글 삭제 API 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+
+            if (menuTitle.equals("신고")) {
+                Toast.makeText(this, "댓글 신고 기능 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+
+            if (menuTitle.equals("차단")) {
+                Toast.makeText(this, "댓글 작성자 차단 기능 연결 예정", Toast.LENGTH_SHORT).show();
                 return true;
             }
 

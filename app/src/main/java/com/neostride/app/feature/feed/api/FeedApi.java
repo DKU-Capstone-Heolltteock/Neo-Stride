@@ -4,7 +4,13 @@ import com.neostride.app.feature.feed.model.FeedDetailResponse;
 import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
 import com.neostride.app.feature.feed.model.TagUser;
+import com.neostride.app.feature.feed.model.FeedLikeResponse;
+import com.neostride.app.feature.feed.model.FeedBookmarkResponse;
+import com.neostride.app.feature.feed.model.FeedCommentRequest;
+import com.neostride.app.feature.feed.model.FeedCommentResponse;
+
 import java.util.List;
+
 
 import retrofit2.Call;
 import retrofit2.http.Body;
@@ -81,5 +87,29 @@ public interface FeedApi {
     Call<List<TagUser>> getFriendList(
             @Header("X-User-Id") Long userId,
             @Query("status") String status
+    );
+
+    /*
+     * 피드 좋아요 토글 API임
+     * POST /api/community/feeds/{feedId}/likes 요청을 보냄
+     */
+    @POST("api/community/feeds/{feedId}/likes")
+    Call<FeedLikeResponse> toggleFeedLike(
+            @Path("feedId") Long feedId
+    );
+
+    /*
+     * 피드 북마크 토글 API임
+     * POST /api/community/feeds/{feedId}/bookmarks 요청을 보냄
+     */
+    @POST("api/community/feeds/{feedId}/bookmarks")
+    Call<FeedBookmarkResponse> toggleFeedBookmark(
+            @Path("feedId") Long feedId
+    );
+
+    @POST("api/community/feeds/{feedId}/comments")
+    Call<FeedCommentResponse> createFeedComment(
+            @Path("feedId") Long feedId,
+            @Body FeedCommentRequest request
     );
 }
