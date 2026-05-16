@@ -24,7 +24,9 @@ import com.neostride.app.feature.tip.model.TipResponse;
 import com.neostride.app.feature.tip.repository.TipRepository;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /*
  * 팁 목록 화면 Fragment 클래스임
@@ -49,6 +51,24 @@ public class TipFragment extends Fragment {
 
     // 선택된 카테고리에 따라 화면에 보여줄 팁 목록을 저장함
     private final ArrayList<TipItem> filteredTipList = new ArrayList<>();
+
+    /*
+     * tipId별 좋아요 상태를 저장하는 Map임
+     * TipResponse의 liked 값을 저장하고, Adapter에서 API 응답에 따라 갱신함
+     */
+    private final Map<Long, Boolean> likedStateMap = new HashMap<>();
+
+    /*
+     * tipId별 북마크 상태를 저장하는 Map임
+     * TipResponse의 bookmarked 값을 저장하고, Adapter에서 API 응답에 따라 갱신함
+     */
+    private final Map<Long, Boolean> bookmarkedStateMap = new HashMap<>();
+
+    /*
+     * tipId별 좋아요 개수를 저장하는 Map임
+     * TipResponse의 likeCount 값을 저장하고, Adapter에서 API 응답에 따라 갱신함
+     */
+    private final Map<Long, Integer> likeCountMap = new HashMap<>();
 
     private String selectedCategory = "전체";
 
@@ -87,7 +107,12 @@ public class TipFragment extends Fragment {
         rvTipList = view.findViewById(R.id.rv_tip_list);
         rvTipList.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-        tipAdapter = new TipAdapter(filteredTipList);
+        tipAdapter = new TipAdapter(
+                filteredTipList,
+                likedStateMap,
+                bookmarkedStateMap,
+                likeCountMap
+        );
         rvTipList.setAdapter(tipAdapter);
 
         // 카테고리 버튼을 연결함
@@ -121,6 +146,19 @@ public class TipFragment extends Fragment {
     }
 
     /*
+     * 상세 화면에서 좋아요/북마크를 변경하고 돌아왔을 때
+     * 목록도 목서버의 최신 상태를 다시 반영하도록 갱신함
+     */
+    @Override
+    public void onResume() {
+        super.onResume();
+
+        if (tipRepository != null && tipAdapter != null) {
+            loadTipList();
+        }
+    }
+
+    /*
      * 팁 업로드 결과를 받기 위한 런처 초기화 함수임
      * 업로드 성공 후 돌아오면 서버 목록을 다시 조회함
      */
@@ -150,10 +188,26 @@ public class TipFragment extends Fragment {
 
                 tipList.clear();
 
+                /*
+                 * 서버/목서버에서 다시 목록을 불러오므로
+                 * 상태 Map도 서버 응답 기준으로 다시 정리함
+                 */
+                likedStateMap.clear();
+                bookmarkedStateMap.clear();
+                likeCountMap.clear();
+
                 if (response != null) {
                     for (TipResponse serverTip : response) {
                         TipItem item = convertToTipItem(serverTip);
                         tipList.add(item);
+
+                        Long tipId = serverTip.getTipId();
+
+                        if (tipId != null) {
+                            likedStateMap.put(tipId, serverTip.isLiked());
+                            bookmarkedStateMap.put(tipId, serverTip.isBookmarked());
+                            likeCountMap.put(tipId, serverTip.getLikeCount());
+                        }
                     }
                 }
 
@@ -171,6 +225,10 @@ public class TipFragment extends Fragment {
                 ).show();
 
                 tipList.clear();
+                likedStateMap.clear();
+                bookmarkedStateMap.clear();
+                likeCountMap.clear();
+
                 applyFilter();
             }
         });
@@ -231,7 +289,9 @@ public class TipFragment extends Fragment {
             }
         }
 
-        tipAdapter.notifyDataSetChanged();
+        if (tipAdapter != null) {
+            tipAdapter.notifyDataSetChanged();
+        }
     }
 
     /*

@@ -6,6 +6,8 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
+import android.content.Context;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -45,6 +47,7 @@ public class TipDetailActivity extends AppCompatActivity {
     private ImageView ivComment;
     private ImageView ivBookmark;
 
+    // 댓글 전송 버튼임
     private ImageView btnSendComment;
 
     private TextView tvNickname;
@@ -61,6 +64,7 @@ public class TipDetailActivity extends AppCompatActivity {
     // 코스 펼치기 버튼 텍스트임
     private TextView tvCourseToggle;
 
+    // 댓글 입력창임
     private EditText etComment;
 
     // 댓글 목록을 동적으로 추가할 레이아웃임
@@ -80,8 +84,10 @@ public class TipDetailActivity extends AppCompatActivity {
     // 코스 지도 이미지임
     private ImageView ivCourseMap;
 
+    // 팁 관련 API 호출을 담당하는 Repository임
     private TipRepository tipRepository;
 
+    // 현재 상세 화면의 팁 ID임
     private Long tipId;
 
     private int likeCount = 0;
@@ -474,7 +480,9 @@ public class TipDetailActivity extends AppCompatActivity {
 
         tvMore.setOnClickListener(v -> showMoreMenu());
 
-        tvLikeCount.setOnClickListener(v -> toggleLike());
+        if (tvLikeCount != null) {
+            tvLikeCount.setOnClickListener(v -> toggleLike());
+        }
 
         if (ivLike != null) {
             ivLike.setOnClickListener(v -> toggleLike());
@@ -496,7 +504,9 @@ public class TipDetailActivity extends AppCompatActivity {
             layoutCommentArea.setOnClickListener(v -> focusCommentInput());
         }
 
-        ivBookmark.setOnClickListener(v -> toggleBookmark());
+        if (ivBookmark != null) {
+            ivBookmark.setOnClickListener(v -> toggleBookmark());
+        }
 
         if (tvBookmark != null) {
             tvBookmark.setOnClickListener(v -> toggleBookmark());
@@ -517,26 +527,25 @@ public class TipDetailActivity extends AppCompatActivity {
             tvCourseToggle.setOnClickListener(v -> toggleCourseMap());
         }
 
-        btnSendComment.setOnClickListener(v -> {
-            String comment = etComment.getText().toString().trim();
+        /*
+         * 댓글 전송 버튼 클릭 시 댓글 작성 API를 호출함
+         */
+        if (btnSendComment != null) {
+            btnSendComment.setOnClickListener(v -> {
+                String comment = etComment.getText().toString().trim();
 
-            if (comment.isEmpty()) {
-                Toast.makeText(
-                        this,
-                        "댓글을 입력해주세요",
-                        Toast.LENGTH_SHORT
-                ).show();
-                return;
-            }
+                if (comment.isEmpty()) {
+                    Toast.makeText(
+                            this,
+                            "댓글을 입력해주세요",
+                            Toast.LENGTH_SHORT
+                    ).show();
+                    return;
+                }
 
-            Toast.makeText(
-                    this,
-                    "댓글 작성 API 연결 예정",
-                    Toast.LENGTH_SHORT
-            ).show();
-
-            etComment.setText("");
-        });
+                createComment(comment);
+            });
+        }
     }
 
     /*
@@ -545,28 +554,87 @@ public class TipDetailActivity extends AppCompatActivity {
     private void focusCommentInput() {
         etComment.requestFocus();
 
-        Toast.makeText(
-                this,
-                "댓글을 입력할 수 있습니다",
-                Toast.LENGTH_SHORT
-        ).show();
+        InputMethodManager inputMethodManager =
+                (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+
+        if (inputMethodManager != null) {
+            inputMethodManager.showSoftInput(etComment, InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
+    /*
+     * 댓글 작성 API를 호출하는 함수임
+     * 댓글 작성 성공 시 상세 정보를 다시 불러와 댓글 목록을 갱신함
+     */
+    private void createComment(String comment) {
+        if (tipId == null) {
+            return;
+        }
+
+        tipRepository.createTipComment(
+                tipId,
+                comment,
+                new TipRepository.TipCommentCreateCallback() {
+                    @Override
+                    public void onSuccess(TipCommentResponse response) {
+                        etComment.setText("");
+
+                        Toast.makeText(
+                                TipDetailActivity.this,
+                                "댓글이 작성되었습니다",
+                                Toast.LENGTH_SHORT
+                        ).show();
+
+                        /*
+                         * 댓글 작성 후 상세 정보를 다시 조회해서
+                         * 댓글 목록과 댓글 개수를 최신 상태로 갱신함
+                         */
+                        loadTipDetail();
+                    }
+
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(
+                                TipDetailActivity.this,
+                                "댓글 작성 실패: " + message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /*
      * 좋아요 상태를 변경하는 함수임
-     * 현재는 로컬 UI만 변경함
+     * 서버 API 호출 후 응답값으로 UI를 갱신함
      */
     private void toggleLike() {
-        isLiked = !isLiked;
-
-        if (isLiked) {
-            likeCount++;
-        } else {
-            likeCount = Math.max(0, likeCount - 1);
+        if (tipId == null) {
+            return;
         }
 
-        tvLikeCount.setText("좋아요 " + likeCount);
-        setLikeColor(isLiked);
+        tipRepository.toggleTipLike(
+                tipId,
+                new TipRepository.TipLikeCallback() {
+                    @Override
+                    public void onSuccess(com.neostride.app.feature.tip.model.TipLikeResponse response) {
+                        isLiked = response.isLiked();
+                        likeCount = response.getLikeCount();
+
+                        tvLikeCount.setText("좋아요 " + likeCount);
+                        setLikeColor(isLiked);
+                    }
+
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(
+                                TipDetailActivity.this,
+                                "좋아요 처리 실패: " + message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /*
@@ -575,8 +643,10 @@ public class TipDetailActivity extends AppCompatActivity {
     private void setLikeColor(boolean liked) {
         int color = liked ? POINT_COLOR : WHITE_COLOR;
 
-        tvLikeCount.setTextColor(color);
-        tvLikeCount.setTypeface(null, Typeface.BOLD);
+        if (tvLikeCount != null) {
+            tvLikeCount.setTextColor(color);
+            tvLikeCount.setTypeface(null, Typeface.BOLD);
+        }
 
         if (ivLike != null) {
             ivLike.setImageTintList(ColorStateList.valueOf(color));
@@ -599,11 +669,32 @@ public class TipDetailActivity extends AppCompatActivity {
 
     /*
      * 북마크 상태를 변경하는 함수임
-     * 현재는 로컬 UI만 변경함
+     * 서버 API 호출 후 응답값으로 UI를 갱신함
      */
     private void toggleBookmark() {
-        isBookmarked = !isBookmarked;
-        setBookmarkColor(isBookmarked);
+        if (tipId == null) {
+            return;
+        }
+
+        tipRepository.toggleTipBookmark(
+                tipId,
+                new TipRepository.TipBookmarkCallback() {
+                    @Override
+                    public void onSuccess(com.neostride.app.feature.tip.model.TipBookmarkResponse response) {
+                        isBookmarked = response.isBookmarked();
+                        setBookmarkColor(isBookmarked);
+                    }
+
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(
+                                TipDetailActivity.this,
+                                "북마크 처리 실패: " + message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /*
@@ -612,7 +703,9 @@ public class TipDetailActivity extends AppCompatActivity {
     private void setBookmarkColor(boolean bookmarked) {
         int color = bookmarked ? POINT_COLOR : WHITE_COLOR;
 
-        ivBookmark.setImageTintList(ColorStateList.valueOf(color));
+        if (ivBookmark != null) {
+            ivBookmark.setImageTintList(ColorStateList.valueOf(color));
+        }
 
         if (tvBookmark != null) {
             tvBookmark.setTextColor(color);

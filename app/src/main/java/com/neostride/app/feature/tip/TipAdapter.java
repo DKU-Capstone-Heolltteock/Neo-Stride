@@ -20,12 +20,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.neostride.app.R;
 import com.neostride.app.feature.mypage.MyPageActivity;
+import com.neostride.app.feature.tip.model.TipBookmarkResponse;
 import com.neostride.app.feature.tip.model.TipItem;
+import com.neostride.app.feature.tip.model.TipLikeResponse;
+import com.neostride.app.feature.tip.repository.TipRepository;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 /*
  * 팁 게시글 RecyclerView 어댑터 클래스임
@@ -43,27 +45,38 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
     // 팁 게시글 목록을 저장하는 리스트임
     private final ArrayList<TipItem> tipList;
 
-    // Activity 이동에 사용할 Context 객체임
+    // 팁 좋아요 상태를 저장하는 Map임
+    // TipFragment에서 서버/목서버 응답값을 넣어주고, Adapter에서 API 응답에 따라 갱신함
+    private final Map<Long, Boolean> likedStateMap;
+
+    // 팁 북마크 상태를 저장하는 Map임
+    // TipFragment에서 서버/목서버 응답값을 넣어주고, Adapter에서 API 응답에 따라 갱신함
+    private final Map<Long, Boolean> bookmarkedStateMap;
+
+    // 팁 좋아요 개수를 저장하는 Map임
+    // RecyclerView 재사용 시 좋아요 개수가 꼬이지 않도록 별도로 관리함
+    private final Map<Long, Integer> likeCountMap;
+
+    // Activity 이동과 Toast 출력에 사용할 Context 객체임
     private Context context;
 
-    /*
-     * 좋아요 상태를 임시로 저장하는 Set임
-     * 추후 좋아요 API가 연결되면 서버 응답값으로 대체하면 됨
-     */
-    private final Set<Long> likedTipIds = new HashSet<>();
-
-    /*
-     * 북마크 상태를 임시로 저장하는 Set임
-     * 추후 북마크 API가 연결되면 서버 응답값으로 대체하면 됨
-     */
-    private final Set<Long> bookmarkedTipIds = new HashSet<>();
+    // 팁 API 호출을 담당하는 Repository임
+    private final TipRepository tipRepository = new TipRepository();
 
     /*
      * TipAdapter 생성자임
-     * Fragment 또는 Activity에서 전달받은 팁 목록을 저장함
+     * Fragment에서 필터링된 팁 목록과 좋아요/북마크 상태 Map을 전달받음
      */
-    public TipAdapter(ArrayList<TipItem> tipList) {
+    public TipAdapter(
+            ArrayList<TipItem> tipList,
+            Map<Long, Boolean> likedStateMap,
+            Map<Long, Boolean> bookmarkedStateMap,
+            Map<Long, Integer> likeCountMap
+    ) {
         this.tipList = tipList;
+        this.likedStateMap = likedStateMap;
+        this.bookmarkedStateMap = bookmarkedStateMap;
+        this.likeCountMap = likeCountMap;
     }
 
     @NonNull
@@ -92,7 +105,7 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         holder.tvCategory.setText(convertCategoryToKorean(item.getCategory()));
         holder.tvTitle.setText(getSafeText(item.getTitle(), ""));
         holder.tvContent.setText(getSafeText(item.getContent(), ""));
-        holder.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
+        holder.tvLikeCount.setText(String.valueOf(getCurrentLikeCount(item)));
         holder.tvCommentCount.setText(String.valueOf(item.getCommentCount()));
 
         // 작성 시간이 있으면 표시하고, 없으면 기본값으로 표시함
@@ -130,6 +143,8 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
                 ColorStateList.valueOf(liked ? POINT_COLOR : WHITE_COLOR)
         );
 
+        holder.tvLikeCount.setTextColor(liked ? POINT_COLOR : WHITE_COLOR);
+
         holder.ivBookmark.setImageTintList(
                 ColorStateList.valueOf(bookmarked ? POINT_COLOR : WHITE_COLOR)
         );
@@ -161,17 +176,42 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         holder.tvNickname.setOnClickListener(v -> openProfile(item));
 
         /*
-         * 좋아요 클릭 처리임
-         * 현재는 API 없이 로컬에서 색상과 숫자만 변경함
+         * 좋아요 클릭 시 목록에서도 좋아요 API를 호출함
+         * 목서버 Map 상태가 바뀌므로 상세 화면과 상태를 공유할 수 있음
          */
-        holder.ivLike.setOnClickListener(v -> toggleLike(holder, item));
-        holder.tvLikeCount.setOnClickListener(v -> toggleLike(holder, item));
+        holder.ivLike.setOnClickListener(v -> {
+            int currentPosition = holder.getBindingAdapterPosition();
+
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                return;
+            }
+
+            toggleLikeFromList(item, currentPosition);
+        });
+
+        holder.tvLikeCount.setOnClickListener(v -> {
+            int currentPosition = holder.getBindingAdapterPosition();
+
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                return;
+            }
+
+            toggleLikeFromList(item, currentPosition);
+        });
 
         /*
-         * 북마크 클릭 처리임
-         * 현재는 API 없이 로컬에서 색상만 변경함
+         * 북마크 클릭 시 목록에서도 북마크 API를 호출함
+         * 목서버 Map 상태가 바뀌므로 상세 화면과 상태를 공유할 수 있음
          */
-        holder.ivBookmark.setOnClickListener(v -> toggleBookmark(holder, item));
+        holder.ivBookmark.setOnClickListener(v -> {
+            int currentPosition = holder.getBindingAdapterPosition();
+
+            if (currentPosition == RecyclerView.NO_POSITION) {
+                return;
+            }
+
+            toggleBookmarkFromList(item, currentPosition);
+        });
 
         /*
          * 우측 상단 점3개 클릭 처리임
@@ -286,12 +326,14 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         intent.putExtra("category", convertCategoryToKorean(item.getCategory()));
         intent.putExtra("title", item.getTitle());
         intent.putExtra("content", item.getContent());
-        intent.putExtra("likeCount", item.getLikeCount());
+        intent.putExtra("likeCount", getCurrentLikeCount(item));
         intent.putExtra("commentCount", item.getCommentCount());
         intent.putExtra("badgeOwner", item.isBadgeOwner());
         intent.putExtra("gpsVisible", item.isGpsVisible());
         intent.putExtra("createdAt", item.getCreatedAt());
         intent.putExtra("routeMapImageUrl", item.getRouteMapImageUrl());
+        intent.putExtra("liked", isLiked(item));
+        intent.putExtra("bookmarked", isBookmarked(item));
 
         /*
          * 이미지 URI 목록이 있으면 상세 화면으로 전달함
@@ -330,52 +372,61 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
     }
 
     /*
-     * 좋아요 상태를 토글하는 함수임
+     * 팁 목록에서 좋아요 버튼을 눌렀을 때 호출되는 함수임
+     * 서버/목서버 API 호출 후 응답값으로 좋아요 상태와 개수를 갱신함
      */
-    private void toggleLike(TipViewHolder holder, TipItem item) {
+    private void toggleLikeFromList(TipItem item, int position) {
         Long tipId = getSafeTipId(item);
 
-        boolean liked;
+        tipRepository.toggleTipLike(
+                tipId,
+                new TipRepository.TipLikeCallback() {
+                    @Override
+                    public void onSuccess(TipLikeResponse response) {
+                        likedStateMap.put(tipId, response.isLiked());
+                        likeCountMap.put(tipId, response.getLikeCount());
 
-        if (likedTipIds.contains(tipId)) {
-            likedTipIds.remove(tipId);
-            liked = false;
-        } else {
-            likedTipIds.add(tipId);
-            liked = true;
-        }
+                        notifyItemChanged(position);
+                    }
 
-        int currentCount = parseCount(holder.tvLikeCount.getText().toString());
-
-        if (liked) {
-            currentCount++;
-            holder.ivLike.setImageTintList(ColorStateList.valueOf(POINT_COLOR));
-        } else {
-            currentCount = Math.max(0, currentCount - 1);
-            holder.ivLike.setImageTintList(ColorStateList.valueOf(WHITE_COLOR));
-        }
-
-        holder.tvLikeCount.setText(String.valueOf(currentCount));
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(
+                                context,
+                                "좋아요 처리 실패: " + message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
+        );
     }
 
     /*
-     * 북마크 상태를 토글하는 함수임
+     * 팁 목록에서 북마크 버튼을 눌렀을 때 호출되는 함수임
+     * 서버/목서버 API 호출 후 응답값으로 북마크 상태를 갱신함
      */
-    private void toggleBookmark(TipViewHolder holder, TipItem item) {
+    private void toggleBookmarkFromList(TipItem item, int position) {
         Long tipId = getSafeTipId(item);
 
-        boolean bookmarked;
+        tipRepository.toggleTipBookmark(
+                tipId,
+                new TipRepository.TipBookmarkCallback() {
+                    @Override
+                    public void onSuccess(TipBookmarkResponse response) {
+                        bookmarkedStateMap.put(tipId, response.isBookmarked());
 
-        if (bookmarkedTipIds.contains(tipId)) {
-            bookmarkedTipIds.remove(tipId);
-            bookmarked = false;
-        } else {
-            bookmarkedTipIds.add(tipId);
-            bookmarked = true;
-        }
+                        notifyItemChanged(position);
+                    }
 
-        holder.ivBookmark.setImageTintList(
-                ColorStateList.valueOf(bookmarked ? POINT_COLOR : WHITE_COLOR)
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(
+                                context,
+                                "북마크 처리 실패: " + message,
+                                Toast.LENGTH_SHORT
+                        ).show();
+                    }
+                }
         );
     }
 
@@ -453,16 +504,47 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
 
     /*
      * 좋아요 상태 확인 함수임
+     * TipFragment에서 저장한 서버/목서버 상태를 기준으로 판단함
      */
     private boolean isLiked(TipItem item) {
-        return likedTipIds.contains(getSafeTipId(item));
+        Long tipId = getSafeTipId(item);
+
+        if (likedStateMap.containsKey(tipId)) {
+            Boolean liked = likedStateMap.get(tipId);
+            return liked != null && liked;
+        }
+
+        return false;
     }
 
     /*
      * 북마크 상태 확인 함수임
+     * TipFragment에서 저장한 서버/목서버 상태를 기준으로 판단함
      */
     private boolean isBookmarked(TipItem item) {
-        return bookmarkedTipIds.contains(getSafeTipId(item));
+        Long tipId = getSafeTipId(item);
+
+        if (bookmarkedStateMap.containsKey(tipId)) {
+            Boolean bookmarked = bookmarkedStateMap.get(tipId);
+            return bookmarked != null && bookmarked;
+        }
+
+        return false;
+    }
+
+    /*
+     * 현재 좋아요 개수를 반환하는 함수임
+     * Map에 저장된 최신 값이 있으면 그 값을 사용하고, 없으면 item 기본값을 사용함
+     */
+    private int getCurrentLikeCount(TipItem item) {
+        Long tipId = getSafeTipId(item);
+
+        if (likeCountMap.containsKey(tipId)) {
+            Integer count = likeCountMap.get(tipId);
+            return count != null ? count : item.getLikeCount();
+        }
+
+        return item.getLikeCount();
     }
 
     /*
@@ -475,17 +557,6 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         }
 
         return (long) item.hashCode();
-    }
-
-    /*
-     * 문자열 숫자를 int로 변환하는 함수임
-     */
-    private int parseCount(String value) {
-        try {
-            return Integer.parseInt(value);
-        } catch (Exception e) {
-            return 0;
-        }
     }
 
     /*

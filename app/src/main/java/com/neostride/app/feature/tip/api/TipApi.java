@@ -4,6 +4,10 @@ import com.neostride.app.feature.tip.model.TipDetailResponse;
 import com.neostride.app.feature.tip.model.TipResponse;
 import com.neostride.app.feature.tip.model.TipUploadRequest;
 import com.neostride.app.feature.tip.model.TipUploadResponse;
+import com.neostride.app.feature.tip.model.TipBookmarkResponse;
+import com.neostride.app.feature.tip.model.TipCommentRequest;
+import com.neostride.app.feature.tip.model.TipCommentResponse;
+import com.neostride.app.feature.tip.model.TipLikeResponse;
 
 import java.util.List;
 
@@ -12,6 +16,7 @@ import retrofit2.http.Body;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
+
 
 /*
  * 팁 API 인터페이스임
@@ -44,4 +49,33 @@ public interface TipApi {
     Call<TipDetailResponse> getTipDetail(
             @Path("tipId") Long tipId
     );
+
+    /*
+     * 팁 좋아요 토글 API임
+     * POST /api/community/tips/{tipId}/likes 요청을 서버로 전송함
+     */
+    @POST("api/community/tips/{tipId}/likes")
+    Call<TipLikeResponse> toggleTipLike(
+            @Path("tipId") Long tipId
+    );
+
+    /*
+     * 팁 북마크 토글 API임
+     * POST /api/community/tips/{tipId}/bookmarks 요청을 서버로 전송함
+     */
+    @POST("api/community/tips/{tipId}/bookmarks")
+    Call<TipBookmarkResponse> toggleTipBookmark(
+            @Path("tipId") Long tipId
+    );
+
+    /*
+     * 팁 댓글 작성 API임
+     * POST /api/community/tips/{tipId}/comments 요청을 서버로 전송함
+     */
+    @POST("api/community/tips/{tipId}/comments")
+    Call<TipCommentResponse> createTipComment(
+            @Path("tipId") Long tipId,
+            @Body TipCommentRequest request
+    );
+
 }

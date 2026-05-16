@@ -8,7 +8,10 @@ import com.neostride.app.feature.tip.model.TipDetailResponse;
 import com.neostride.app.feature.tip.model.TipResponse;
 import com.neostride.app.feature.tip.model.TipUploadRequest;
 import com.neostride.app.feature.tip.model.TipUploadResponse;
-
+import com.neostride.app.feature.tip.model.TipBookmarkResponse;
+import com.neostride.app.feature.tip.model.TipCommentRequest;
+import com.neostride.app.feature.tip.model.TipCommentResponse;
+import com.neostride.app.feature.tip.model.TipLikeResponse;
 import java.util.List;
 
 import retrofit2.Call;
@@ -141,6 +144,111 @@ public class TipRepository {
     }
 
     /*
+     * 팁 좋아요 토글 함수임
+     */
+    public void toggleTipLike(
+            Long tipId,
+            TipLikeCallback callback
+    ) {
+        tipApi.toggleTipLike(tipId)
+                .enqueue(new Callback<TipLikeResponse>() {
+                    @Override
+                    public void onResponse(
+                            Call<TipLikeResponse> call,
+                            Response<TipLikeResponse> response
+                    ) {
+                        Log.d(TAG, "toggleTipLike response code = " + response.code());
+
+                        if (response.isSuccessful() && response.body() != null) {
+                            callback.onSuccess(response.body());
+                        } else {
+                            callback.onFailure("좋아요 처리 실패 / code = " + response.code());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(
+                            Call<TipLikeResponse> call,
+                            Throwable t
+                    ) {
+                        Log.e(TAG, "toggleTipLike onFailure = " + t.getMessage());
+                        callback.onFailure(t.getMessage());
+                    }
+                });
+    }
+
+    /*
+     * 팁 북마크 토글 함수임
+     */
+    public void toggleTipBookmark(
+            Long tipId,
+            TipBookmarkCallback callback
+    ) {
+        tipApi.toggleTipBookmark(tipId)
+                .enqueue(new Callback<TipBookmarkResponse>() {
+                    @Override
+                    public void onResponse(
+                            Call<TipBookmarkResponse> call,
+                            Response<TipBookmarkResponse> response
+                    ) {
+                        Log.d(TAG, "toggleTipBookmark response code = " + response.code());
+
+                        if (response.isSuccessful() && response.body() != null) {
+                            callback.onSuccess(response.body());
+                        } else {
+                            callback.onFailure("북마크 처리 실패 / code = " + response.code());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(
+                            Call<TipBookmarkResponse> call,
+                            Throwable t
+                    ) {
+                        Log.e(TAG, "toggleTipBookmark onFailure = " + t.getMessage());
+                        callback.onFailure(t.getMessage());
+                    }
+                });
+    }
+
+    /*
+     * 팁 댓글 작성 함수임
+     */
+    public void createTipComment(
+            Long tipId,
+            String content,
+            TipCommentCreateCallback callback
+    ) {
+        TipCommentRequest request = new TipCommentRequest(content);
+
+        tipApi.createTipComment(tipId, request)
+                .enqueue(new Callback<TipCommentResponse>() {
+                    @Override
+                    public void onResponse(
+                            Call<TipCommentResponse> call,
+                            Response<TipCommentResponse> response
+                    ) {
+                        Log.d(TAG, "createTipComment response code = " + response.code());
+
+                        if (response.isSuccessful() && response.body() != null) {
+                            callback.onSuccess(response.body());
+                        } else {
+                            callback.onFailure("댓글 작성 실패 / code = " + response.code());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(
+                            Call<TipCommentResponse> call,
+                            Throwable t
+                    ) {
+                        Log.e(TAG, "createTipComment onFailure = " + t.getMessage());
+                        callback.onFailure(t.getMessage());
+                    }
+                });
+    }
+
+    /*
      * 팁 업로드 콜백 인터페이스임
      */
     public interface TipUploadCallback {
@@ -163,6 +271,33 @@ public class TipRepository {
      */
     public interface TipDetailCallback {
         void onSuccess(TipDetailResponse response);
+
+        void onFailure(String message);
+    }
+
+    /*
+     * 팁 좋아요 토글 콜백 인터페이스임
+     */
+    public interface TipLikeCallback {
+        void onSuccess(TipLikeResponse response);
+
+        void onFailure(String message);
+    }
+
+    /*
+     * 팁 북마크 토글 콜백 인터페이스임
+     */
+    public interface TipBookmarkCallback {
+        void onSuccess(TipBookmarkResponse response);
+
+        void onFailure(String message);
+    }
+
+    /*
+     * 팁 댓글 작성 콜백 인터페이스임
+     */
+    public interface TipCommentCreateCallback {
+        void onSuccess(TipCommentResponse response);
 
         void onFailure(String message);
     }

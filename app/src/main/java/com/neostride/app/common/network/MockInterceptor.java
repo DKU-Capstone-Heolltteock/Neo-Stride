@@ -1,6 +1,8 @@
 package com.neostride.app.common.network;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import okhttp3.Interceptor;
 import okhttp3.MediaType;
@@ -16,6 +18,24 @@ public class MockInterceptor implements Interceptor {
 
     // 업로드된 피드 Mock 데이터를 임시 저장함
     private static String uploadedFeedJson = null;
+
+    /*
+     * 팁 좋아요 상태를 목서버 내부에서 임시 저장하는 Map임
+     * key는 tipId, value는 좋아요 여부임
+     */
+    private static final Map<Long, Boolean> mockTipLikeStateMap = new HashMap<>();
+
+    /*
+     * 팁 북마크 상태를 목서버 내부에서 임시 저장하는 Map임
+     * key는 tipId, value는 북마크 여부임
+     */
+    private static final Map<Long, Boolean> mockTipBookmarkStateMap = new HashMap<>();
+
+    /*
+     * 팁 좋아요 개수를 목서버 내부에서 임시 저장하는 Map임
+     * key는 tipId, value는 좋아요 개수임
+     */
+    private static final Map<Long, Integer> mockTipLikeCountMap = new HashMap<>();
 
     @Override
     public Response intercept(Chain chain) throws IOException {
@@ -35,9 +55,10 @@ public class MockInterceptor implements Interceptor {
             uploadedFeedJson = getMockUploadFeedJson();
             return makeJsonResponse(chain, uploadedFeedJson);
         }
+
         /*
          * 친구 목록 조회 Mock API임
-         * GET /community/friends 요청을 가로채서 가짜 친구 목록을 반환함
+         * GET /api/community/friends 요청을 가로채서 가짜 친구 목록을 반환함
          */
         if (method.equals("GET") && path.equals("/api/community/friends")) {
             return makeJsonResponse(chain, getMockFriendListJson());
@@ -57,6 +78,33 @@ public class MockInterceptor implements Interceptor {
          */
         if (method.equals("POST") && path.equals("/api/community/tips")) {
             return makeJsonResponse(chain, getMockUploadTipJson());
+        }
+
+        /*
+         * 팁 좋아요 토글 Mock API임
+         * POST /api/community/tips/{tipId}/likes 요청을 가로채서 가짜 좋아요 응답을 반환함
+         */
+        if (method.equals("POST") && path.matches("/api/community/tips/\\d+/likes")) {
+            Long tipId = extractTipIdFromActionPath(path);
+            return makeJsonResponse(chain, getMockTipLikeJson(tipId));
+        }
+
+        /*
+         * 팁 북마크 토글 Mock API임
+         * POST /api/community/tips/{tipId}/bookmarks 요청을 가로채서 가짜 북마크 응답을 반환함
+         */
+        if (method.equals("POST") && path.matches("/api/community/tips/\\d+/bookmarks")) {
+            Long tipId = extractTipIdFromActionPath(path);
+            return makeJsonResponse(chain, getMockTipBookmarkJson(tipId));
+        }
+
+        /*
+         * 팁 댓글 작성 Mock API임
+         * POST /api/community/tips/{tipId}/comments 요청을 가로채서 가짜 댓글 작성 응답을 반환함
+         */
+        if (method.equals("POST") && path.matches("/api/community/tips/\\d+/comments")) {
+            Long tipId = extractTipIdFromActionPath(path);
+            return makeJsonResponse(chain, getMockCreateTipCommentJson(tipId));
         }
 
         /*
@@ -93,6 +141,21 @@ public class MockInterceptor implements Interceptor {
         }
     }
 
+    /*
+     * 좋아요/북마크/댓글 작성 같은 액션 API 경로에서 tipId를 추출하는 함수임
+     * 예: /api/community/tips/3/likes -> 3
+     * 예: /api/community/tips/3/bookmarks -> 3
+     * 예: /api/community/tips/3/comments -> 3
+     */
+    private Long extractTipIdFromActionPath(String path) {
+        try {
+            String[] parts = path.split("/");
+            return Long.parseLong(parts[4]);
+        } catch (Exception e) {
+            return 1L;
+        }
+    }
+
     private Response makeJsonResponse(Chain chain, String json) {
         return new Response.Builder()
                 .code(200)
@@ -108,7 +171,80 @@ public class MockInterceptor implements Interceptor {
     }
 
     /*
-     * GET /api/feeds 요청에 대해 반환할 가짜 피드 목록 JSON임
+     * tipId별 기본 좋아요 상태를 반환하는 함수임
+     */
+    private boolean getDefaultTipLiked(Long tipId) {
+        if (tipId == 2L) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /*
+     * tipId별 기본 북마크 상태를 반환하는 함수임
+     */
+    private boolean getDefaultTipBookmarked(Long tipId) {
+        if (tipId == 1L || tipId == 3L) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /*
+     * tipId별 기본 좋아요 개수를 반환하는 함수임
+     */
+    private int getDefaultTipLikeCount(Long tipId) {
+        if (tipId == 2L) {
+            return 8;
+        }
+
+        if (tipId == 3L) {
+            return 5;
+        }
+
+        return 12;
+    }
+
+    /*
+     * 현재 목서버에 저장된 좋아요 상태를 반환하는 함수임
+     * 아직 토글된 적이 없으면 기본값을 반환함
+     */
+    private boolean getCurrentTipLiked(Long tipId) {
+        if (mockTipLikeStateMap.containsKey(tipId)) {
+            return mockTipLikeStateMap.get(tipId);
+        }
+
+        return getDefaultTipLiked(tipId);
+    }
+
+    /*
+     * 현재 목서버에 저장된 북마크 상태를 반환하는 함수임
+     * 아직 토글된 적이 없으면 기본값을 반환함
+     */
+    private boolean getCurrentTipBookmarked(Long tipId) {
+        if (mockTipBookmarkStateMap.containsKey(tipId)) {
+            return mockTipBookmarkStateMap.get(tipId);
+        }
+
+        return getDefaultTipBookmarked(tipId);
+    }
+
+    /*
+     * 현재 목서버에 저장된 좋아요 개수를 반환하는 함수임
+     * 아직 토글된 적이 없으면 기본값을 반환함
+     */
+    private int getCurrentTipLikeCount(Long tipId) {
+        if (mockTipLikeCountMap.containsKey(tipId)) {
+            return mockTipLikeCountMap.get(tipId);
+        }
+
+        return getDefaultTipLikeCount(tipId);
+    }
+
+    /*
+     * GET /api/community/feeds 요청에 대해 반환할 가짜 피드 목록 JSON임
      * 업로드된 Mock 피드가 있으면 목록 맨 위에 추가함
      */
     private String getMockFeedListJson() {
@@ -157,8 +293,13 @@ public class MockInterceptor implements Interceptor {
 
     /*
      * GET /api/community/tips/{tipId} 요청에 대해 반환할 가짜 팁 상세 JSON임
+     * 좋아요/북마크 상태는 목서버 Map에 저장된 최신 상태를 반영함
      */
     private String getMockTipDetailJson(Long tipId) {
+        boolean liked = getCurrentTipLiked(tipId);
+        boolean bookmarked = getCurrentTipBookmarked(tipId);
+        int likeCount = getCurrentTipLikeCount(tipId);
+
         if (tipId == 2L) {
             return "{"
                     + "\"tipId\":2,"
@@ -173,10 +314,10 @@ public class MockInterceptor implements Interceptor {
                     + "\"gpsVisible\":true,"
                     + "\"routeMapImageUrl\":\"\","
                     + "\"imageUrls\":[],"
-                    + "\"likeCount\":8,"
+                    + "\"likeCount\":" + likeCount + ","
                     + "\"commentCount\":2,"
-                    + "\"liked\":true,"
-                    + "\"bookmarked\":false,"
+                    + "\"liked\":" + liked + ","
+                    + "\"bookmarked\":" + bookmarked + ","
                     + "\"mine\":false,"
                     + "\"createdAt\":\"10분 전\","
                     + "\"comments\":["
@@ -216,10 +357,10 @@ public class MockInterceptor implements Interceptor {
                     + "\"gpsVisible\":false,"
                     + "\"routeMapImageUrl\":\"\","
                     + "\"imageUrls\":[],"
-                    + "\"likeCount\":5,"
+                    + "\"likeCount\":" + likeCount + ","
                     + "\"commentCount\":0,"
-                    + "\"liked\":false,"
-                    + "\"bookmarked\":true,"
+                    + "\"liked\":" + liked + ","
+                    + "\"bookmarked\":" + bookmarked + ","
                     + "\"mine\":false,"
                     + "\"createdAt\":\"1시간 전\","
                     + "\"comments\":[]"
@@ -239,10 +380,10 @@ public class MockInterceptor implements Interceptor {
                 + "\"gpsVisible\":false,"
                 + "\"routeMapImageUrl\":\"\","
                 + "\"imageUrls\":[],"
-                + "\"likeCount\":12,"
+                + "\"likeCount\":" + likeCount + ","
                 + "\"commentCount\":3,"
-                + "\"liked\":false,"
-                + "\"bookmarked\":true,"
+                + "\"liked\":" + liked + ","
+                + "\"bookmarked\":" + bookmarked + ","
                 + "\"mine\":true,"
                 + "\"createdAt\":\"방금 전\","
                 + "\"comments\":["
@@ -344,7 +485,7 @@ public class MockInterceptor implements Interceptor {
     }
 
     /*
-     * POST /api/feeds 요청에 대해 반환할 가짜 업로드 성공 JSON임
+     * POST /api/community/feeds 요청에 대해 반환할 가짜 업로드 성공 JSON임
      */
     private String getMockUploadFeedJson() {
         return "{"
@@ -401,9 +542,21 @@ public class MockInterceptor implements Interceptor {
 
     /*
      * GET /api/community/tips 요청에 대해 반환할 가짜 팁 목록 JSON임
-     * 피드 목록과 동일하게 배열 형태로 반환함
+     * 현재 목서버 Map에 저장된 좋아요/북마크 상태를 목록에도 반영함
      */
     private String getMockTipListJson() {
+        boolean tip1Liked = getCurrentTipLiked(1L);
+        boolean tip1Bookmarked = getCurrentTipBookmarked(1L);
+        int tip1LikeCount = getCurrentTipLikeCount(1L);
+
+        boolean tip2Liked = getCurrentTipLiked(2L);
+        boolean tip2Bookmarked = getCurrentTipBookmarked(2L);
+        int tip2LikeCount = getCurrentTipLikeCount(2L);
+
+        boolean tip3Liked = getCurrentTipLiked(3L);
+        boolean tip3Bookmarked = getCurrentTipBookmarked(3L);
+        int tip3LikeCount = getCurrentTipLikeCount(3L);
+
         return "["
                 + "{"
                 + "\"tipId\":1,"
@@ -417,10 +570,10 @@ public class MockInterceptor implements Interceptor {
                 + "\"gpsVisible\":false,"
                 + "\"routeMapImageUrl\":\"\","
                 + "\"imageUrls\":[],"
-                + "\"likeCount\":12,"
+                + "\"likeCount\":" + tip1LikeCount + ","
                 + "\"commentCount\":3,"
-                + "\"liked\":false,"
-                + "\"bookmarked\":false,"
+                + "\"liked\":" + tip1Liked + ","
+                + "\"bookmarked\":" + tip1Bookmarked + ","
                 + "\"createdAt\":\"방금 전\""
                 + "},"
                 + "{"
@@ -435,10 +588,10 @@ public class MockInterceptor implements Interceptor {
                 + "\"gpsVisible\":true,"
                 + "\"routeMapImageUrl\":\"\","
                 + "\"imageUrls\":[],"
-                + "\"likeCount\":8,"
+                + "\"likeCount\":" + tip2LikeCount + ","
                 + "\"commentCount\":1,"
-                + "\"liked\":true,"
-                + "\"bookmarked\":false,"
+                + "\"liked\":" + tip2Liked + ","
+                + "\"bookmarked\":" + tip2Bookmarked + ","
                 + "\"createdAt\":\"10분 전\""
                 + "},"
                 + "{"
@@ -453,10 +606,10 @@ public class MockInterceptor implements Interceptor {
                 + "\"gpsVisible\":false,"
                 + "\"routeMapImageUrl\":\"\","
                 + "\"imageUrls\":[],"
-                + "\"likeCount\":5,"
+                + "\"likeCount\":" + tip3LikeCount + ","
                 + "\"commentCount\":0,"
-                + "\"liked\":false,"
-                + "\"bookmarked\":true,"
+                + "\"liked\":" + tip3Liked + ","
+                + "\"bookmarked\":" + tip3Bookmarked + ","
                 + "\"createdAt\":\"1시간 전\""
                 + "}"
                 + "]";
@@ -480,6 +633,63 @@ public class MockInterceptor implements Interceptor {
                 + "\"likeCount\":0,"
                 + "\"commentCount\":0,"
                 + "\"createdAt\":\"방금 전\""
+                + "}";
+    }
+
+    /*
+     * POST /api/community/tips/{tipId}/likes 요청에 대해 반환할 가짜 좋아요 응답 JSON임
+     * 같은 버튼을 다시 누르면 좋아요가 취소되도록 목서버 내부 상태를 토글함
+     */
+    private String getMockTipLikeJson(Long tipId) {
+        boolean currentLiked = getCurrentTipLiked(tipId);
+        int currentLikeCount = getCurrentTipLikeCount(tipId);
+
+        boolean nextLiked = !currentLiked;
+
+        if (nextLiked) {
+            currentLikeCount++;
+        } else {
+            currentLikeCount = Math.max(0, currentLikeCount - 1);
+        }
+
+        mockTipLikeStateMap.put(tipId, nextLiked);
+        mockTipLikeCountMap.put(tipId, currentLikeCount);
+
+        return "{"
+                + "\"tipId\":" + tipId + ","
+                + "\"liked\":" + nextLiked + ","
+                + "\"likeCount\":" + currentLikeCount
+                + "}";
+    }
+
+    /*
+     * POST /api/community/tips/{tipId}/bookmarks 요청에 대해 반환할 가짜 북마크 응답 JSON임
+     * 같은 버튼을 다시 누르면 북마크가 취소되도록 목서버 내부 상태를 토글함
+     */
+    private String getMockTipBookmarkJson(Long tipId) {
+        boolean currentBookmarked = getCurrentTipBookmarked(tipId);
+        boolean nextBookmarked = !currentBookmarked;
+
+        mockTipBookmarkStateMap.put(tipId, nextBookmarked);
+
+        return "{"
+                + "\"tipId\":" + tipId + ","
+                + "\"bookmarked\":" + nextBookmarked
+                + "}";
+    }
+
+    /*
+     * POST /api/community/tips/{tipId}/comments 요청에 대해 반환할 가짜 댓글 작성 응답 JSON임
+     */
+    private String getMockCreateTipCommentJson(Long tipId) {
+        return "{"
+                + "\"commentId\":999,"
+                + "\"writerId\":999,"
+                + "\"nickname\":\"mock_tip_runner\","
+                + "\"profileImageUrl\":\"\","
+                + "\"content\":\"목서버 댓글 작성 성공\","
+                + "\"createdAt\":\"방금 전\","
+                + "\"mine\":true"
                 + "}";
     }
 }

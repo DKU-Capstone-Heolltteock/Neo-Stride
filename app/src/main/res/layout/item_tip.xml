@@ -23,8 +23,7 @@
             android:id="@+id/iv_tip_profile"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:src="@drawable/ic_profile"
-           />
+            android:src="@drawable/ic_profile" />
 
         <ImageView
             android:id="@+id/iv_tip_badge"
@@ -196,7 +195,8 @@
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:layout_marginStart="14dp"
-                    android:src="@drawable/ic_comment" />
+                    android:src="@drawable/ic_comment"
+                    app:tint="#FFFFFF" />
 
                 <TextView
                     android:id="@+id/tv_tip_comment_count"
