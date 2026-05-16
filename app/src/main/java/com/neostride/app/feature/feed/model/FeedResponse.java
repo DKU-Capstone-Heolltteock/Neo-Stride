@@ -14,6 +14,9 @@ public class FeedResponse {
     // 피드 고유 ID임
     private Long feedId;
 
+    // 작성자 유저 ID임
+    private Long writerId;
+
     // 작성자 프로필 이미지 URL임
     private String profileImageUrl;
 
@@ -64,6 +67,14 @@ public class FeedResponse {
 
     public void setFeedId(Long feedId) {
         this.feedId = feedId;
+    }
+
+    public Long getWriterId() {
+        return writerId;
+    }
+
+    public void setWriterId(Long writerId) {
+        this.writerId = writerId;
     }
 
     public String getProfileImageUrl() {

@@ -143,6 +143,7 @@ public class FeedFragment extends Fragment {
     private FeedItem convertResponseToFeedItem(FeedResponse response) {
         return new FeedItem(
                 response.getFeedId(),
+                response.getWriterId(),
                 getSafeText(response.getProfileImageUrl()),
                 getSafeText(response.getNickname(), "알 수 없음"),
                 getSafeText(response.getCreatedAt(), "방금 전"),

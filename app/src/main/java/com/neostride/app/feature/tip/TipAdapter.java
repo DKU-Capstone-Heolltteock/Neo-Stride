@@ -24,6 +24,8 @@ import com.neostride.app.feature.tip.model.TipBookmarkResponse;
 import com.neostride.app.feature.tip.model.TipItem;
 import com.neostride.app.feature.tip.model.TipLikeResponse;
 import com.neostride.app.feature.tip.repository.TipRepository;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -365,8 +367,17 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
      * 현재 프로젝트의 MyPageActivity로 이동함
      */
     private void openProfile(TipItem item) {
-        Intent intent = new Intent(context, MyPageActivity.class);
-        intent.putExtra("username", item.getNickname());
+        Long writerId = item.getWriterId();
+        int myId = TokenManager.getUserId(context);
+
+        if (writerId == null || writerId == myId) {
+            Intent intent = new Intent(context, MyPageActivity.class);
+            context.startActivity(intent);
+            return;
+        }
+
+        Intent intent = new Intent(context, RunnerPageActivity.class);
+        intent.putExtra("user_id", writerId.intValue());
         intent.putExtra("nickname", item.getNickname());
         context.startActivity(intent);
     }

@@ -15,6 +15,9 @@ public class TipItem {
     // 상세 페이지 이동 및 상세 API 호출에 사용함
     private Long tipId;
 
+    // 작성자 유저 ID임
+    private Long writerId;
+
     // 작성자 닉네임임
     private String nickname;
 
@@ -61,6 +64,7 @@ public class TipItem {
      */
     public TipItem(
             String nickname,
+            Long writerId,
             String category,
             String title,
             String content,
@@ -71,6 +75,7 @@ public class TipItem {
             int commentCount
     ) {
         this.tipId = null;
+        this.writerId = writerId;
         this.nickname = nickname;
         this.profileImageUrl = null;
         this.category = category;
@@ -91,6 +96,7 @@ public class TipItem {
      */
     public TipItem(
             Long tipId,
+            Long writerId,
             String nickname,
             String profileImageUrl,
             String category,
@@ -105,6 +111,7 @@ public class TipItem {
             String createdAt
     ) {
         this.tipId = tipId;
+        this.writerId = writerId;
         this.nickname = nickname;
         this.profileImageUrl = profileImageUrl;
         this.category = category;
@@ -122,6 +129,10 @@ public class TipItem {
 
     public Long getTipId() {
         return tipId;
+    }
+
+    public Long getWriterId() {
+        return writerId;
     }
 
     public String getNickname() {

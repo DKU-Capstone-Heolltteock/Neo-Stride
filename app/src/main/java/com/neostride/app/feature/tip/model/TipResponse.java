@@ -9,6 +9,7 @@ import java.util.List;
 public class TipResponse {
 
     private Long tipId;
+    private Long writerId;
 
     private String nickname;
     private String profileImageUrl;
@@ -37,6 +38,10 @@ public class TipResponse {
 
     public Long getTipId() {
         return tipId;
+    }
+
+    public Long getWriterId() {
+        return writerId;
     }
 
     public String getNickname() {

@@ -8,7 +8,8 @@ public class FeedItem {
     // 서버에서 내려주는 피드 고유 ID임
     // 피드 상세 조회, 수정, 삭제, 좋아요 등에 필요함
     private Long feedId;
-
+    // 작성자 유저 ID임
+    private Long writerId;
     private String profileImageUrl;
     private String username;
     private String time;
@@ -31,6 +32,7 @@ public class FeedItem {
 
     public FeedItem(
             Long feedId,
+            Long writerId,
             String profileImageUrl,
             String username,
             String time,
@@ -47,6 +49,7 @@ public class FeedItem {
             List<String> imageUrls
     ) {
         this.feedId = feedId;
+        this.writerId = writerId;
         this.profileImageUrl = profileImageUrl;
         this.username = username;
         this.time = time;
@@ -65,6 +68,10 @@ public class FeedItem {
 
     public Long getFeedId() {
         return feedId;
+    }
+
+    public Long getWriterId() {
+        return writerId;
     }
 
     public String getProfileImageUrl() {

@@ -24,6 +24,8 @@ import com.neostride.app.R;
 import com.neostride.app.feature.feed.model.FeedItem;
 import com.neostride.app.feature.feed.repository.FeedRepository;
 import com.neostride.app.feature.mypage.MyPageActivity;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -228,10 +230,20 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         holder.layoutFeedBody.setOnClickListener(detailClickListener);
         holder.layoutRecordArea.setOnClickListener(detailClickListener);
 
-        // 프로필 또는 닉네임 클릭 시 해당 유저 프로필/마이페이지로 이동함
+        // 프로필 또는 닉네임 클릭 시 내 글이면 마이페이지, 남의 글이면 러너페이지로 이동함
         View.OnClickListener profileClickListener = v -> {
-            Intent intent = new Intent(context, MyPageActivity.class);
-            intent.putExtra("username", item.getUsername());
+            Long writerId = item.getWriterId();
+            int myId = TokenManager.getUserId(context);
+
+            if (writerId == null || writerId == myId) {
+                Intent intent = new Intent(context, MyPageActivity.class);
+                context.startActivity(intent);
+                return;
+            }
+
+            Intent intent = new Intent(context, RunnerPageActivity.class);
+            intent.putExtra("user_id", writerId.intValue());
+            intent.putExtra("nickname", item.getUsername());
             context.startActivity(intent);
         };
 

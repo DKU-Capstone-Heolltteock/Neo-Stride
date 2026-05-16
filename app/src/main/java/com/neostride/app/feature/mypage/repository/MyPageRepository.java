@@ -6,6 +6,7 @@ import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.feature.mypage.api.MyPageService;
 import com.neostride.app.feature.mypage.model.CommunityContentResponse;
 import com.neostride.app.feature.mypage.model.UserProfileResponse;
+import com.neostride.app.common.network.MockApiClient;
 
 import java.util.List;
 
@@ -20,8 +21,13 @@ import retrofit2.Callback;
 public class MyPageRepository {
     private MyPageService apiService;
 
+    /*임시 목서버로 대체
     public MyPageRepository() {
         this.apiService = ApiClient.getInstance().create(MyPageService.class);
+    }*/
+
+    public MyPageRepository() {
+        this.apiService = MockApiClient.getInstance().create(MyPageService.class);
     }
 
     // 현재 사용자 프로필 정보를 조회한다.

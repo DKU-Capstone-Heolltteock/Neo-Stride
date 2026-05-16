@@ -60,15 +60,158 @@ public class MockInterceptor implements Interceptor {
         String path = chain.request().url().encodedPath();
         String method = chain.request().method();
 
+        /*
+         * 피드 목록 조회 Mock API임
+         * GET /api/community/feeds 요청을 가로채서 가짜 피드 목록을 반환함
+         */
         if (method.equals("GET") && path.equals("/api/community/feeds")) {
             return makeJsonResponse(chain, getMockFeedListJson());
         }
 
+        /*
+         * 마이페이지 프로필 조회 Mock API임
+         * GET /users/me/profile 요청을 가로채서 내 프로필 정보를 반환함
+         */
+        if (method.equals("GET") && path.equals("/users/me/profile")) {
+            return makeJsonResponse(chain, getMockMyProfileJson());
+        }
+
+        /*
+         * 마이페이지 상태 메시지 수정 Mock API임
+         * PATCH /users/me/status 요청을 가로채서 성공 응답을 반환함
+         */
+        if (method.equals("PATCH") && path.equals("/users/me/status")) {
+            return makeJsonResponse(chain, "{}");
+        }
+
+        /*
+         * 마이페이지 프로필 이미지 수정 Mock API임
+         * PATCH /users/me/profile-image 요청을 가로채서 성공 응답을 반환함
+         */
+        if (method.equals("PATCH") && path.equals("/users/me/profile-image")) {
+            return makeJsonResponse(chain, "{}");
+        }
+
+        /*
+         * 러너페이지 프로필 조회 Mock API임
+         * GET /users/{userId}/profile 요청을 가로채서 특정 사용자 프로필 정보를 반환함
+         */
+        if (method.equals("GET") && path.matches("/users/\\d+/profile")) {
+            int userId = extractUserId(path);
+            return makeJsonResponse(chain, getMockRunnerProfileJson(userId));
+        }
+
+        /*
+         * 내 뱃지 조회 Mock API임
+         * GET /users/me/badge 요청을 가로채서 내 뱃지 정보를 반환함
+         */
+        if (method.equals("GET") && path.equals("/users/me/badge")) {
+            return makeJsonResponse(chain, getMockBadgeJson(101));
+        }
+
+        /*
+         * 러너 뱃지 조회 Mock API임
+         * GET /users/{userId}/badge 요청을 가로채서 특정 사용자 뱃지 정보를 반환함
+         */
+        if (method.equals("GET") && path.matches("/users/\\d+/badge")) {
+            int userId = extractUserId(path);
+            return makeJsonResponse(chain, getMockBadgeJson(userId));
+        }
+
+        /*
+         * 내 피드 목록 조회 Mock API임
+         * GET /community/contents/me 요청을 가로채서 내 피드 목록을 반환함
+         */
+        if (method.equals("GET") && path.equals("/community/contents/me")) {
+            return makeJsonResponse(chain, getMockCommunityContentListJson(101));
+        }
+
+        /*
+         * 나를 태그한 피드 목록 조회 Mock API임
+         * GET /community/contents/tagged 요청을 가로채서 태그된 피드 목록을 반환함
+         */
+        if (method.equals("GET") && path.equals("/community/contents/tagged")) {
+            return makeJsonResponse(chain, getMockCommunityContentListJson(102));
+        }
+
+        /*
+         * 내가 댓글 단 피드 목록 조회 Mock API임
+         * GET /community/contents/comments 요청을 가로채서 댓글 단 피드 목록을 반환함
+         */
+        if (method.equals("GET") && path.equals("/community/contents/comments")) {
+            return makeJsonResponse(chain, getMockCommunityContentListJson(103));
+        }
+
+        /*
+         * 내가 좋아요 한 피드 목록 조회 Mock API임
+         * GET /community/contents/likes 요청을 가로채서 좋아요한 피드 목록을 반환함
+         */
+        if (method.equals("GET") && path.equals("/community/contents/likes")) {
+            return makeJsonResponse(chain, getMockCommunityContentListJson(102));
+        }
+
+        /*
+         * 내가 북마크 한 피드 목록 조회 Mock API임
+         * GET /community/contents/bookmarks 요청을 가로채서 북마크한 피드 목록을 반환함
+         */
+        if (method.equals("GET") && path.equals("/community/contents/bookmarks")) {
+            return makeJsonResponse(chain, getMockCommunityContentListJson(103));
+        }
+
+        /*
+         * 러너페이지 작성 피드 목록 조회 Mock API임
+         * GET /community/contents/user/{userId} 요청을 가로채서 해당 유저의 피드 목록을 반환함
+         */
+        if (method.equals("GET") && path.matches("/community/contents/user/\\d+")) {
+            int userId = extractLastInt(path);
+            return makeJsonResponse(chain, getMockCommunityContentListJson(userId));
+        }
+
+        /*
+         * 마이페이지 북마크 토글 Mock API임
+         * POST /community/bookmark/{contentId} 요청을 가로채서 성공 응답을 반환함
+         */
+        if (method.equals("POST") && path.matches("/community/bookmark/\\d+")) {
+            return makeJsonResponse(chain, "{}");
+        }
+
+        /*
+         * 계정 정보 조회 Mock API임
+         * GET /users/me/account 요청을 가로채서 계정 정보를 반환함
+         */
+        if (method.equals("GET") && path.equals("/users/me/account")) {
+            return makeJsonResponse(chain, getMockAccountJson());
+        }
+
+        /*
+         * 닉네임 변경 Mock API임
+         * PATCH /users/me/nickname 요청을 가로채서 성공 응답을 반환함
+         */
+        if (method.equals("PATCH") && path.equals("/users/me/nickname")) {
+            return makeJsonResponse(chain, "{}");
+        }
+
+        /*
+         * 계정 탈퇴 Mock API임
+         * DELETE /users/me 요청을 가로채서 성공 응답을 반환함
+         */
+        if (method.equals("DELETE") && path.equals("/users/me")) {
+            return makeJsonResponse(chain, "{}");
+        }
+
+        /*
+         * 피드 상세 조회 Mock API임
+         * GET /api/community/feeds/{feedId} 요청을 가로채서 가짜 피드 상세를 반환함
+         */
         if (method.equals("GET") && path.matches("/api/community/feeds/\\d+")) {
             Long feedId = extractFeedId(path);
             return makeJsonResponse(chain, getMockFeedDetailJson(feedId));
         }
 
+        /*
+         * 피드 업로드 Mock API임
+         * POST /api/community/feeds 요청을 가로채서 가짜 업로드 성공 응답을 반환함
+         */
         if (method.equals("POST") && path.equals("/api/community/feeds")) {
             uploadedFeedJson = getMockUploadFeedJson();
             return makeJsonResponse(chain, uploadedFeedJson);
@@ -164,6 +307,10 @@ public class MockInterceptor implements Interceptor {
         return chain.proceed(chain.request());
     }
 
+    /*
+     * 요청 경로에서 feedId를 추출하는 함수임
+     * 예: /api/community/feeds/1 -> 1
+     */
     private Long extractFeedId(String path) {
         try {
             String feedIdText = path.substring(path.lastIndexOf("/") + 1);
@@ -189,7 +336,6 @@ public class MockInterceptor implements Interceptor {
     /*
      * 좋아요/북마크 같은 피드 액션 API 경로에서 feedId를 추출하는 함수임
      * 예: /api/community/feeds/1/likes -> 1
-     * 예: /api/community/feeds/1/bookmarks -> 1
      */
     private Long extractFeedIdFromActionPath(String path) {
         try {
@@ -203,8 +349,6 @@ public class MockInterceptor implements Interceptor {
     /*
      * 좋아요/북마크/댓글 작성 같은 액션 API 경로에서 tipId를 추출하는 함수임
      * 예: /api/community/tips/3/likes -> 3
-     * 예: /api/community/tips/3/bookmarks -> 3
-     * 예: /api/community/tips/3/comments -> 3
      */
     private Long extractTipIdFromActionPath(String path) {
         try {
@@ -215,6 +359,9 @@ public class MockInterceptor implements Interceptor {
         }
     }
 
+    /*
+     * JSON 문자열을 OkHttp Response 객체로 만들어 반환하는 함수임
+     */
     private Response makeJsonResponse(Chain chain, String json) {
         return new Response.Builder()
                 .code(200)
@@ -302,7 +449,6 @@ public class MockInterceptor implements Interceptor {
         return getDefaultFeedLikeCount(feedId);
     }
 
-
     /*
      * tipId별 기본 좋아요 상태를 반환하는 함수임
      */
@@ -341,7 +487,7 @@ public class MockInterceptor implements Interceptor {
     }
 
     /*
-     * 현재 목서버에 저장된 좋아요 상태를 반환하는 함수임
+     * 현재 목서버에 저장된 팁 좋아요 상태를 반환하는 함수임
      * 아직 토글된 적이 없으면 기본값을 반환함
      */
     private boolean getCurrentTipLiked(Long tipId) {
@@ -353,7 +499,7 @@ public class MockInterceptor implements Interceptor {
     }
 
     /*
-     * 현재 목서버에 저장된 북마크 상태를 반환하는 함수임
+     * 현재 목서버에 저장된 팁 북마크 상태를 반환하는 함수임
      * 아직 토글된 적이 없으면 기본값을 반환함
      */
     private boolean getCurrentTipBookmarked(Long tipId) {
@@ -365,7 +511,7 @@ public class MockInterceptor implements Interceptor {
     }
 
     /*
-     * 현재 목서버에 저장된 좋아요 개수를 반환하는 함수임
+     * 현재 목서버에 저장된 팁 좋아요 개수를 반환하는 함수임
      * 아직 토글된 적이 없으면 기본값을 반환함
      */
     private int getCurrentTipLikeCount(Long tipId) {
@@ -384,6 +530,7 @@ public class MockInterceptor implements Interceptor {
         String defaultFeeds =
                 "{"
                         + "\"feedId\":1,"
+                        + "\"writerId\":101,"
                         + "\"profileImageUrl\":\"\","
                         + "\"nickname\":\"mock_runner\","
                         + "\"createdAt\":\"방금 전\","
@@ -401,6 +548,7 @@ public class MockInterceptor implements Interceptor {
                         + "},"
                         + "{"
                         + "\"feedId\":2,"
+                        + "\"writerId\":102,"
                         + "\"profileImageUrl\":\"\","
                         + "\"nickname\":\"neo_stride\","
                         + "\"createdAt\":\"10분 전\","
@@ -544,10 +692,6 @@ public class MockInterceptor implements Interceptor {
 
     /*
      * GET /api/community/feeds/{feedId} 요청에 대해 반환할 가짜 피드 상세 JSON임
-     * 피드 상세 화면 댓글 UI 테스트를 위해 comments 배열을 포함함
-     */
-    /*
-     * GET /api/community/feeds/{feedId} 요청에 대해 반환할 가짜 피드 상세 JSON임
      * 좋아요/북마크 상태는 목서버 Map에 저장된 최신 상태를 반영함
      */
     private String getMockFeedDetailJson(Long feedId) {
@@ -558,7 +702,7 @@ public class MockInterceptor implements Interceptor {
         if (feedId == 999L && uploadedFeedJson != null) {
             return "{"
                     + "\"feedId\":999,"
-                    + "\"writerId\":999,"
+                    + "\"writerId\":101,"
                     + "\"profileImageUrl\":\"\","
                     + "\"nickname\":\"mock_runner\","
                     + "\"createdAt\":\"방금 전\","
@@ -666,12 +810,14 @@ public class MockInterceptor implements Interceptor {
                 + "]"
                 + "}";
     }
+
     /*
      * POST /api/community/feeds 요청에 대해 반환할 가짜 업로드 성공 JSON임
      */
     private String getMockUploadFeedJson() {
         return "{"
                 + "\"feedId\":999,"
+                + "\"writerId\":101,"
                 + "\"profileImageUrl\":\"\","
                 + "\"nickname\":\"mock_runner\","
                 + "\"createdAt\":\"방금 전\","
@@ -742,6 +888,7 @@ public class MockInterceptor implements Interceptor {
         return "["
                 + "{"
                 + "\"tipId\":1,"
+                + "\"writerId\":101,"
                 + "\"nickname\":\"mock_tip_runner\","
                 + "\"profileImageUrl\":\"\","
                 + "\"badgeOwned\":true,"
@@ -760,6 +907,7 @@ public class MockInterceptor implements Interceptor {
                 + "},"
                 + "{"
                 + "\"tipId\":2,"
+                + "\"writerId\":102,"
                 + "\"nickname\":\"neo_stride\","
                 + "\"profileImageUrl\":\"\","
                 + "\"badgeOwned\":true,"
@@ -778,6 +926,7 @@ public class MockInterceptor implements Interceptor {
                 + "},"
                 + "{"
                 + "\"tipId\":3,"
+                + "\"writerId\":103,"
                 + "\"nickname\":\"gear_master\","
                 + "\"profileImageUrl\":\"\","
                 + "\"badgeOwned\":false,"
@@ -803,6 +952,7 @@ public class MockInterceptor implements Interceptor {
     private String getMockUploadTipJson() {
         return "{"
                 + "\"tipId\":999,"
+                + "\"writerId\":101,"
                 + "\"nickname\":\"mock_tip_runner\","
                 + "\"profileImageUrl\":\"\","
                 + "\"badgeOwned\":true,"
@@ -929,6 +1079,202 @@ public class MockInterceptor implements Interceptor {
                 + "\"content\":\"목서버 피드 댓글 작성 성공\","
                 + "\"createdAt\":\"방금 전\","
                 + "\"mine\":true"
+                + "}";
+    }
+
+    /*
+     * /users/{userId}/profile, /users/{userId}/badge 같은 경로에서 userId를 추출하는 함수임
+     * 예: /users/102/profile -> 102
+     */
+    private int extractUserId(String path) {
+        try {
+            String[] parts = path.split("/");
+            return Integer.parseInt(parts[2]);
+        } catch (Exception e) {
+            return 101;
+        }
+    }
+
+    /*
+     * 경로의 마지막 숫자 값을 추출하는 함수임
+     * 예: /community/contents/user/102 -> 102
+     */
+    private int extractLastInt(String path) {
+        try {
+            String text = path.substring(path.lastIndexOf("/") + 1);
+            return Integer.parseInt(text);
+        } catch (Exception e) {
+            return 101;
+        }
+    }
+
+    /*
+     * 내 마이페이지 프로필 Mock JSON 데이터임
+     */
+    private String getMockMyProfileJson() {
+        return "{"
+                + "\"community_profile_name\":\"mock_runner\","
+                + "\"profile_photo\":\"\","
+                + "\"status_message\":\"오늘도 네온처럼 달리는 중\","
+                + "\"friend_count\":12,"
+                + "\"post_count\":3,"
+                + "\"tagged_count\":2,"
+                + "\"commented_feed_count\":4,"
+                + "\"liked_feed_count\":5,"
+                + "\"bookmarked_feed_count\":2"
+                + "}";
+    }
+
+    /*
+     * 러너페이지 프로필 Mock JSON 데이터임
+     * userId에 따라 닉네임과 상태 메시지를 다르게 반환함
+     */
+    private String getMockRunnerProfileJson(int userId) {
+        String nickname;
+        String statusMessage;
+        int friendCount;
+        int postCount;
+        boolean isFriend;
+
+        if (userId == 102) {
+            nickname = "neo_stride";
+            statusMessage = "저녁 러닝 좋아합니다.";
+            friendCount = 87;
+            postCount = 5;
+            isFriend = true;
+        } else if (userId == 103) {
+            nickname = "gear_master";
+            statusMessage = "러닝화랑 장비 리뷰 좋아함";
+            friendCount = 42;
+            postCount = 2;
+            isFriend = false;
+        } else if (userId == 999) {
+            nickname = "mock_runner";
+            statusMessage = "방금 업로드한 목 유저입니다.";
+            friendCount = 12;
+            postCount = 3;
+            isFriend = true;
+        } else {
+            nickname = "mock_runner_" + userId;
+            statusMessage = "러닝을 즐기는 목 유저입니다.";
+            friendCount = 20;
+            postCount = 3;
+            isFriend = false;
+        }
+
+        return "{"
+                + "\"community_profile_name\":\"" + nickname + "\","
+                + "\"profile_photo\":\"\","
+                + "\"status_message\":\"" + statusMessage + "\","
+                + "\"friend_count\":" + friendCount + ","
+                + "\"post_count\":" + postCount + ","
+                + "\"is_friend\":" + isFriend
+                + "}";
+    }
+
+    /*
+     * 뱃지 상세 Mock JSON 데이터임
+     * userId에 따라 배지 등급을 다르게 반환함
+     */
+    private String getMockBadgeJson(int userId) {
+        String tier;
+
+        if (userId == 101) {
+            tier = "GOLD";
+        } else if (userId == 102) {
+            tier = "SILVER";
+        } else if (userId == 103) {
+            tier = "BRONZE";
+        } else {
+            tier = "NONE";
+        }
+
+        return "{"
+                + "\"Badge\":\"" + tier + "\","
+                + "\"record_id\":1,"
+                + "\"distance\":5.2,"
+                + "\"pace\":\"6'11\\\"\","
+                + "\"achieved_at\":\"2026-05-16\""
+                + "}";
+    }
+
+    /*
+     * 마이페이지/러너페이지 피드 목록에서 사용하는 CommunityContentResponse 배열 Mock JSON 데이터임
+     */
+    private String getMockCommunityContentListJson(int userId) {
+        String nickname;
+        String badgeTier;
+
+        if (userId == 102) {
+            nickname = "neo_stride";
+            badgeTier = "SILVER";
+        } else if (userId == 103) {
+            nickname = "gear_master";
+            badgeTier = "BRONZE";
+        } else if (userId == 999) {
+            nickname = "mock_runner";
+            badgeTier = "GOLD";
+        } else {
+            nickname = "mock_runner";
+            badgeTier = "GOLD";
+        }
+
+        return "["
+                + "{"
+                + "\"content_id\":1,"
+                + "\"user_id\":" + userId + ","
+                + "\"profile_image_url\":\"\","
+                + "\"content_title\":\"목서버 피드 테스트\","
+                + "\"content_text\":\"마이페이지/러너페이지 연결 확인용 목데이터입니다.\","
+                + "\"nickname\":\"" + nickname + "\","
+                + "\"total_distance\":5.2,"
+                + "\"duration\":1930,"
+                + "\"pace\":371,"
+                + "\"created_at\":\"방금 전\","
+                + "\"image_url\":\"\","
+                + "\"tag_count\":2,"
+                + "\"like_count\":12,"
+                + "\"comment_count\":3,"
+                + "\"is_bookmarked\":true,"
+                + "\"is_liked\":false,"
+                + "\"is_commented\":true,"
+                + "\"is_tagged\":false,"
+                + "\"badge_tier\":\"" + badgeTier + "\","
+                + "\"route_map_url\":\"\""
+                + "},"
+                + "{"
+                + "\"content_id\":2,"
+                + "\"user_id\":102,"
+                + "\"profile_image_url\":\"\","
+                + "\"content_title\":\"오늘 러닝 완료\","
+                + "\"content_text\":\"가볍게 3km 뛰고 왔습니다.\","
+                + "\"nickname\":\"neo_stride\","
+                + "\"total_distance\":3.0,"
+                + "\"duration\":1120,"
+                + "\"pace\":373,"
+                + "\"created_at\":\"10분 전\","
+                + "\"image_url\":\"\","
+                + "\"tag_count\":0,"
+                + "\"like_count\":8,"
+                + "\"comment_count\":1,"
+                + "\"is_bookmarked\":false,"
+                + "\"is_liked\":true,"
+                + "\"is_commented\":false,"
+                + "\"is_tagged\":true,"
+                + "\"badge_tier\":\"SILVER\","
+                + "\"route_map_url\":\"\""
+                + "}"
+                + "]";
+    }
+
+    /*
+     * 계정관리 Mock JSON 데이터임
+     */
+    private String getMockAccountJson() {
+        return "{"
+                + "\"email\":\"mock_runner@neostride.com\","
+                + "\"nickname\":\"mock_runner\","
+                + "\"profile_photo\":\"\""
                 + "}";
     }
 }

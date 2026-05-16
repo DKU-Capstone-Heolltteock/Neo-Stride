@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
 import com.neostride.app.R;
+import com.neostride.app.common.network.MockApiClient;
 import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.badge.api.BadgeService;
@@ -119,11 +120,13 @@ public class BadgeActivity extends AppCompatActivity {
                 tvCalcResult.setTextColor(Color.parseColor("#FF0000"));
             }
         });
-
+        /* 임시로 비활성화 일단 목서버 사용
         // 서버 데이터 연동
         BadgeService service = ApiClient.getInstance().create(BadgeService.class);
         BadgeRepository repository = new BadgeRepository(service);
-        repository.fetchBadgeDetail(this::updateBadgeUI);
+        repository.fetchBadgeDetail(this::updateBadgeUI);*/
+        BadgeService service = MockApiClient.getInstance().create(BadgeService.class);
+        BadgeRepository repository = new BadgeRepository(service);
     }
 
     // ─── NONE 등급일 때 1km 이상 기록 중 최고 페이스 기록을 서버에서 조회해 UI에 표시 ───

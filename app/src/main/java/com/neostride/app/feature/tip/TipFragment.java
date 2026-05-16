@@ -240,6 +240,7 @@ public class TipFragment extends Fragment {
     private TipItem convertToTipItem(TipResponse serverTip) {
         return new TipItem(
                 serverTip.getTipId(),
+                serverTip.getWriterId(),
                 serverTip.getNickname(),
                 serverTip.getProfileImageUrl(),
                 serverTip.getCategory(),
