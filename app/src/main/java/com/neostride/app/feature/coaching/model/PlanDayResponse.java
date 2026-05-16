@@ -4,8 +4,11 @@ import com.google.gson.annotations.SerializedName;
 import java.io.Serializable;
 
 
-//  날짜별 AI 플랜 DTO
-//  ERD: COACHING_PLAN_DAYS 테이블 매핑
+
+//  날짜별 AI 플랜 응답 DTO
+//  <p>
+//  - ERD: COACHING_PLAN_DAYS 테이블과 매핑된다.
+//  - {@link #getStatus()}로 완료/미완료/예정 상태를 판별한다.
 
 public class PlanDayResponse implements Serializable {
 
@@ -55,10 +58,10 @@ public class PlanDayResponse implements Serializable {
     }
 
 
-//      플랜 상태 반환
-//      완료: "completed"
-//      날짜 지남 + 미완료: "missed"
-//      아직 안 됨: "pending"
+
+//      플랜 상태 문자열을 반환한다.
+//
+//      @return "completed" (완료) | "missed" (날짜 경과·미완료) | "pending" (예정)
 
     public String getStatus() {
         if (isCompleted) return "completed";

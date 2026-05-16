@@ -7,6 +7,12 @@ import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.util.*;
 
+
+//  코칭 플랜·히스토리 로컬 저장소
+//  <p>
+//  - SharedPreferences에 날짜별 {@link PlanData}와 {@link HistoryItem}을 Gson으로 직렬화하여 저장한다.
+//  - {@link #saveGoalToPlanDays}로 목표 설정을 날짜별 플랜으로 펼쳐 저장한다.
+
 public class GoalStorage {
     private static final String PREF_NAME = "neo_stride_goals";
     private static final String KEY_PLANS = "plans";
@@ -15,6 +21,7 @@ public class GoalStorage {
 
     private static SharedPreferences getPrefs(Context context) { return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE); }
 
+    // 날짜 키(예: "2026-5-4")에 해당하는 플랜을 저장한다.
     public static void savePlan(Context context, String dateKey, PlanData plan) {
         Map<String, PlanData> plans = getAllPlans(context);
         plans.put(dateKey, plan);
@@ -30,6 +37,7 @@ public class GoalStorage {
         try { return gson.fromJson(json, type); } catch (Exception e) { return new HashMap<>(); }
     }
 
+    // 지정 goalId에 속하는 날짜별 플랜을 모두 삭제한다.
     public static void removeAllPlansForGoal(Context context, String goalId) {
         Map<String, PlanData> plans = getAllPlans(context);
         List<String> keysToRemove = new ArrayList<>();
@@ -40,6 +48,7 @@ public class GoalStorage {
 
     public static void clearAllPlans(Context context) { getPrefs(context).edit().putString(KEY_PLANS, "{}").apply(); }
 
+    // 히스토리 목록 맨 앞에 항목을 추가한다.
     public static void addHistory(Context context, HistoryItem item) {
         List<HistoryItem> history = getHistory(context);
         history.add(0, item);
@@ -57,6 +66,12 @@ public class GoalStorage {
         List<HistoryItem> history = getHistory(context);
         if (index >= 0 && index < history.size()) { history.remove(index); getPrefs(context).edit().putString(KEY_HISTORY, gson.toJson(history)).apply(); }
     }
+
+
+//      목표 입력 데이터를 날짜별 플랜으로 펼쳐 저장하고 생성된 goalId를 반환한다.
+//
+//      @param goal 사용자가 설정한 목표 입력 데이터
+//      @return 생성된 goalId 문자열 (예: "goal_1714920000000")
 
     public static String saveGoalToPlanDays(Context context, GoalInputData goal) {
         // 1. 이번 목표 설정을 하나로 묶어줄 고유 ID를 생성합니다 (현재 시간 기반)
@@ -116,6 +131,7 @@ public class GoalStorage {
         return goalId;
     }
 
+    // ─── Calendar.DAY_OF_WEEK 정수를 영문 요일 키 문자열로 변환 ───
     private static String getDayKey(int dayOfWeek) {
         switch (dayOfWeek) {
             case Calendar.SUNDAY: return "sun";
@@ -129,24 +145,61 @@ public class GoalStorage {
         }
     }
 
-    // 이 부분을 찾아 아래 내용으로 교체하세요!
+    // 날짜별 코칭 플랜 데이터 모델
     public static class PlanData {
         public int planId;
         public String goalId;
-        public float distanceKm;        // 오늘의 훈련 거리
-        public float totalGoalDistanceKm; // 최종 목표 거리 (10km 고정용)
-        public String totalGoalPaceStr;   // 최종 목표 페이스 (5:30 고정용)
-
+        public float distanceKm;            // 오늘의 훈련 거리 (km)
+        public float totalGoalDistanceKm;   // 최종 목표 거리 (Your Setting 고정용)
+        public String totalGoalPaceStr;     // 최종 목표 페이스 (Your Setting 고정용)
         public int paceSecPerKm;
-        public boolean isAiMission = false;
+        public boolean isAiMission = false; // AI 코칭 미션 여부
         public int durationWeeks;
         public List<String> runningDays;
-        public String status;
+        public String status;               // "pending" | "completed" | "missed"
         public String paceStr;
         public String description;
         public String aiFeedbackComment;
+
+        /**
+         * 저장된 status가 "pending"이더라도 해당 날짜가 이미 지났으면 "missed"를 반환한다.
+         * 기록 탭 등에서 코칭 탭 재방문 없이도 올바른 dot 색상을 표시하기 위해 사용한다.
+         *
+         * @param dateKey "yyyy-M-d" 형식의 날짜 키 (GoalStorage의 저장 키와 동일)
+         * @return "completed" | "missed" | "pending"
+         */
+        public String getEffectiveStatus(String dateKey) {
+            if ("completed".equals(status)) return "completed";
+            if ("pending".equals(status)) {
+                try {
+                    String[] parts = dateKey.split("-");
+                    java.time.LocalDate planDate = java.time.LocalDate.of(
+                            Integer.parseInt(parts[0]),
+                            Integer.parseInt(parts[1]),
+                            Integer.parseInt(parts[2]));
+                    if (planDate.isBefore(java.time.LocalDate.now())) return "missed";
+                } catch (Exception e) { /* 파싱 실패 시 원래 status 반환 */ }
+            }
+            return status != null ? status : "pending";
+        }
     }
 
-    public static class GoalInputData { public int durationWeeks; public List<String> runningDays; public float distanceKm; public int paceSecPerKm; }
-    public static class HistoryItem { public String goalId; public float distanceKm; public String paceStr; public int durationWeeks; public String runningDaysStr; public String result; public long timestamp; }
+    // 목표 입력 데이터 모델 (목표 설정 화면에서 사용)
+    public static class GoalInputData {
+        public int durationWeeks;
+        public List<String> runningDays;
+        public float distanceKm;
+        public int paceSecPerKm;
+    }
+
+    // 완료·삭제된 목표 히스토리 항목
+    public static class HistoryItem {
+        public String goalId;
+        public float distanceKm;
+        public String paceStr;
+        public int durationWeeks;
+        public String runningDaysStr;
+        public String result;       // "completed" | "deleted"
+        public long timestamp;
+    }
 }

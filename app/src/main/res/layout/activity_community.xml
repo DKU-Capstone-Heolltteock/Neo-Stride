@@ -22,7 +22,6 @@
             android:layout_alignParentStart="true"
             android:src="@drawable/ic_notification"
             app:tint="#FFD400"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
             android:padding="8dp" />
@@ -33,7 +32,6 @@
             android:layout_height="50dp"
             android:layout_alignParentEnd="true"
             android:src="@drawable/ic_mypage"
-            android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:focusable="true"
             android:padding="8dp" />

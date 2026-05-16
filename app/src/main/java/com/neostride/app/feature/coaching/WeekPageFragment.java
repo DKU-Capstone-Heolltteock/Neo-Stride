@@ -20,6 +20,12 @@ import com.neostride.app.R;
 import java.util.Calendar;
 import java.util.Map;
 
+
+//  주간 캘린더 한 페이지 Fragment
+//  <p>
+//  - 7일 셀을 프로그래밍 방식으로 생성하여 요일·날짜·플랜 상태 점을 표시한다.
+//  - 셀 클릭 시 {@link CoachingFragment#onWeekDayClicked}를 호출하여 플랜 상세를 갱신한다.
+
 public class WeekPageFragment extends Fragment {
 
     private static final String ARG_WEEK_START = "week_start";
@@ -57,6 +63,7 @@ public class WeekPageFragment extends Fragment {
         }
     }
 
+    // ─── 7일 셀 뷰를 동적으로 생성하여 root에 추가 ───
     private void buildWeekCells() {
         long weekStartMillis = getArguments() != null ? getArguments().getLong(ARG_WEEK_START) : System.currentTimeMillis();
         Calendar weekStart = Calendar.getInstance();
@@ -179,7 +186,7 @@ public class WeekPageFragment extends Fragment {
         }
     }
 
-    // 선택 상태 UI 갱신
+    // ─── 현재 선택된 셀(currentSelectedIndex)을 기준으로 모든 셀의 선택/점 UI를 갱신 ───
     private void refreshSelectionUI(Map<String, GoalStorage.PlanData> allPlans) {
         long weekStartMillis = getArguments() != null ? getArguments().getLong(ARG_WEEK_START) : System.currentTimeMillis();
         Calendar dayCal = Calendar.getInstance();
@@ -232,9 +239,13 @@ public class WeekPageFragment extends Fragment {
         }
     }
 
-    /**
-     * 외부에서 특정 날짜를 선택 상태로 표시
-     */
+
+//      외부(CoachingFragment)에서 특정 날짜를 선택 상태로 강제 지정한다.
+//
+//      @param day   선택할 일(day)
+//      @param month 선택할 월(month, 1-based)
+//      @param year  선택할 연도
+
     public void selectDay(int day, int month, int year) {
         if (root == null || getArguments() == null) return;
 

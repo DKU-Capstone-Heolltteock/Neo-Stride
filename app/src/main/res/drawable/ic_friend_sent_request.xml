@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:fillColor="#000000">
+
+    <!-- 사람 모양 아이콘 -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M14,8c0,-2.21 -1.79,-4 -4,-4S6,5.79 6,8s1.79,4 4,4S14,10.21 14,8zM2,18v2h16v-2c0,-2.66 -5.33,-4 -8,-4S2,15.34 2,18z"/>
+
+    <!-- 보낸 요청을 의미하는 위로 향하는 화살표 -->
+    <path
+        android:fillColor="#000000"
+        android:pathData="M20,10V15H18V10H15L19,6L23,10H20Z"/>
+
+</vector>

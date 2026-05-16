@@ -1,18 +1,32 @@
 package com.neostride.app.activity;
 
+import android.app.Dialog;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.PowerManager;
+import android.provider.Settings;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.Window;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import com.neostride.app.R;
@@ -32,6 +46,13 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvRunning, tvRecord, tvCoaching, tvCommunity;
     private ImageView btnNotification, btnProfile;
 
+    // 알림 권한 요청 런처 (Android 13+)
+    private final ActivityResultLauncher<String> notificationPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                // 알림 권한 처리 후 배터리 최적화 확인
+                requestBatteryOptimizationIfNeeded();
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -41,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
         ApiClient.init(this);
 
         initViews();
+        requestInitialPermissions(); // 앱 최초 실행 시 권한 일괄 요청
 
         if (savedInstanceState == null) {
             String moveTo = getIntent().getStringExtra("move_to");
@@ -132,15 +154,16 @@ public class MainActivity extends AppCompatActivity {
         popupWindow.setElevation(25);
         popupWindow.showAsDropDown(anchorView, -width + anchorView.getWidth(), 15);
 
+        LinearLayout menuAccount = menuView.findViewById(R.id.menu_account);
+        menuAccount.setOnClickListener(v -> {
+            popupWindow.dismiss();
+            startActivity(new Intent(MainActivity.this, com.neostride.app.feature.account.AccountActivity.class));
+        });
+
         LinearLayout menuLogout = menuView.findViewById(R.id.menu_logout);
-
         menuLogout.setOnClickListener(v -> {
-            TokenManager.clearTokens(MainActivity.this);
-            ApiClient.resetInstance();
-
-            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
+            popupWindow.dismiss();
+            showLogoutConfirmDialog();
         });
 
         // XML에서 마이페이지 레이아웃 아이디(menu_mypage)를 찾습니다.
@@ -152,6 +175,133 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, MyPageActivity.class);
             startActivity(intent); // 화면 이동
         });
+    }
+
+    private void showLogoutConfirmDialog() {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        // 루트 레이아웃
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        int p = dp(24);
+        root.setPadding(p, p, p, dp(20));
+        root.setBackgroundResource(R.drawable.bg_popup_red_border);
+
+        // 제목
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("로그아웃");
+        tvTitle.setTextColor(0xFFFF3B30);
+        tvTitle.setTextSize(18);
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        root.addView(tvTitle);
+
+        // 안내 문구
+        TextView tvMsg = new TextView(this);
+        tvMsg.setText("정말 로그아웃 하시겠습니까?");
+        tvMsg.setTextColor(0xFF888888);
+        tvMsg.setTextSize(15);
+        LinearLayout.LayoutParams msgP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        msgP.topMargin = dp(16);
+        tvMsg.setLayoutParams(msgP);
+        root.addView(tvMsg);
+
+        // 구분선
+        View divider = new View(this);
+        divider.setBackgroundColor(0xFF333333);
+        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+        divP.topMargin = dp(20);
+        divider.setLayoutParams(divP);
+        root.addView(divider);
+
+        // 버튼 영역
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(Gravity.END);
+        LinearLayout.LayoutParams brP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        brP.topMargin = dp(16);
+        btnRow.setLayoutParams(brP);
+
+        // 취소 버튼
+        TextView btnCancel = new TextView(this);
+        btnCancel.setText("취소");
+        btnCancel.setTextColor(0xFF888888);
+        btnCancel.setPadding(dp(16), dp(10), dp(16), dp(10));
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnRow.addView(btnCancel);
+
+        // 확인 버튼
+        TextView btnConfirm = new TextView(this);
+        btnConfirm.setText("로그아웃");
+        btnConfirm.setTextColor(Color.BLACK);
+        btnConfirm.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnConfirm.setPadding(dp(20), dp(10), dp(20), dp(10));
+
+        GradientDrawable confirmBg = new GradientDrawable();
+        confirmBg.setCornerRadius(dp(20));
+        confirmBg.setColor(0xFFFF3B30);
+        btnConfirm.setBackground(confirmBg);
+
+        LinearLayout.LayoutParams confirmP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        confirmP.setMarginStart(dp(8));
+        btnConfirm.setLayoutParams(confirmP);
+
+        btnConfirm.setOnClickListener(v -> {
+            dialog.dismiss();
+            TokenManager.clearTokens(MainActivity.this);
+            ApiClient.resetInstance();
+            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+        });
+
+        btnRow.addView(btnConfirm);
+        root.addView(btnRow);
+
+        dialog.setContentView(root);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            window.setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.85),
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+        }
+        dialog.show();
+    }
+
+    private int dp(int value) {
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
+    }
+
+    // 앱 실행 시 필요한 권한 일괄 요청
+    private void requestInitialPermissions() {
+        // 1. 알림 권한 (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS);
+                return; // 알림 권한 요청 후 콜백에서 배터리 최적화 요청
+            }
+        }
+        // 알림 권한이 이미 있으면 바로 배터리 최적화 확인
+        requestBatteryOptimizationIfNeeded();
+    }
+
+    // 배터리 최적화 제외 요청 (아직 제외되지 않은 경우만)
+    private void requestBatteryOptimizationIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                intent.setData(Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            }
+        }
     }
 
     private void replaceFragment(Fragment fragment) {

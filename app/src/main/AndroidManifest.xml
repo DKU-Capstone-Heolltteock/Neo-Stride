@@ -7,6 +7,14 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -19,14 +27,17 @@
         android:theme="@style/Theme.NeoStride"
         android:usesCleartextTraffic="true">
 
+        <!-- 팁 상세 액티비티 -->
         <activity
             android:name=".feature.tip.TipDetailActivity"
             android:exported="false" />
 
+        <!-- 피드 상세 액티비티 -->
         <activity
             android:name=".feature.feed.FeedDetailActivity"
             android:exported="false" />
 
+        <!-- 팁 업로드 시 기록 선택 액티비티 -->
         <activity
             android:name=".feature.tip.TipRecordSelectActivity"
             android:exported="false" />
@@ -35,33 +46,43 @@
         <activity
             android:name=".feature.auth.FindIdSuccessActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.FindIdCodeVerifyActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.FindIdActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.ResetSuccessActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.NewPasswordActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.ResetCodeVerifyActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.ResetPasswordActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.SuccessActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.CodeVerifyActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.EmailAuthActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.auth.SignupActivity"
             android:exported="false" />
@@ -70,6 +91,7 @@
         <activity
             android:name=".feature.auth.LoginActivity"
             android:exported="true">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
@@ -77,25 +99,59 @@
             </intent-filter>
         </activity>
 
+        <!-- 메인 액티비티 -->
         <activity
             android:name=".activity.MainActivity"
             android:exported="false" />
 
+        <!-- 커뮤니티 액티비티 -->
         <activity
             android:name=".activity.CommunityActivity"
             android:exported="false" />
 
+        <!-- 팁 업로드 액티비티 -->
         <activity
             android:name=".feature.tip.TipUploadActivity"
             android:exported="false"
             android:theme="@style/Theme.NeoStride.TipUploadDialog" />
 
-        <!-- mypage화면_Activity -->
+        <!-- 마이페이지 액티비티 -->
         <activity
             android:name=".feature.mypage.MyPageActivity"
             android:exported="false" />
 
-        <!-- 장영재님의 Google API 키 일단 사용 -->
+        <!-- 뱃지 액티비티 -->
+        <activity
+            android:name=".feature.badge.BadgeActivity"
+            android:exported="false" />
+
+        <!-- 친구 액티비티 -->
+        <activity
+            android:name=".feature.friend.FriendActivity"
+            android:exported="false" />
+
+        <!-- 러너페이지 액티비티 -->
+        <activity
+            android:name=".feature.runnerpage.RunnerPageActivity"
+            android:exported="false" />
+
+        <!-- 계정 액티비티 -->
+        <activity
+            android:name=".feature.account.AccountActivity"
+            android:exported="false" />
+
+        <!-- 러너 친구 목록 액티비티 -->
+        <activity
+            android:name=".feature.friend.RunnerFriendListActivity"
+            android:exported="false" />
+
+        <!-- GPS 포그라운드 서비스: 화면 꺼져도 기록 유지 -->
+        <service
+            android:name=".feature.running.LocationTrackingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- Google Maps API 키 -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBK52DjufNEbeLsSf4cVNO3UIq5ZeJb2RQ" />

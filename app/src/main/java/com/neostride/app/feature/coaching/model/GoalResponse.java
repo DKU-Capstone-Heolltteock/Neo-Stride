@@ -4,6 +4,11 @@ import com.google.gson.annotations.SerializedName;
 import com.neostride.app.feature.coaching.CoachingStatus;
 import java.util.List;
 
+
+//  목표 조회·생성 응답 DTO
+//  <p>
+//  - 활성 목표 여부, 목표 정보({@link GoalInfo}), 날짜별 플랜 목록을 포함한다.
+
 public class GoalResponse {
 
     @SerializedName("goal_id")
@@ -28,9 +33,9 @@ public class GoalResponse {
     public GoalInfo getGoal() { return goal; }
     public List<PlanDayResponse> getPlanDays() { return planDays; }
 
-    /**
-     * 목표 기본 정보 (DB의 goals 테이블 데이터)
-     */
+
+//      목표 기본 정보 (DB의 goals 테이블 데이터)
+
     public static class GoalInfo {
         @SerializedName("goal_id")
         private int goalId;
@@ -69,18 +74,14 @@ public class GoalResponse {
         public boolean isActive() { return isActive; }
         public boolean isAchieved() { return isAchieved; }
 
-        /**
-         * 🧪 [핵심] 성적 상태 판별 로직
-         */
+        // is_active·is_achieved 값으로 {@link CoachingStatus}를 판별한다.
         public CoachingStatus getCoachingStatus() {
             if (isActive) return CoachingStatus.ACTIVE;
             if (isAchieved) return CoachingStatus.COMPLETED_SUCCESS;
             return CoachingStatus.COMPLETED_FAIL;
         }
 
-        /**
-         * 🌟 [UI용] 페이스 형식 변환 (예: 5.5 -> 5:30)
-         */
+        // 분 단위 소수 페이스를 "분:초" 형식 문자열로 변환한다. (예: 5.5 → "5:30")
         public String getFormattedPace() {
             int min = (int) goalPaceMinPerKm;
             int sec = (int) Math.round((goalPaceMinPerKm - min) * 60);

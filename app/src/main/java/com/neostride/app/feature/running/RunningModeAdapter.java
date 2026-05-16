@@ -10,10 +10,16 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.neostride.app.R;
 import java.util.List;
 
+
+//  러닝 모드 선택 카드 RecyclerView 어댑터
+//  <p>
+//  - 일반 러닝과 AI 코칭 모드 카드를 표시하며 클릭 이벤트를 콜백으로 전달한다.
+
 public class RunningModeAdapter extends RecyclerView.Adapter<RunningModeAdapter.ViewHolder> {
     private List<RunningModeItem> items;
     private OnItemClickListener listener;
 
+    // 모드 카드 클릭 콜백 인터페이스
     public interface OnItemClickListener {
         void onItemClick(RunningModeItem item, int position);
     }

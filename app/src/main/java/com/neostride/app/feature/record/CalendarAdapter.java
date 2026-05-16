@@ -12,11 +12,18 @@ import com.neostride.app.R;
 import java.time.LocalDate;
 import java.util.List;
 
+
+//  기록 탭 월별 캘린더 어댑터
+//  <p>
+//  - 날짜별 러닝 거리 및 코칭 상태 점을 함께 표시한다.
+//  - 선택된 날짜는 상태별 원형 배경으로 강조하며, 거리/점은 숨긴다.
+
 public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.ViewHolder> {
     private final List<CalendarDayItem> days;
     private final OnDayClickListener listener;
     private int selectedPosition = -1;
 
+    // 날짜 셀 클릭 콜백
     public interface OnDayClickListener {
         void onDayClick(CalendarDayItem day);
     }

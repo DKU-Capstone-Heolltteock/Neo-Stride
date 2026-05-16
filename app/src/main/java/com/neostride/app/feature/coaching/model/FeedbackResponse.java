@@ -3,8 +3,10 @@ package com.neostride.app.feature.coaching.model;
 import com.google.gson.annotations.SerializedName;
 
 
+
 //  AI 피드백 응답 DTO
-//  COACHING_PLAN_DAYS.ai_feedback_comment, ai_feedback_at 매핑
+//  <p>
+//  - COACHING_PLAN_DAYS.ai_feedback_comment, ai_feedback_at 필드에 매핑된다.
 
 public class FeedbackResponse {
 

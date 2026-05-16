@@ -13,12 +13,21 @@ import java.util.List;
 import java.util.Locale;
 import com.neostride.app.feature.running.model.RunningRecordResponse;
 
+
+//  AI 코칭 달성도 꺾은선 차트 커스텀 뷰
+//  <p>
+//  - AI 코칭 기록별 실제 페이스를 형광 초록 꺾은선으로 그린다.
+//  - 목표 페이스를 반투명 점선으로 그려 실적과 비교한다.
+//  - 각 포인트에 페이스 라벨·날짜·목표 거리를 표시하며, 최종 목표 달성 시 원을 채운다.
+
 public class AiLineChartView extends View {
+    // ── 데이터 ──
     private List<RunningRecordResponse> records = new ArrayList<>();
     private List<Float> dailyTargetDistances = new ArrayList<>();
-    private float targetPaceValue = 5.5f;
-    private float finalGoalDistance = 0f;
+    private float targetPaceValue = 5.5f;     // 목표 페이스 (분/km)
+    private float finalGoalDistance = 0f;     // 최종 목표 거리 (km)
 
+    // ── 페인트 ──
     private Paint linePaint, pointPaint, textPaint, targetLinePaint;
 
     public AiLineChartView(Context context, AttributeSet attrs) {
@@ -101,7 +110,8 @@ public class AiLineChartView extends View {
                 RunningRecordResponse res = records.get(i);
                 float x = (records.size() > 1) ? paddingLeft + (xStep * i) : paddingLeft + (chartWidth / 2);
 
-                float currPace = (float) res.getPace();
+                // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위) → 분/km로 통일
+                float currPace = res.getPace() < 60 ? res.getPace() : res.getPace() / 60f;
                 if (currPace < minPace) currPace = minPace;
                 if (currPace > maxPace) currPace = maxPace;
                 float y = (height - paddingBottom) - ((maxPace - currPace) / paceRange * chartHeight);
@@ -120,9 +130,10 @@ public class AiLineChartView extends View {
                 textPaint.setColor(Color.WHITE);
                 textPaint.setTextAlign(Paint.Align.CENTER);
 
-                // 1. 소수점 페이스를 분(min)과 초(sec)로 분리합니다.
-                int pMin = (int) res.getPace();
-                int pSec = (int) Math.round((res.getPace() - pMin) * 60);
+                // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위)
+                int paceSeconds = res.getPace() < 60 ? (int)(res.getPace() * 60) : (int) res.getPace();
+                int pMin = paceSeconds / 60;
+                int pSec = paceSeconds % 60;
 
                 // 2. 분:초 형식으로 문자열을 조립합니다.
                 String formattedPace = String.format(Locale.KOREA, "%d:%02d", pMin, pSec);

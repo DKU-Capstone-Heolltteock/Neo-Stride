@@ -16,15 +16,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
+//  코칭 탭 캘린더 어댑터 (월간 그리드용)
+//  <p>
+//  - 날짜별 플랜 상태(pending/completed/missed)에 따라 하단 점 색상을 표시한다.
+//  - 선택된 날짜는 상태별 원형 배경으로 강조한다.
+
 public class CalendarAdapter extends RecyclerView.Adapter<CalendarAdapter.DayViewHolder> {
 
     private List<Integer> days = new ArrayList<>();
     private int selectedDay = -1;
     private int todayDay = -1;
-    // 날짜 → 상태 ("pending"=주황, "completed"=초록, "missed"=빨강)
+    // 날짜 → 상태 매핑 ("pending"=주황, "completed"=초록, "missed"=빨강) */
     private Map<Integer, String> dayStatuses = new HashMap<>();
     private OnDayClickListener listener;
 
+    // 날짜 클릭 콜백 인터페이스
     public interface OnDayClickListener {
         void onDayClick(int day);
     }
