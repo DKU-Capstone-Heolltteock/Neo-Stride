@@ -19,20 +19,20 @@ import android.widget.Toast;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.neostride.app.R;
-import com.neostride.app.common.network.ApiClient;
-import com.neostride.app.feature.feed.api.FeedApi;
+import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
-import com.neostride.app.feature.feed.model.FeedUploadResponse;
+import com.neostride.app.feature.feed.model.TagUser;
+import com.neostride.app.feature.feed.repository.FeedRepository;
 import com.neostride.app.feature.running.model.RunningRecordResponse;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-
+/*
+ * 피드 업로드 다이얼로그 클래스임
+ * 사용자가 기록을 기반으로 피드 제목, 내용, 공개 범위, 사진, 태그 등을 입력한 뒤 업로드하도록 처리함
+ */
 public class FeedUploadDialog {
 
     private final Context context;
@@ -45,6 +45,9 @@ public class FeedUploadDialog {
     private LinearLayout layoutSelectedPhotos;
 
     private final ArrayList<Uri> selectedImageUris = new ArrayList<>();
+
+    // 태그 선택된 사용자 ID 목록을 저장함
+    private final ArrayList<Long> selectedTaggedUserIds = new ArrayList<>();
 
     private TextView tvPrivacyValue;
     private EditText etFeedTitle;
@@ -67,6 +70,9 @@ public class FeedUploadDialog {
         this.onFeedUploadedListener = onFeedUploadedListener;
     }
 
+    /*
+     * 피드 업로드 다이얼로그를 화면에 표시하는 함수임
+     */
     public void show() {
         dialog = new Dialog(context);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -103,27 +109,42 @@ public class FeedUploadDialog {
         etFeedContent = dialog.findViewById(R.id.et_feed_content);
         switchMapVisible = dialog.findViewById(R.id.switch_map_visible);
 
+        // 사진 추가 버튼 클릭 이벤트를 처리함
         btnAddPhoto.setOnClickListener(v -> {
             if (selectedImageUris.size() >= 3) {
-                Toast.makeText(context, "사진은 최대 3장까지 선택할 수 있습니다", Toast.LENGTH_SHORT).show();
+                Toast.makeText(
+                        context,
+                        "사진은 최대 3장까지 선택할 수 있습니다",
+                        Toast.LENGTH_SHORT
+                ).show();
                 return;
             }
 
             openPhotoPicker.run();
         });
 
+        // 태그할 사람 선택 다이얼로그를 표시함
         layoutTagPeople.setOnClickListener(v -> {
             TagPeopleDialog tagDialog =
-                    new TagPeopleDialog(context, selectedCount -> {
-                        selectedTagCount = selectedCount;
+                    new TagPeopleDialog(context, selectedUsers -> {
+                        selectedTaggedUserIds.clear();
+
+                        for (TagUser user : selectedUsers) {
+                            if (user.getUserId() != null) {
+                                selectedTaggedUserIds.add(user.getUserId());
+                            }
+                        }
+
+                        selectedTagCount = selectedTaggedUserIds.size();
 
                         tvTagCount.setVisibility(android.view.View.VISIBLE);
-                        tvTagCount.setText(String.valueOf(selectedCount));
+                        tvTagCount.setText(String.valueOf(selectedTagCount));
                     });
 
             tagDialog.show();
         });
 
+        // 공개 범위 선택 다이얼로그를 표시함
         layoutPrivacy.setOnClickListener(v -> {
             PrivacyDialog privacyDialog =
                     new PrivacyDialog(
@@ -135,47 +156,68 @@ public class FeedUploadDialog {
             privacyDialog.show();
         });
 
-        btnComplete.setOnClickListener(v -> {
-            String title = etFeedTitle.getText().toString().trim();
-            String content = etFeedContent.getText().toString().trim();
+        // 완료 버튼 클릭 시 피드 업로드 요청을 처리함
+        btnComplete.setOnClickListener(v -> uploadFeed());
 
-            if (title.isEmpty()) {
-                Toast.makeText(context, "제목을 입력해주세요", Toast.LENGTH_SHORT).show();
-                return;
-            }
+        dialog.show();
+    }
 
-            if (content.isEmpty()) {
-                Toast.makeText(context, "내용을 입력해주세요", Toast.LENGTH_SHORT).show();
-                return;
-            }
+    /*
+     * 피드 업로드 요청을 생성하고 Repository를 통해 업로드하는 함수임
+     */
+    private void uploadFeed() {
+        String title = etFeedTitle.getText().toString().trim();
+        String content = etFeedContent.getText().toString().trim();
 
-            boolean mapVisible = switchMapVisible.isChecked();
+        if (title.isEmpty()) {
+            Toast.makeText(context, "제목을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-            FeedUploadRequest request = new FeedUploadRequest(
-                    title,
-                    content,
-                    convertPrivacyToServerValue(tvPrivacyValue.getText().toString()),
-                    mapVisible,
-                    mapVisible ? routeMapImageUri : null,
-                    new ArrayList<>(),
-                    convertImageUrisToStrings(),
-                    recordData.getDistance(),
-                    formatRunningTime((int) recordData.getTime()),
-                    formatPace(recordData.getPace()),
-                    selectedTagCount
-            );
+        if (content.isEmpty()) {
+            Toast.makeText(context, "내용을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-            FeedApi feedApi = ApiClient.getInstance().create(FeedApi.class);
+        boolean mapVisible = switchMapVisible.isChecked();
 
-            feedApi.uploadFeed(request).enqueue(new Callback<FeedUploadResponse>() {
-                @Override
-                public void onResponse(
-                        Call<FeedUploadResponse> call,
-                        Response<FeedUploadResponse> response
-                ) {
-                    if (response.isSuccessful() && response.body() != null) {
-                        FeedUploadResponse result = response.body();
+        FeedUploadRequest request = new FeedUploadRequest(
+                title,
+                content,
+                convertPrivacyToServerValue(tvPrivacyValue.getText().toString()),
+                mapVisible,
+                mapVisible ? routeMapImageUri : null,
+                new ArrayList<>(selectedTaggedUserIds),
+                convertImageUrisToStrings(),
+                recordData.getDistance(),
+                formatRunningTime((int) recordData.getTime()),
+                formatPace(recordData.getPace()),
+                selectedTagCount
+        );
+        //임시로 로그찍음
+        android.util.Log.e(
+                "FeedUploadCheck",
+                "request = {"
+                        + "\"title\":\"" + title + "\", "
+                        + "\"content\":\"" + content + "\", "
+                        + "\"privacy\":\"" + convertPrivacyToServerValue(tvPrivacyValue.getText().toString()) + "\", "
+                        + "\"mapVisible\":" + mapVisible + ", "
+                        + "\"routeMapImageUri\":\"" + (mapVisible ? routeMapImageUri : null) + "\", "
+                        + "\"taggedUserIds\":" + selectedTaggedUserIds + ", "
+                        + "\"imageUrls\":" + convertImageUrisToStrings() + ", "
+                        + "\"distance\":" + recordData.getDistance() + ", "
+                        + "\"runningTime\":\"" + formatRunningTime((int) recordData.getTime()) + "\", "
+                        + "\"pace\":\"" + formatPace(recordData.getPace()) + "\", "
+                        + "\"tagCount\":" + selectedTagCount
+                        + "}"
+        );
+        FeedRepository feedRepository = new FeedRepository(context);
 
+        feedRepository.uploadFeed(
+                request,
+                new FeedRepository.RepositoryCallback<FeedResponse>() {
+                    @Override
+                    public void onSuccess(FeedResponse result) {
                         if (onFeedUploadedListener != null) {
                             onFeedUploadedListener.onFeedUploaded(result);
                         }
@@ -187,57 +229,31 @@ public class FeedUploadDialog {
                         ).show();
 
                         dialog.dismiss();
-                    } else {
+                    }
+
+                    @Override
+                    public void onError(String message) {
                         Toast.makeText(
                                 context,
-                                "피드 업로드 실패: " + response.code(),
+                                message,
                                 Toast.LENGTH_SHORT
                         ).show();
                     }
                 }
-
-                @Override
-                public void onFailure(
-                        Call<FeedUploadResponse> call,
-                        Throwable t
-                ) {
-                    Toast.makeText(
-                            context,
-                            "서버 연결 실패: " + t.getMessage(),
-                            Toast.LENGTH_SHORT
-                    ).show();
-                }
-            });
-        });
-
-
-        // =========================
-        // 기존 Mock 코드
-        // =========================
-
-        /*FeedUploadResponse response =
-                MockFeedData.createUploadFeedResponse(request);
-
-        if (onFeedUploadedListener != null) {
-            onFeedUploadedListener.onFeedUploaded(response);
-        }
-
-        Toast.makeText(
-                context,
-                "피드 업로드 Mock 성공: " + response.getTitle(),
-                Toast.LENGTH_SHORT
-        ).show();
-
-        dialog.dismiss();
-    });*/
-
-        dialog.show();
+        );
     }
 
+    /*
+     * 사용자가 선택한 이미지들을 추가하는 함수임
+     */
     public void addSelectedImages(List<Uri> uris) {
         for (Uri uri : uris) {
             if (selectedImageUris.size() >= 3) {
-                Toast.makeText(context, "사진은 최대 3장까지만 추가됩니다", Toast.LENGTH_SHORT).show();
+                Toast.makeText(
+                        context,
+                        "사진은 최대 3장까지만 추가됩니다",
+                        Toast.LENGTH_SHORT
+                ).show();
                 break;
             }
 
@@ -249,8 +265,13 @@ public class FeedUploadDialog {
         renderSelectedPhotos();
     }
 
+    /*
+     * 선택된 사진 미리보기를 다시 그리는 함수임
+     */
     private void renderSelectedPhotos() {
-        if (layoutSelectedPhotos == null) return;
+        if (layoutSelectedPhotos == null) {
+            return;
+        }
 
         layoutSelectedPhotos.removeAllViews();
 
@@ -304,8 +325,13 @@ public class FeedUploadDialog {
         }
     }
 
+    /*
+     * 화면에 표시되는 공개 범위 문구를 서버용 값으로 변환하는 함수임
+     */
     private String convertPrivacyToServerValue(String privacyText) {
-        switch (privacyText) {
+        String text = privacyText.trim();
+
+        switch (text) {
             case "나만 보기":
                 return "PRIVATE";
 
@@ -315,17 +341,25 @@ public class FeedUploadDialog {
 
             case "뱃지홀더":
             case "뱃지홀더에게만":
+            case "배지홀더":
+            case "배지홀더에게만":
                 return "BADGE_HOLDER";
 
+            case "전체":
             case "모두":
-            case "모두에게만":
+            case "전체 공개":
+            case "공개":
                 return "PUBLIC";
 
             default:
+                android.util.Log.e("FeedUploadCheck", "알 수 없는 공개범위 값 = " + privacyText);
                 return "FRIEND";
         }
     }
 
+    /*
+     * 선택된 이미지 Uri 목록을 문자열 목록으로 변환하는 함수임
+     */
     private List<String> convertImageUrisToStrings() {
         List<String> imageUrls = new ArrayList<>();
 
@@ -336,6 +370,9 @@ public class FeedUploadDialog {
         return imageUrls;
     }
 
+    /*
+     * 초 단위 러닝 시간을 mm:ss 형식으로 변환하는 함수임
+     */
     private String formatRunningTime(int seconds) {
         return String.format(
                 Locale.KOREA,
@@ -345,6 +382,9 @@ public class FeedUploadDialog {
         );
     }
 
+    /*
+     * 페이스 값을 m:ss/km 형식으로 변환하는 함수임
+     */
     private String formatPace(double paceValue) {
         int minute = (int) paceValue;
         int second = (int) ((paceValue - minute) * 60);
@@ -357,6 +397,9 @@ public class FeedUploadDialog {
         );
     }
 
+    /*
+     * dp 값을 px 값으로 변환하는 함수임
+     */
     private int dp(int value) {
         return (int) (
                 value *
@@ -367,7 +410,10 @@ public class FeedUploadDialog {
         );
     }
 
+    /*
+     * 피드 업로드 성공 결과를 외부로 전달하기 위한 인터페이스임
+     */
     public interface OnFeedUploadedListener {
-        void onFeedUploaded(FeedUploadResponse response);
+        void onFeedUploaded(FeedResponse response);
     }
 }

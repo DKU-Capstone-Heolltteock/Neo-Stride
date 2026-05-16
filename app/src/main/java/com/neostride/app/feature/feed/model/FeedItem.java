@@ -5,6 +5,10 @@ import java.util.List;
 // 피드 카드 1개의 데이터를 담는 클래스임
 public class FeedItem {
 
+    // 서버에서 내려주는 피드 고유 ID임
+    // 피드 상세 조회, 수정, 삭제, 좋아요 등에 필요함
+    private Long feedId;
+
     private String profileImageUrl;
     private String username;
     private String time;
@@ -26,6 +30,7 @@ public class FeedItem {
     private List<String> imageUrls;
 
     public FeedItem(
+            Long feedId,
             String profileImageUrl,
             String username,
             String time,
@@ -41,6 +46,7 @@ public class FeedItem {
             String routeMapImageUri,
             List<String> imageUrls
     ) {
+        this.feedId = feedId;
         this.profileImageUrl = profileImageUrl;
         this.username = username;
         this.time = time;
@@ -55,6 +61,10 @@ public class FeedItem {
         this.mapVisible = mapVisible;
         this.routeMapImageUri = routeMapImageUri;
         this.imageUrls = imageUrls;
+    }
+
+    public Long getFeedId() {
+        return feedId;
     }
 
     public String getProfileImageUrl() {

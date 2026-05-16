@@ -23,8 +23,7 @@
             android:id="@+id/iv_feed_profile"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:src="@drawable/ic_profile"
-            app:tint="#FFFFFF" />
+            android:src="@drawable/ic_profile" />
 
         <TextView
             android:id="@+id/tv_feed_username"

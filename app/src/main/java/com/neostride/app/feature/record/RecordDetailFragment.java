@@ -41,7 +41,6 @@ import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.neostride.app.R;
-import com.neostride.app.common.network.MockFeedStorage;
 import com.neostride.app.feature.feed.FeedUploadDialog;
 import com.neostride.app.feature.running.model.GpsTraceRequest;
 import com.neostride.app.feature.running.model.RunningRecordResponse;

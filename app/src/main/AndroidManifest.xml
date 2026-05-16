@@ -18,12 +18,20 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.NeoStride"
         android:usesCleartextTraffic="true">
+
         <activity
             android:name=".feature.tip.TipDetailActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".feature.feed.FeedDetailActivity"
+            android:exported="false" />
+
         <activity
             android:name=".feature.tip.TipRecordSelectActivity"
-            android:exported="false" /> <!-- 인증 관련 액티비티 -->
+            android:exported="false" />
+
+        <!-- 인증 관련 액티비티 -->
         <activity
             android:name=".feature.auth.FindIdSuccessActivity"
             android:exported="false" />
@@ -56,7 +64,9 @@
             android:exported="false" />
         <activity
             android:name=".feature.auth.SignupActivity"
-            android:exported="false" /> <!-- 로그인 액티비티: 앱 실행 시 첫 화면 -->
+            android:exported="false" />
+
+        <!-- 로그인 액티비티: 앱 실행 시 첫 화면 -->
         <activity
             android:name=".feature.auth.LoginActivity"
             android:exported="true">
@@ -66,22 +76,30 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".activity.MainActivity"
             android:exported="false" />
+
         <activity
             android:name=".activity.CommunityActivity"
             android:exported="false" />
+
         <activity
             android:name=".feature.tip.TipUploadActivity"
             android:exported="false"
-            android:theme="@style/Theme.NeoStride.TipUploadDialog" /> <!-- mypage화면_Activity -->
+            android:theme="@style/Theme.NeoStride.TipUploadDialog" />
+
+        <!-- mypage화면_Activity -->
         <activity
             android:name=".feature.mypage.MyPageActivity"
-            android:exported="false" /> <!-- 장영재님의 Google API 키 일단 사용 -->
+            android:exported="false" />
+
+        <!-- 장영재님의 Google API 키 일단 사용 -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBK52DjufNEbeLsSf4cVNO3UIq5ZeJb2RQ" />
+
     </application>
 
 </manifest>
