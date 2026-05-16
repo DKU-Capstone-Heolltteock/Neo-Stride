@@ -5,6 +5,7 @@
     android:layout_height="match_parent"
     android:background="#050505">
 
+    <!-- 전체 내용 영역 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -12,7 +13,7 @@
         android:paddingStart="24dp"
         android:paddingTop="54dp"
         android:paddingEnd="24dp"
-        android:paddingBottom="34dp">
+        android:paddingBottom="0dp">
 
         <!-- 상단 제목 영역 -->
         <LinearLayout
@@ -46,6 +47,7 @@
             android:layout_height="0dp"
             android:layout_marginTop="26dp"
             android:layout_weight="1"
+            android:clipToPadding="false"
             android:fillViewport="true"
             android:overScrollMode="never">
 
@@ -183,7 +185,6 @@
                             android:background="#2E2E2E"
                             android:scaleType="centerCrop"
                             android:src="@drawable/ic_image" />
-
                     </LinearLayout>
 
                     <!-- 제목 + 카테고리 -->
@@ -269,8 +270,8 @@
 
                             <ImageView
                                 android:id="@+id/iv_tip_detail_like"
-                                android:layout_width="23dp"
-                                android:layout_height="23dp"
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
                                 android:src="@drawable/ic_like"
                                 android:tint="#FFFFFF" />
 
@@ -278,10 +279,10 @@
                                 android:id="@+id/tv_tip_detail_like_count"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="7dp"
+                                android:layout_marginStart="5dp"
                                 android:text="좋아요 8"
                                 android:textColor="#FFFFFF"
-                                android:textSize="13sp"
+                                android:textSize="12sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -299,8 +300,8 @@
 
                             <ImageView
                                 android:id="@+id/iv_tip_detail_comment"
-                                android:layout_width="23dp"
-                                android:layout_height="23dp"
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
                                 android:src="@drawable/ic_comment"
                                 android:tint="#FFFFFF" />
 
@@ -308,10 +309,10 @@
                                 android:id="@+id/tv_tip_detail_comment_count"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="7dp"
+                                android:layout_marginStart="5dp"
                                 android:text="댓글 2"
                                 android:textColor="#FFFFFF"
-                                android:textSize="13sp"
+                                android:textSize="12sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
 
@@ -328,8 +329,8 @@
 
                             <ImageView
                                 android:id="@+id/iv_tip_detail_bookmark"
-                                android:layout_width="23dp"
-                                android:layout_height="23dp"
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
                                 android:src="@drawable/ic_bookmark"
                                 android:tint="#FFFFFF" />
 
@@ -337,10 +338,10 @@
                                 android:id="@+id/tv_tip_detail_bookmark"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="7dp"
+                                android:layout_marginStart="5dp"
                                 android:text="북마크"
                                 android:textColor="#FFFFFF"
-                                android:textSize="13sp"
+                                android:textSize="12sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
                     </LinearLayout>
@@ -372,44 +373,55 @@
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:visibility="gone" />
-                </LinearLayout>
 
+                    <!--
+                        하단 댓글 입력창이 화면 아래 fixed로 떠 있기 때문에,
+                        팁 카드 배경이 입력창 뒤까지 이어지도록 카드 내부에 여백을 둠.
+                        이렇게 해야 입력창 위/뒤에 검은 빈 배경이 생기지 않음.
+                    -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="92dp" />
+                </LinearLayout>
             </LinearLayout>
         </ScrollView>
+    </LinearLayout>
 
-        <!-- 하단 댓글 입력창 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/bg_tip_comment_input"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="18dp"
-            android:paddingEnd="10dp">
+    <!-- 하단 댓글 입력창 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="24dp"
+        android:background="@drawable/bg_tip_comment_input"
+        android:elevation="12dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="18dp"
+        android:paddingEnd="10dp">
 
-            <EditText
-                android:id="@+id/et_tip_detail_comment"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:background="@android:color/transparent"
-                android:hint="댓글을 입력하세요."
-                android:inputType="text"
-                android:singleLine="true"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#A5A5A5"
-                android:textSize="15sp" />
+        <EditText
+            android:id="@+id/et_tip_detail_comment"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@android:color/transparent"
+            android:hint="댓글을 입력하세요."
+            android:inputType="text"
+            android:singleLine="true"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#A5A5A5"
+            android:textSize="15sp" />
 
-            <ImageView
-                android:id="@+id/btn_tip_detail_send_comment"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
-                android:padding="7dp"
-                android:src="@drawable/ic_write_feed"
-                android:tint="#B8FF06" />
-        </LinearLayout>
-
+        <ImageView
+            android:id="@+id/btn_tip_detail_send_comment"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:padding="7dp"
+            android:src="@drawable/ic_write_feed"
+            android:tint="#B8FF06" />
     </LinearLayout>
 
 </FrameLayout>

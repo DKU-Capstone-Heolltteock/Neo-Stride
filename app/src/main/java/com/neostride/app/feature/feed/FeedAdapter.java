@@ -170,6 +170,11 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
 
         // 북마크 상태를 설정함
         boolean isBookmarked = bookmarkedPositions.contains(position);
+
+        holder.ivBookmark.setImageResource(
+                isBookmarked ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark
+        );
+
         holder.ivBookmark.setImageTintList(
                 ColorStateList.valueOf(
                         isBookmarked ? Color.parseColor("#B8FF06") : Color.WHITE

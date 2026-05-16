@@ -8,8 +8,8 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true"
-        android:paddingBottom="96dp">
+        android:clipToPadding="false"
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -18,7 +18,7 @@
             android:paddingStart="16dp"
             android:paddingTop="36dp"
             android:paddingEnd="16dp"
-            android:paddingBottom="120dp">
+            android:paddingBottom="0dp">
 
             <!-- 상단 뒤로가기 -->
             <LinearLayout
@@ -251,6 +251,9 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="9dp"
+                        android:ellipsize="end"
+                        android:maxWidth="145dp"
+                        android:singleLine="true"
                         android:text="JinzaYoungjae3218"
                         android:textColor="#FFFFFF"
                         android:textSize="14sp"
@@ -262,9 +265,32 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="6dp"
                         android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:singleLine="true"
                         android:text="· 7분 전"
                         android:textColor="#A0A0A0"
                         android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <!-- 피드 태그 뱃지 : 아이콘 + 숫자 -->
+                    <TextView
+                        android:id="@+id/tv_detail_tag_badge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="30dp"
+                        android:layout_marginEnd="8dp"
+                        android:background="@drawable/bg_feed_tag_badge"
+                        android:drawableStart="@drawable/ic_tag_people"
+                        android:drawablePadding="5dp"
+                        android:drawableTint="#B8FF06"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:paddingStart="11dp"
+                        android:paddingEnd="11dp"
+                        android:singleLine="true"
+                        android:text="2"
+                        android:textColor="#B8FF06"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <TextView
@@ -311,83 +337,120 @@
                     android:scaleType="centerCrop"
                     android:visibility="gone" />
 
-                <!-- 좋아요 / 댓글 / 태그 / 북마크 액션 영역 -->
+                <!-- 좋아요 / 댓글 / 북마크 액션 영역 -->
                 <LinearLayout
                     android:id="@+id/layout_detail_action_area"
                     android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:layout_marginTop="14dp"
+                    android:layout_height="58dp"
+                    android:layout_marginTop="16dp"
                     android:gravity="center"
                     android:orientation="horizontal">
 
                     <!-- 좋아요 -->
-                    <TextView
-                        android:id="@+id/tv_detail_like_count"
+                    <LinearLayout
+                        android:id="@+id/layout_detail_like_box"
                         android:layout_width="0dp"
-                        android:layout_height="40dp"
+                        android:layout_height="44dp"
                         android:layout_marginEnd="6dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_feed_detail_action_item"
-                        android:drawableStart="@drawable/ic_like"
-                        android:drawablePadding="6dp"
                         android:gravity="center"
-                        android:text="3"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
+                        android:orientation="horizontal"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp">
+
+                        <ImageView
+                            android:id="@+id/iv_detail_like"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:src="@drawable/ic_like"
+                            app:tint="#FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/tv_detail_like_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:ellipsize="end"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:text="좋아요 3"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
                     <!-- 댓글 -->
-                    <TextView
-                        android:id="@+id/tv_detail_comment_count"
+                    <LinearLayout
+                        android:id="@+id/layout_detail_comment_box"
                         android:layout_width="0dp"
-                        android:layout_height="40dp"
-                        android:layout_marginStart="3dp"
-                        android:layout_marginEnd="3dp"
-                        android:layout_weight="1"
-                        android:background="@drawable/bg_feed_detail_action_item"
-                        android:drawableStart="@drawable/ic_comment"
-                        android:drawablePadding="6dp"
-                        android:gravity="center"
-                        android:text="2"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <!-- 태그 -->
-                    <TextView
-                        android:id="@+id/tv_detail_tag_count"
-                        android:layout_width="0dp"
-                        android:layout_height="40dp"
+                        android:layout_height="44dp"
                         android:layout_marginStart="6dp"
                         android:layout_marginEnd="6dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_feed_detail_action_item"
-                        android:drawableStart="@drawable/ic_tag_people"
-                        android:drawablePadding="6dp"
                         android:gravity="center"
-                        android:text="0"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
+                        android:orientation="horizontal"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp">
+
+                        <ImageView
+                            android:id="@+id/iv_detail_comment"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:src="@drawable/ic_comment"
+                            app:tint="#FFFFFF" />
+
+                        <TextView
+                            android:id="@+id/tv_detail_comment_count"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:ellipsize="end"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:text="댓글 2"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
 
                     <!-- 북마크 -->
-                    <FrameLayout
+                    <LinearLayout
                         android:id="@+id/layout_detail_bookmark_box"
                         android:layout_width="0dp"
-                        android:layout_height="40dp"
+                        android:layout_height="44dp"
                         android:layout_marginStart="6dp"
                         android:layout_weight="1"
-                        android:background="@drawable/bg_feed_detail_action_item">
+                        android:background="@drawable/bg_feed_detail_action_item"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp">
 
                         <ImageView
                             android:id="@+id/iv_detail_bookmark"
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:layout_gravity="center"
-                            android:padding="2dp"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
                             android:src="@drawable/ic_bookmark"
                             app:tint="#FFFFFF" />
-                    </FrameLayout>
+
+                        <TextView
+                            android:id="@+id/tv_detail_bookmark"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:ellipsize="end"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:text="북마크"
+                            android:textColor="#FFFFFF"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
                 </LinearLayout>
 
                 <!-- 구분선 -->
@@ -429,6 +492,15 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:orientation="vertical" />
+
+                <!--
+                    하단 댓글 입력창이 fixed로 떠 있기 때문에,
+                    카드 배경이 입력창 뒤까지 이어지도록 여백을 카드 내부에 둠.
+                    이렇게 해야 입력창 위/뒤에 검은 빈 배경이 생기지 않음.
+                -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="92dp" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
@@ -440,8 +512,9 @@
         android:layout_gravity="bottom"
         android:layout_marginStart="18dp"
         android:layout_marginEnd="18dp"
-        android:layout_marginBottom="26dp"
+        android:layout_marginBottom="18dp"
         android:background="@drawable/bg_feed_detail_comment_input"
+        android:elevation="12dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="16dp"

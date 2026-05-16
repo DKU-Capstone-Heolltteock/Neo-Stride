@@ -25,40 +25,47 @@
             android:layout_height="36dp"
             android:src="@drawable/ic_profile" />
 
-        <ImageView
-            android:id="@+id/iv_tip_badge"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:layout_marginStart="6dp"
-            android:src="@drawable/ic_badge" />
-
         <TextView
             android:id="@+id/tv_tip_nickname"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
-            android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="1"
+            android:maxWidth="120dp"
             android:textColor="#FFFFFF"
             android:textSize="14sp"
             android:textStyle="bold"
             tools:text="zinza" />
 
+        <ImageView
+            android:id="@+id/iv_tip_badge"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="6dp"
+            android:src="@drawable/ic_badge"
+            android:tint="#C8902E" />
+
         <TextView
             android:id="@+id/tv_tip_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="방금 전"
+            android:layout_marginStart="6dp"
+            android:text="· 방금 전"
             android:textColor="#9A9A9A"
             android:textSize="12sp"
             android:textStyle="bold" />
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
 
         <ImageView
             android:id="@+id/iv_tip_bookmark"
             android:layout_width="25dp"
             android:layout_height="25dp"
-            android:layout_marginStart="12dp"
+            android:layout_marginStart="8dp"
             android:src="@drawable/ic_bookmark"
             app:tint="#FFFFFF" />
 
@@ -72,6 +79,7 @@
             android:textSize="20sp"
             android:textStyle="bold" />
     </LinearLayout>
+
 
     <View
         android:layout_width="match_parent"

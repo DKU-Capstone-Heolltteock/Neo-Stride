@@ -6,7 +6,6 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -25,14 +24,14 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.neostride.app.R;
-import com.neostride.app.feature.feed.model.FeedCommentResponse;
-import com.neostride.app.feature.feed.model.FeedDetailResponse;
-import com.neostride.app.feature.feed.repository.FeedRepository;
-import com.neostride.app.feature.mypage.MyPageActivity;
-import com.neostride.app.feature.feed.model.FeedLikeResponse;
+import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.feed.model.FeedBookmarkResponse;
 import com.neostride.app.feature.feed.model.FeedCommentRequest;
-import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.feed.model.FeedCommentResponse;
+import com.neostride.app.feature.feed.model.FeedDetailResponse;
+import com.neostride.app.feature.feed.model.FeedLikeResponse;
+import com.neostride.app.feature.feed.repository.FeedRepository;
+import com.neostride.app.feature.mypage.MyPageActivity;
 import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 
 import java.util.ArrayList;
@@ -60,8 +59,16 @@ public class FeedDetailActivity extends AppCompatActivity {
     private ImageView ivFeedPhoto;
 
     private ImageView ivProfile;
+
+    // 좋아요, 댓글, 북마크 아이콘임
+    private ImageView ivLike;
+    private ImageView ivComment;
     private ImageView ivBookmark;
-    private FrameLayout layoutBookmarkBox;
+
+    // 좋아요, 댓글, 북마크 버튼 전체 영역임
+    private LinearLayout layoutLikeBox;
+    private LinearLayout layoutCommentBox;
+    private LinearLayout layoutBookmarkBox;
 
     private TextView tvUsername;
     private TextView tvTime;
@@ -69,9 +76,12 @@ public class FeedDetailActivity extends AppCompatActivity {
     private TextView tvTitle;
     private TextView tvContent;
 
-    private TextView tvTagCount;
+    // 태그 뱃지 TextView임
+    private TextView tvTagBadge;
+
     private TextView tvLikeCount;
     private TextView tvCommentCount;
+    private TextView tvBookmark;
 
     private TextView tvDistance;
     private TextView tvDuration;
@@ -204,7 +214,13 @@ public class FeedDetailActivity extends AppCompatActivity {
         ivFeedPhoto = findViewById(R.id.iv_detail_feed_photo);
 
         ivProfile = findViewById(R.id.iv_detail_profile);
+
+        ivLike = findViewById(R.id.iv_detail_like);
+        ivComment = findViewById(R.id.iv_detail_comment);
         ivBookmark = findViewById(R.id.iv_detail_bookmark);
+
+        layoutLikeBox = findViewById(R.id.layout_detail_like_box);
+        layoutCommentBox = findViewById(R.id.layout_detail_comment_box);
         layoutBookmarkBox = findViewById(R.id.layout_detail_bookmark_box);
 
         tvUsername = findViewById(R.id.tv_detail_username);
@@ -213,9 +229,11 @@ public class FeedDetailActivity extends AppCompatActivity {
         tvTitle = findViewById(R.id.tv_detail_title);
         tvContent = findViewById(R.id.tv_detail_content);
 
-        tvTagCount = findViewById(R.id.tv_detail_tag_count);
+        tvTagBadge = findViewById(R.id.tv_detail_tag_badge);
+
         tvLikeCount = findViewById(R.id.tv_detail_like_count);
         tvCommentCount = findViewById(R.id.tv_detail_comment_count);
+        tvBookmark = findViewById(R.id.tv_detail_bookmark);
 
         tvDistance = findViewById(R.id.tv_detail_distance);
         tvDuration = findViewById(R.id.tv_detail_duration);
@@ -323,9 +341,15 @@ public class FeedDetailActivity extends AppCompatActivity {
         tvTitle.setText(title);
         tvContent.setText(content);
 
-        tvTagCount.setText(String.valueOf(tagCount));
-        tvLikeCount.setText(String.valueOf(displayLikeCount));
-        tvCommentCount.setText(String.valueOf(commentCount));
+        // 태그는 액션 버튼에서 빼고 팁 상세 카테고리 위치처럼 상단 뱃지로 표시함
+        if (tvTagBadge != null) {
+            tvTagBadge.setText(String.valueOf(tagCount));
+            tvTagBadge.setVisibility(tagCount > 0 ? View.VISIBLE : View.GONE);
+        }
+
+        // 액션 버튼은 팁 상세와 맞춰 좋아요 / 댓글 / 북마크 3개만 표시함
+        tvLikeCount.setText("좋아요 " + displayLikeCount);
+        tvCommentCount.setText("댓글 " + commentCount);
 
         tvDistance.setText(distance);
         tvDuration.setText(duration);
@@ -337,6 +361,7 @@ public class FeedDetailActivity extends AppCompatActivity {
         }
 
         setLikeColor(isLiked);
+        setCommentColor();
         setBookmarkColor(isBookmarked);
 
         if (imageUrls != null && !imageUrls.isEmpty()) {
@@ -443,9 +468,9 @@ public class FeedDetailActivity extends AppCompatActivity {
                 new LinearLayout.LayoutParams(dp(32), dp(32));
         more.setLayoutParams(moreParams);
         more.setGravity(Gravity.CENTER);
-        more.setText("⋯");
+        more.setText("•••");
         more.setTextColor(Color.WHITE);
-        more.setTextSize(20);
+        more.setTextSize(15);
         more.setTypeface(null, Typeface.BOLD);
         more.setOnClickListener(v -> showCommentMoreMenu(more, comment));
 
@@ -461,7 +486,7 @@ public class FeedDetailActivity extends AppCompatActivity {
         contentParams.setMargins(dp(34), dp(4), dp(4), 0);
         contentView.setLayoutParams(contentParams);
         contentView.setText(getSafeText(comment.getContent(), ""));
-        contentView.setTextColor(Color.parseColor("#D8D8D8"));
+        contentView.setTextColor(Color.parseColor("#DADADA"));
         contentView.setTextSize(13);
         contentView.setLineSpacing(dp(2), 1.0f);
 
@@ -486,20 +511,48 @@ public class FeedDetailActivity extends AppCompatActivity {
             ivProfile.setOnClickListener(profileClickListener);
         }
 
-        tvUsername.setOnClickListener(profileClickListener);
+        if (tvUsername != null) {
+            tvUsername.setOnClickListener(profileClickListener);
+        }
 
-        tvLikeCount.setOnClickListener(v -> toggleLike());
+        if (tvTagBadge != null) {
+            tvTagBadge.setOnClickListener(v -> loadTaggedUsers());
+        }
 
-        tvCommentCount.setOnClickListener(v -> focusCommentInput());
+        if (layoutLikeBox != null) {
+            layoutLikeBox.setOnClickListener(v -> toggleLike());
+        }
 
-        tvTagCount.setOnClickListener(v -> loadTaggedUsers());
+        if (ivLike != null) {
+            ivLike.setOnClickListener(v -> toggleLike());
+        }
+
+        if (tvLikeCount != null) {
+            tvLikeCount.setOnClickListener(v -> toggleLike());
+        }
+
+        if (layoutCommentBox != null) {
+            layoutCommentBox.setOnClickListener(v -> focusCommentInput());
+        }
+
+        if (ivComment != null) {
+            ivComment.setOnClickListener(v -> focusCommentInput());
+        }
+
+        if (tvCommentCount != null) {
+            tvCommentCount.setOnClickListener(v -> focusCommentInput());
+        }
+
+        if (layoutBookmarkBox != null) {
+            layoutBookmarkBox.setOnClickListener(v -> toggleBookmark());
+        }
 
         if (ivBookmark != null) {
             ivBookmark.setOnClickListener(v -> toggleBookmark());
         }
 
-        if (layoutBookmarkBox != null) {
-            layoutBookmarkBox.setOnClickListener(v -> toggleBookmark());
+        if (tvBookmark != null) {
+            tvBookmark.setOnClickListener(v -> toggleBookmark());
         }
 
         tvMore.setOnClickListener(v -> showMoreMenu());
@@ -581,7 +634,10 @@ public class FeedDetailActivity extends AppCompatActivity {
                         commentCount++;
 
                         // 댓글 수 TextView를 갱신함
-                        tvCommentCount.setText(String.valueOf(commentCount));
+                        tvCommentCount.setText("댓글 " + commentCount);
+
+                        // 댓글 버튼 색상을 기본 흰색으로 유지함
+                        setCommentColor();
 
                         // 댓글 목록을 다시 그림
                         bindComments(commentList);
@@ -711,7 +767,7 @@ public class FeedDetailActivity extends AppCompatActivity {
                         likeCount = data.getLikeCount();
                         displayLikeCount = data.getLikeCount();
 
-                        tvLikeCount.setText(String.valueOf(displayLikeCount));
+                        tvLikeCount.setText("좋아요 " + displayLikeCount);
                         setLikeColor(isLiked);
                     }
 
@@ -728,31 +784,32 @@ public class FeedDetailActivity extends AppCompatActivity {
     }
 
     /*
-     * 좋아요 TextView의 숫자 색상과 아이콘 색상을 변경하는 함수임
+     * 좋아요 버튼 색상을 변경하는 함수임
      */
     private void setLikeColor(boolean liked) {
-        int color;
+        int color = liked ? Color.parseColor(NEON_COLOR) : Color.WHITE;
 
-        if (liked) {
-            color = Color.parseColor(NEON_COLOR);
-        } else {
-            color = Color.WHITE;
+        if (tvLikeCount != null) {
+            tvLikeCount.setTextColor(color);
+            tvLikeCount.setTypeface(null, Typeface.BOLD);
         }
 
-        tvLikeCount.setTextColor(color);
-        tintTextViewDrawables(tvLikeCount, color);
+        if (ivLike != null) {
+            ivLike.setImageTintList(ColorStateList.valueOf(color));
+        }
     }
 
     /*
-     * TextView에 drawableStart로 붙은 아이콘 색상을 변경하는 함수임
+     * 댓글 버튼 색상을 기본값으로 맞추는 함수임
      */
-    private void tintTextViewDrawables(TextView textView, int color) {
-        Drawable[] drawables = textView.getCompoundDrawablesRelative();
+    private void setCommentColor() {
+        if (tvCommentCount != null) {
+            tvCommentCount.setTextColor(Color.WHITE);
+            tvCommentCount.setTypeface(null, Typeface.BOLD);
+        }
 
-        for (Drawable drawable : drawables) {
-            if (drawable != null) {
-                drawable.setTint(color);
-            }
+        if (ivComment != null) {
+            ivComment.setImageTintList(ColorStateList.valueOf(Color.WHITE));
         }
     }
 
@@ -801,21 +858,23 @@ public class FeedDetailActivity extends AppCompatActivity {
     }
 
     /*
-     * 북마크 아이콘 색상을 변경하는 함수임
+     * 북마크 상태에 따라 아이콘과 글자 색상을 변경하는 함수임
+     * bookmarked가 true이면 꽉 찬 북마크 아이콘을 사용하고,
+     * false이면 빈 북마크 아이콘을 사용함
      */
     private void setBookmarkColor(boolean bookmarked) {
-        if (ivBookmark == null) {
-            return;
+        int color = bookmarked ? Color.parseColor(NEON_COLOR) : Color.WHITE;
+
+        if (ivBookmark != null) {
+            ivBookmark.setImageResource(
+                    bookmarked ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark
+            );
+            ivBookmark.setImageTintList(ColorStateList.valueOf(color));
         }
 
-        if (bookmarked) {
-            ivBookmark.setImageTintList(
-                    ColorStateList.valueOf(Color.parseColor(NEON_COLOR))
-            );
-        } else {
-            ivBookmark.setImageTintList(
-                    ColorStateList.valueOf(Color.WHITE)
-            );
+        if (tvBookmark != null) {
+            tvBookmark.setTextColor(color);
+            tvBookmark.setTypeface(null, Typeface.BOLD);
         }
     }
 

@@ -5,10 +5,10 @@
     <item android:state_pressed="true">
         <shape android:shape="rectangle">
             <solid android:color="#202800" />
+            <corners android:radius="20dp" />
             <stroke
                 android:width="1.5dp"
                 android:color="#B8FF06" />
-            <corners android:radius="16dp" />
             <padding
                 android:left="12dp"
                 android:top="10dp"
@@ -20,11 +20,11 @@
     <!-- 기본 상태 -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#121212" />
+            <solid android:color="#202020" />
+            <corners android:radius="20dp" />
             <stroke
-                android:width="1dp"
-                android:color="#44B8FF06" />
-            <corners android:radius="16dp" />
+                android:width="1.2dp"
+                android:color="#6A6A6A" />
             <padding
                 android:left="12dp"
                 android:top="10dp"

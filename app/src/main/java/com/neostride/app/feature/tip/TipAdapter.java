@@ -152,6 +152,11 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
 
         holder.tvLikeCount.setTextColor(liked ? POINT_COLOR : WHITE_COLOR);
 
+        // 북마크 상태에 따라 빈 북마크 / 꽉 찬 북마크 아이콘을 변경함
+        holder.ivBookmark.setImageResource(
+                bookmarked ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark
+        );
+
         holder.ivBookmark.setImageTintList(
                 ColorStateList.valueOf(bookmarked ? POINT_COLOR : WHITE_COLOR)
         );

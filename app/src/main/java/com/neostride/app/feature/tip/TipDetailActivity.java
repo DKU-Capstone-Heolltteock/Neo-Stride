@@ -246,6 +246,7 @@ public class TipDetailActivity extends AppCompatActivity {
         tvTitle.setText(getSafeText(response.getTitle(), ""));
         tvContent.setText(getSafeText(response.getContent(), ""));
 
+        // 피드 상세와 통일하기 위해 글자 + 숫자 형식으로 표시함
         tvLikeCount.setText("좋아요 " + likeCount);
         tvCommentCount.setText("댓글 " + commentCount);
 
@@ -255,14 +256,14 @@ public class TipDetailActivity extends AppCompatActivity {
         ivBadge.setVisibility(response.isBadgeOwned() ? View.VISIBLE : View.GONE);
 
         /*
-         * GPS 코스 팁이면 상단 GPS 배너를 표시함
+         * GPS 코스 팁이면 상단 GPS 배너와 GPS 아이콘을 표시함
          */
         if (layoutGpsBanner != null) {
             layoutGpsBanner.setVisibility(response.isGpsVisible() ? View.VISIBLE : View.GONE);
         }
 
         if (ivGps != null) {
-            ivGps.setVisibility(View.VISIBLE);
+            ivGps.setVisibility(response.isGpsVisible() ? View.VISIBLE : View.GONE);
         }
 
         /*
@@ -752,12 +753,17 @@ public class TipDetailActivity extends AppCompatActivity {
     }
 
     /*
-     * 북마크 색상을 변경하는 함수임
+     * 북마크 상태에 따라 아이콘과 글자 색상을 변경하는 함수임
+     * bookmarked가 true이면 꽉 찬 북마크 아이콘을 사용하고,
+     * false이면 빈 북마크 아이콘을 사용함
      */
     private void setBookmarkColor(boolean bookmarked) {
         int color = bookmarked ? POINT_COLOR : WHITE_COLOR;
 
         if (ivBookmark != null) {
+            ivBookmark.setImageResource(
+                    bookmarked ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark
+            );
             ivBookmark.setImageTintList(ColorStateList.valueOf(color));
         }
 
