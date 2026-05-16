@@ -17,11 +17,14 @@ import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.bumptech.glide.Glide;
 import com.neostride.app.R;
+import com.neostride.app.feature.mypage.MyPageActivity;
 import com.neostride.app.feature.tip.model.TipItem;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /*
@@ -85,15 +88,15 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         TipItem item = tipList.get(position);
 
         // 팁 게시글 기본 정보를 화면에 표시함
-        holder.tvNickname.setText(item.getNickname());
+        holder.tvNickname.setText(getSafeText(item.getNickname(), "알 수 없음"));
         holder.tvCategory.setText(convertCategoryToKorean(item.getCategory()));
-        holder.tvTitle.setText(item.getTitle());
-        holder.tvContent.setText(item.getContent());
+        holder.tvTitle.setText(getSafeText(item.getTitle(), ""));
+        holder.tvContent.setText(getSafeText(item.getContent(), ""));
         holder.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
         holder.tvCommentCount.setText(String.valueOf(item.getCommentCount()));
 
         // 작성 시간이 있으면 표시하고, 없으면 기본값으로 표시함
-        if (item.getCreatedAt() != null && !item.getCreatedAt().isEmpty()) {
+        if (item.getCreatedAt() != null && !item.getCreatedAt().trim().isEmpty()) {
             holder.tvTime.setText(item.getCreatedAt());
         } else {
             holder.tvTime.setText("방금 전");
@@ -105,17 +108,16 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         // GPS 아이콘 표시 여부를 설정함
         holder.ivGps.setVisibility(item.isGpsVisible() ? View.VISIBLE : View.GONE);
 
+        // 작성자 프로필 이미지를 표시함
+        bindProfileImage(holder, item);
+
         /*
-         * 사진이 있으면 사진 카드 전체를 보여줌
-         * 로컬 Uri가 있으면 Uri를 먼저 사용하고,
-         * 서버 imageUrls가 있으면 추후 Glide/Picasso로 연결하면 됨
+         * 팁 이미지를 표시함
+         * 1순위: 로컬 imageUris
+         * 2순위: 서버 imageUrls
+         * 3순위: 코스 GPS 지도 routeMapImageUrl
          */
-        if (item.getImageUris() != null && !item.getImageUris().isEmpty()) {
-            holder.cardTipPhoto.setVisibility(View.VISIBLE);
-            holder.ivTipImage.setImageURI(item.getImageUris().get(0));
-        } else {
-            holder.cardTipPhoto.setVisibility(View.GONE);
-        }
+        bindTipImage(holder, item);
 
         /*
          * RecyclerView 재사용 문제를 막기 위해
@@ -153,9 +155,7 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         holder.tvCommentCount.setOnClickListener(v -> openTipDetail(item));
 
         /*
-         * 프사/닉네임 클릭 처리임
-         * 현재 마이페이지 Activity 이름을 모르기 때문에 Toast로 임시 처리함
-         * 나중에 MyPageActivity가 확인되면 Intent 이동으로 교체하면 됨
+         * 프사/닉네임 클릭 시 마이페이지로 이동함
          */
         holder.ivProfile.setOnClickListener(v -> openProfile(item));
         holder.tvNickname.setOnClickListener(v -> openProfile(item));
@@ -186,9 +186,97 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
     }
 
     /*
+     * 작성자 프로필 이미지를 표시하는 함수임
+     * profileImageUrl이 없으면 기본 프로필 아이콘을 표시함
+     */
+    private void bindProfileImage(TipViewHolder holder, TipItem item) {
+        String profileImageUrl = item.getProfileImageUrl();
+
+        if (profileImageUrl != null && !profileImageUrl.trim().isEmpty()) {
+            Glide.with(context)
+                    .load(profileImageUrl)
+                    .placeholder(R.drawable.ic_profile)
+                    .error(R.drawable.ic_profile)
+                    .into(holder.ivProfile);
+
+            holder.ivProfile.setImageTintList(null);
+        } else {
+            Glide.with(context).clear(holder.ivProfile);
+            holder.ivProfile.setImageResource(R.drawable.ic_profile);
+            holder.ivProfile.setImageTintList(null);
+        }
+    }
+
+    /*
+     * 팁 목록 이미지를 표시하는 함수임
+     * 로컬 Uri, 서버 이미지 URL, GPS 지도 이미지 URL 순서로 확인함
+     */
+    private void bindTipImage(TipViewHolder holder, TipItem item) {
+        Glide.with(context).clear(holder.ivTipImage);
+        holder.ivTipImage.setImageDrawable(null);
+
+        if (item.getImageUris() != null && !item.getImageUris().isEmpty()) {
+            Uri firstUri = item.getImageUris().get(0);
+
+            if (firstUri != null) {
+                holder.cardTipPhoto.setVisibility(View.VISIBLE);
+                holder.ivTipImage.setImageURI(firstUri);
+                return;
+            }
+        }
+
+        if (item.getImageUrls() != null && !item.getImageUrls().isEmpty()) {
+            String firstImageUrl = getFirstValidUrl(item.getImageUrls());
+
+            if (firstImageUrl != null) {
+                holder.cardTipPhoto.setVisibility(View.VISIBLE);
+
+                Glide.with(context)
+                        .load(firstImageUrl)
+                        .placeholder(R.drawable.ic_image)
+                        .error(R.drawable.ic_image)
+                        .centerCrop()
+                        .into(holder.ivTipImage);
+
+                return;
+            }
+        }
+
+        if (item.isGpsVisible()
+                && item.getRouteMapImageUrl() != null
+                && !item.getRouteMapImageUrl().trim().isEmpty()) {
+
+            holder.cardTipPhoto.setVisibility(View.VISIBLE);
+
+            Glide.with(context)
+                    .load(item.getRouteMapImageUrl())
+                    .placeholder(R.drawable.ic_image)
+                    .error(R.drawable.ic_image)
+                    .centerCrop()
+                    .into(holder.ivTipImage);
+
+            return;
+        }
+
+        holder.cardTipPhoto.setVisibility(View.GONE);
+    }
+
+    /*
+     * 문자열 리스트에서 비어있지 않은 첫 번째 URL을 찾는 함수임
+     */
+    private String getFirstValidUrl(List<String> imageUrls) {
+        for (String imageUrl : imageUrls) {
+            if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+                return imageUrl;
+            }
+        }
+
+        return null;
+    }
+
+    /*
      * 팁 상세 화면으로 이동하는 함수임
-     * 현재는 TipItem의 데이터를 Intent에 담아 TipDetailActivity로 전달함
-     * 추후 상세 API 연결 시 tipId만 넘기고 상세 화면에서 API 조회하도록 바꾸면 됨
+     * 현재 상세 화면은 tipId를 받아 상세 API를 호출하는 구조임
      */
     private void openTipDetail(TipItem item) {
         Intent intent = new Intent(context, TipDetailActivity.class);
@@ -203,6 +291,7 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         intent.putExtra("badgeOwner", item.isBadgeOwner());
         intent.putExtra("gpsVisible", item.isGpsVisible());
         intent.putExtra("createdAt", item.getCreatedAt());
+        intent.putExtra("routeMapImageUrl", item.getRouteMapImageUrl());
 
         /*
          * 이미지 URI 목록이 있으면 상세 화면으로 전달함
@@ -211,7 +300,18 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         if (item.getImageUris() != null) {
             intent.putParcelableArrayListExtra(
                     "imageUris",
-                    new ArrayList<Uri>(item.getImageUris())
+                    new ArrayList<>(item.getImageUris())
+            );
+        }
+
+        /*
+         * 서버 이미지 URL 목록이 있으면 상세 화면으로 전달함
+         * 현재 상세 화면은 API로 다시 조회하지만, 추후 fallback 데이터로 사용할 수 있음
+         */
+        if (item.getImageUrls() != null) {
+            intent.putStringArrayListExtra(
+                    "imageUrls",
+                    new ArrayList<>(item.getImageUrls())
             );
         }
 
@@ -220,22 +320,13 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
 
     /*
      * 프로필 화면으로 이동하는 함수임
-     * 현재 프로젝트의 마이페이지 Activity 이름을 모르는 상태라 Toast로 임시 처리함
+     * 현재 프로젝트의 MyPageActivity로 이동함
      */
     private void openProfile(TipItem item) {
-        Toast.makeText(
-                context,
-                item.getNickname() + " 프로필로 이동",
-                Toast.LENGTH_SHORT
-        ).show();
-
-        /*
-         * 마이페이지 Activity가 확인되면 아래처럼 교체하면 됨
-         *
-         * Intent intent = new Intent(context, MyPageActivity.class);
-         * intent.putExtra("nickname", item.getNickname());
-         * context.startActivity(intent);
-         */
+        Intent intent = new Intent(context, MyPageActivity.class);
+        intent.putExtra("username", item.getNickname());
+        intent.putExtra("nickname", item.getNickname());
+        context.startActivity(intent);
     }
 
     /*
@@ -395,6 +486,17 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    /*
+     * null 또는 빈 문자열일 때 기본값을 반환하는 함수임
+     */
+    private String getSafeText(String value, String defaultValue) {
+        if (value == null || value.trim().isEmpty()) {
+            return defaultValue;
+        }
+
+        return value;
     }
 
     /*

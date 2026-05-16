@@ -3,7 +3,6 @@ package com.neostride.app.feature.tip;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -16,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
 import com.neostride.app.R;
 import com.neostride.app.feature.tip.model.TipCommentResponse;
 import com.neostride.app.feature.tip.model.TipDetailResponse;
@@ -32,13 +32,19 @@ public class TipDetailActivity extends AppCompatActivity {
 
     private static final int POINT_COLOR = Color.parseColor("#B8FF06");
     private static final int WHITE_COLOR = Color.parseColor("#FFFFFF");
+    private static final int COMMENT_TEXT_COLOR = Color.parseColor("#DADADA");
 
     private ImageView btnBack;
     private ImageView ivProfile;
     private ImageView ivBadge;
     private ImageView ivGps;
     private ImageView ivTipImage;
+
+    // 좋아요, 댓글, 북마크 아이콘임
+    private ImageView ivLike;
+    private ImageView ivComment;
     private ImageView ivBookmark;
+
     private ImageView btnSendComment;
 
     private TextView tvNickname;
@@ -49,12 +55,30 @@ public class TipDetailActivity extends AppCompatActivity {
     private TextView tvContent;
     private TextView tvLikeCount;
     private TextView tvCommentCount;
+    private TextView tvBookmark;
     private TextView tvEmptyComment;
+
+    // 코스 펼치기 버튼 텍스트임
+    private TextView tvCourseToggle;
 
     private EditText etComment;
 
     // 댓글 목록을 동적으로 추가할 레이아웃임
     private LinearLayout layoutComments;
+
+    // GPS 배너 전체 영역임
+    private LinearLayout layoutGpsBanner;
+
+    // 코스 지도 펼침 영역임
+    private LinearLayout layoutCourseMap;
+
+    // 좋아요, 댓글, 북마크 버튼 전체 영역임
+    private LinearLayout layoutLikeArea;
+    private LinearLayout layoutCommentArea;
+    private LinearLayout layoutBookmarkArea;
+
+    // 코스 지도 이미지임
+    private ImageView ivCourseMap;
 
     private TipRepository tipRepository;
 
@@ -66,6 +90,9 @@ public class TipDetailActivity extends AppCompatActivity {
     private boolean isLiked = false;
     private boolean isBookmarked = false;
     private boolean isMine = false;
+
+    private boolean isCourseExpanded = false;
+    private String courseMapImageUrl = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,7 +118,11 @@ public class TipDetailActivity extends AppCompatActivity {
         ivBadge = findViewById(R.id.iv_tip_detail_badge);
         ivGps = findViewById(R.id.iv_tip_detail_gps);
         ivTipImage = findViewById(R.id.iv_tip_detail_image);
+
+        ivLike = findViewById(R.id.iv_tip_detail_like);
+        ivComment = findViewById(R.id.iv_tip_detail_comment);
         ivBookmark = findViewById(R.id.iv_tip_detail_bookmark);
+
         btnSendComment = findViewById(R.id.btn_tip_detail_send_comment);
 
         tvNickname = findViewById(R.id.tv_tip_detail_nickname);
@@ -102,9 +133,20 @@ public class TipDetailActivity extends AppCompatActivity {
         tvContent = findViewById(R.id.tv_tip_detail_content);
         tvLikeCount = findViewById(R.id.tv_tip_detail_like_count);
         tvCommentCount = findViewById(R.id.tv_tip_detail_comment_count);
+        tvBookmark = findViewById(R.id.tv_tip_detail_bookmark);
+        tvEmptyComment = findViewById(R.id.tv_tip_detail_empty_comment);
+
+        tvCourseToggle = findViewById(R.id.tv_tip_detail_course_toggle);
 
         layoutComments = findViewById(R.id.layout_tip_detail_comments);
-        tvEmptyComment = findViewById(R.id.tv_tip_detail_empty_comment);
+        layoutGpsBanner = findViewById(R.id.layout_tip_detail_gps_banner);
+        layoutCourseMap = findViewById(R.id.layout_tip_detail_course_map);
+
+        layoutLikeArea = findViewById(R.id.layout_tip_detail_like_area);
+        layoutCommentArea = findViewById(R.id.layout_tip_detail_comment_area);
+        layoutBookmarkArea = findViewById(R.id.layout_tip_detail_bookmark_area);
+
+        ivCourseMap = findViewById(R.id.iv_tip_detail_course_map);
 
         etComment = findViewById(R.id.et_tip_detail_comment);
     }
@@ -185,51 +227,139 @@ public class TipDetailActivity extends AppCompatActivity {
         ivProfile.setImageTintList(null);
 
         ivBadge.setVisibility(response.isBadgeOwned() ? View.VISIBLE : View.GONE);
-        ivGps.setVisibility(response.isGpsVisible() ? View.VISIBLE : View.GONE);
 
+        /*
+         * GPS 코스 팁이면 상단 GPS 배너를 표시함
+         */
+        if (layoutGpsBanner != null) {
+            layoutGpsBanner.setVisibility(response.isGpsVisible() ? View.VISIBLE : View.GONE);
+        }
+
+        if (ivGps != null) {
+            ivGps.setVisibility(View.VISIBLE);
+        }
+
+        /*
+         * 코스 지도는 처음에는 접힌 상태로 초기화함
+         */
+        courseMapImageUrl = getSafeText(response.getRouteMapImageUrl(), "");
+        isCourseExpanded = false;
+
+        if (layoutCourseMap != null) {
+            layoutCourseMap.setVisibility(View.GONE);
+        }
+
+        if (tvCourseToggle != null) {
+            tvCourseToggle.setText("코스 보기");
+        }
+
+        bindCourseMapImage();
+
+        /*
+         * 일반 첨부 이미지만 본문 이미지 영역에 표시함
+         * GPS 지도 이미지는 코스 보기 영역에서만 표시함
+         */
         bindImage(response);
 
         setLikeColor(isLiked);
+        setCommentColor();
         setBookmarkColor(isBookmarked);
 
         /*
-         * 본인이 작성한 글이 아니면 점3개 메뉴를 숨김
+         * 글 점3개는 항상 표시함
+         * 본인 글이면 수정/삭제, 남의 글이면 신고/차단 메뉴가 뜸
          */
-        tvMore.setVisibility(isMine ? View.VISIBLE : View.GONE);
+        tvMore.setVisibility(View.VISIBLE);
 
-        /*
-         * 상세 API 응답의 댓글 목록을 화면에 표시함
-         */
         bindComments(response.getComments());
     }
 
     /*
-     * 이미지 또는 지도 이미지를 화면에 표시하는 함수임
-     * 현재는 Glide 없이 Uri 문자열을 직접 파싱해서 표시함
+     * 일반 첨부 이미지를 화면에 표시하는 함수임
+     * GPS 지도 이미지는 여기서 표시하지 않고 코스 펼침 영역에서만 표시함
      */
     private void bindImage(TipDetailResponse response) {
         List<String> imageUrls = response.getImageUrls();
 
         if (imageUrls != null && !imageUrls.isEmpty()) {
-            String firstImageUrl = imageUrls.get(0);
+            String firstImageUrl = getFirstValidUrl(imageUrls);
 
-            if (firstImageUrl != null && !firstImageUrl.trim().isEmpty()) {
+            if (firstImageUrl != null) {
                 ivTipImage.setVisibility(View.VISIBLE);
-                ivTipImage.setImageURI(Uri.parse(firstImageUrl));
+
+                Glide.with(this)
+                        .load(firstImageUrl)
+                        .placeholder(R.drawable.ic_image)
+                        .error(R.drawable.ic_image)
+                        .centerCrop()
+                        .into(ivTipImage);
+
                 return;
             }
         }
 
-        if (response.isGpsVisible()
-                && response.getRouteMapImageUrl() != null
-                && !response.getRouteMapImageUrl().trim().isEmpty()) {
+        Glide.with(this).clear(ivTipImage);
+        ivTipImage.setVisibility(View.GONE);
+    }
 
-            ivTipImage.setVisibility(View.VISIBLE);
-            ivTipImage.setImageURI(Uri.parse(response.getRouteMapImageUrl()));
+    /*
+     * 코스 지도 이미지를 펼침 영역에 미리 연결하는 함수임
+     */
+    private void bindCourseMapImage() {
+        if (ivCourseMap == null) {
             return;
         }
 
-        ivTipImage.setVisibility(View.GONE);
+        if (courseMapImageUrl == null || courseMapImageUrl.trim().isEmpty()) {
+            ivCourseMap.setImageResource(R.drawable.ic_image);
+            return;
+        }
+
+        Glide.with(this)
+                .load(courseMapImageUrl)
+                .placeholder(R.drawable.ic_image)
+                .error(R.drawable.ic_image)
+                .centerCrop()
+                .into(ivCourseMap);
+    }
+
+    /*
+     * 코스 보기 버튼을 눌렀을 때 코스 지도 영역을 펼치거나 접는 함수임
+     */
+    private void toggleCourseMap() {
+        if (layoutCourseMap == null) {
+            return;
+        }
+
+        if (courseMapImageUrl == null || courseMapImageUrl.trim().isEmpty()) {
+            Toast.makeText(
+                    this,
+                    "표시할 코스 정보가 없습니다",
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        isCourseExpanded = !isCourseExpanded;
+
+        layoutCourseMap.setVisibility(isCourseExpanded ? View.VISIBLE : View.GONE);
+
+        if (tvCourseToggle != null) {
+            tvCourseToggle.setText(isCourseExpanded ? "접기" : "코스 보기");
+        }
+    }
+
+    /*
+     * 이미지 URL 목록에서 비어있지 않은 첫 번째 URL을 찾는 함수임
+     */
+    private String getFirstValidUrl(List<String> imageUrls) {
+        for (String imageUrl : imageUrls) {
+            if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+                return imageUrl;
+            }
+        }
+
+        return null;
     }
 
     /*
@@ -253,21 +383,21 @@ public class TipDetailActivity extends AppCompatActivity {
 
     /*
      * 댓글 1개 View를 코드로 생성하는 함수임
+     * 댓글을 각각 독립된 네온 카드처럼 보이게 구성함
      */
     private View createCommentView(TipCommentResponse comment) {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, dp(10), 0, dp(10));
+        root.setBackgroundResource(R.drawable.bg_tip_comment_neon_item);
+        root.setPadding(dp(12), dp(10), dp(10), dp(10));
 
         LinearLayout.LayoutParams rootParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
+        rootParams.setMargins(0, 0, 0, dp(10));
         root.setLayoutParams(rootParams);
 
-        /*
-         * 댓글 상단 영역임
-         */
         LinearLayout topRow = new LinearLayout(this);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -280,9 +410,10 @@ public class TipDetailActivity extends AppCompatActivity {
 
         ImageView profile = new ImageView(this);
         LinearLayout.LayoutParams profileParams =
-                new LinearLayout.LayoutParams(dp(25), dp(25));
+                new LinearLayout.LayoutParams(dp(26), dp(26));
         profile.setLayoutParams(profileParams);
         profile.setImageResource(R.drawable.ic_profile);
+        profile.setImageTintList(null);
 
         TextView nameAndTime = new TextView(this);
         LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(
@@ -290,7 +421,7 @@ public class TipDetailActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 1f
         );
-        nameParams.setMargins(dp(7), 0, 0, 0);
+        nameParams.setMargins(dp(8), 0, 0, 0);
         nameAndTime.setLayoutParams(nameParams);
         nameAndTime.setText(
                 getSafeText(comment.getNickname(), "알 수 없음")
@@ -303,17 +434,14 @@ public class TipDetailActivity extends AppCompatActivity {
 
         TextView more = new TextView(this);
         LinearLayout.LayoutParams moreParams =
-                new LinearLayout.LayoutParams(dp(30), dp(30));
+                new LinearLayout.LayoutParams(dp(32), dp(32));
         more.setLayoutParams(moreParams);
         more.setGravity(Gravity.CENTER);
         more.setText("•••");
         more.setTextColor(Color.WHITE);
-        more.setTextSize(14);
-
-        /*
-         * 본인이 작성한 댓글일 때만 점3개를 보여줌
-         */
-        more.setVisibility(comment.isMine() ? View.VISIBLE : View.INVISIBLE);
+        more.setTextSize(15);
+        more.setTypeface(null, Typeface.BOLD);
+        more.setVisibility(View.VISIBLE);
         more.setOnClickListener(v -> showCommentMoreMenu(more, comment));
 
         topRow.addView(profile);
@@ -325,24 +453,15 @@ public class TipDetailActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        contentParams.setMargins(dp(32), dp(2), 0, 0);
+        contentParams.setMargins(dp(34), dp(4), dp(4), 0);
         contentView.setLayoutParams(contentParams);
         contentView.setText(getSafeText(comment.getContent(), ""));
-        contentView.setTextColor(Color.parseColor("#DADADA"));
+        contentView.setTextColor(COMMENT_TEXT_COLOR);
         contentView.setTextSize(13);
-
-        View divider = new View(this);
-        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(1)
-        );
-        dividerParams.setMargins(0, dp(10), 0, 0);
-        divider.setLayoutParams(dividerParams);
-        divider.setBackgroundColor(Color.parseColor("#6A6A6A"));
+        contentView.setLineSpacing(dp(2), 1.0f);
 
         root.addView(topRow);
         root.addView(contentView);
-        root.addView(divider);
 
         return root;
     }
@@ -357,15 +476,46 @@ public class TipDetailActivity extends AppCompatActivity {
 
         tvLikeCount.setOnClickListener(v -> toggleLike());
 
+        if (ivLike != null) {
+            ivLike.setOnClickListener(v -> toggleLike());
+        }
+
+        if (layoutLikeArea != null) {
+            layoutLikeArea.setOnClickListener(v -> toggleLike());
+        }
+
+        if (ivComment != null) {
+            ivComment.setOnClickListener(v -> focusCommentInput());
+        }
+
+        if (tvCommentCount != null) {
+            tvCommentCount.setOnClickListener(v -> focusCommentInput());
+        }
+
+        if (layoutCommentArea != null) {
+            layoutCommentArea.setOnClickListener(v -> focusCommentInput());
+        }
+
         ivBookmark.setOnClickListener(v -> toggleBookmark());
 
-        ivGps.setOnClickListener(v -> {
-            Toast.makeText(
-                    this,
-                    "지도 위치 보기 기능 연결 예정",
-                    Toast.LENGTH_SHORT
-            ).show();
-        });
+        if (tvBookmark != null) {
+            tvBookmark.setOnClickListener(v -> toggleBookmark());
+        }
+
+        if (layoutBookmarkArea != null) {
+            layoutBookmarkArea.setOnClickListener(v -> toggleBookmark());
+        }
+
+        /*
+         * GPS 배너 또는 코스 보기 텍스트를 누르면 코스 지도 영역을 펼치거나 접음
+         */
+        if (layoutGpsBanner != null) {
+            layoutGpsBanner.setOnClickListener(v -> toggleCourseMap());
+        }
+
+        if (tvCourseToggle != null) {
+            tvCourseToggle.setOnClickListener(v -> toggleCourseMap());
+        }
 
         btnSendComment.setOnClickListener(v -> {
             String comment = etComment.getText().toString().trim();
@@ -387,6 +537,19 @@ public class TipDetailActivity extends AppCompatActivity {
 
             etComment.setText("");
         });
+    }
+
+    /*
+     * 댓글 입력창에 포커스를 주는 함수임
+     */
+    private void focusCommentInput() {
+        etComment.requestFocus();
+
+        Toast.makeText(
+                this,
+                "댓글을 입력할 수 있습니다",
+                Toast.LENGTH_SHORT
+        ).show();
     }
 
     /*
@@ -414,6 +577,24 @@ public class TipDetailActivity extends AppCompatActivity {
 
         tvLikeCount.setTextColor(color);
         tvLikeCount.setTypeface(null, Typeface.BOLD);
+
+        if (ivLike != null) {
+            ivLike.setImageTintList(ColorStateList.valueOf(color));
+        }
+    }
+
+    /*
+     * 댓글 버튼 색상을 기본값으로 맞추는 함수임
+     */
+    private void setCommentColor() {
+        if (tvCommentCount != null) {
+            tvCommentCount.setTextColor(WHITE_COLOR);
+            tvCommentCount.setTypeface(null, Typeface.BOLD);
+        }
+
+        if (ivComment != null) {
+            ivComment.setImageTintList(ColorStateList.valueOf(WHITE_COLOR));
+        }
     }
 
     /*
@@ -432,37 +613,48 @@ public class TipDetailActivity extends AppCompatActivity {
         int color = bookmarked ? POINT_COLOR : WHITE_COLOR;
 
         ivBookmark.setImageTintList(ColorStateList.valueOf(color));
+
+        if (tvBookmark != null) {
+            tvBookmark.setTextColor(color);
+            tvBookmark.setTypeface(null, Typeface.BOLD);
+        }
     }
 
     /*
      * 글 점 세 개 메뉴를 보여주는 함수임
+     * 본인 글이면 수정/삭제, 남의 글이면 신고/차단 메뉴를 보여줌
      */
     private void showMoreMenu() {
         PopupMenu popupMenu = new PopupMenu(this, tvMore);
 
-        popupMenu.getMenu().add("수정");
-        popupMenu.getMenu().add("삭제");
+        if (isMine) {
+            popupMenu.getMenu().add("수정");
+            popupMenu.getMenu().add("삭제");
+        } else {
+            popupMenu.getMenu().add("신고");
+            popupMenu.getMenu().add("차단");
+        }
 
         popupMenu.setOnMenuItemClickListener(menuItem -> {
             String menuTitle = menuItem.getTitle().toString();
 
             if (menuTitle.equals("수정")) {
-                Toast.makeText(
-                        this,
-                        "수정 기능 연결 예정",
-                        Toast.LENGTH_SHORT
-                ).show();
-
+                Toast.makeText(this, "수정 기능 연결 예정", Toast.LENGTH_SHORT).show();
                 return true;
             }
 
             if (menuTitle.equals("삭제")) {
-                Toast.makeText(
-                        this,
-                        "삭제 API 연결 예정",
-                        Toast.LENGTH_SHORT
-                ).show();
+                Toast.makeText(this, "삭제 API 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
 
+            if (menuTitle.equals("신고")) {
+                Toast.makeText(this, "게시글 신고 기능 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+
+            if (menuTitle.equals("차단")) {
+                Toast.makeText(this, "작성자 차단 기능 연결 예정", Toast.LENGTH_SHORT).show();
                 return true;
             }
 
@@ -474,33 +666,39 @@ public class TipDetailActivity extends AppCompatActivity {
 
     /*
      * 댓글 점 세 개 메뉴를 보여주는 함수임
+     * 본인 댓글이면 수정/삭제, 남의 댓글이면 신고/차단 메뉴를 보여줌
      */
     private void showCommentMoreMenu(View anchorView, TipCommentResponse comment) {
         PopupMenu popupMenu = new PopupMenu(this, anchorView);
 
-        popupMenu.getMenu().add("수정");
-        popupMenu.getMenu().add("삭제");
+        if (comment.isMine()) {
+            popupMenu.getMenu().add("수정");
+            popupMenu.getMenu().add("삭제");
+        } else {
+            popupMenu.getMenu().add("신고");
+            popupMenu.getMenu().add("차단");
+        }
 
         popupMenu.setOnMenuItemClickListener(menuItem -> {
             String menuTitle = menuItem.getTitle().toString();
 
             if (menuTitle.equals("수정")) {
-                Toast.makeText(
-                        this,
-                        "댓글 수정 API 연결 예정",
-                        Toast.LENGTH_SHORT
-                ).show();
-
+                Toast.makeText(this, "댓글 수정 API 연결 예정", Toast.LENGTH_SHORT).show();
                 return true;
             }
 
             if (menuTitle.equals("삭제")) {
-                Toast.makeText(
-                        this,
-                        "댓글 삭제 API 연결 예정",
-                        Toast.LENGTH_SHORT
-                ).show();
+                Toast.makeText(this, "댓글 삭제 API 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
 
+            if (menuTitle.equals("신고")) {
+                Toast.makeText(this, "댓글 신고 기능 연결 예정", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+
+            if (menuTitle.equals("차단")) {
+                Toast.makeText(this, "댓글 작성자 차단 기능 연결 예정", Toast.LENGTH_SHORT).show();
                 return true;
             }
 
