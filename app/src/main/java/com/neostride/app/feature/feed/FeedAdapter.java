@@ -24,6 +24,8 @@ import com.neostride.app.R;
 import com.neostride.app.feature.feed.model.FeedItem;
 import com.neostride.app.feature.feed.repository.FeedRepository;
 import com.neostride.app.feature.mypage.MyPageActivity;
+import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.runnerpage.RunnerPageActivity;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -70,9 +72,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
     public void onBindViewHolder(@NonNull FeedViewHolder holder, int position) {
         FeedItem item = feedItemList.get(position);
 
-        // 현재 FeedItem에 feedId가 없으므로 임시로 position 기반 ID를 사용함
-        // 나중에 FeedItem에 feedId 필드를 추가하면 item.getFeedId()로 변경하면 됨
-        Long feedId = getTemporaryFeedId(position);
+        Long feedId = item.getFeedId();
 
         // 기본 텍스트 데이터를 화면에 표시함
         holder.tvUsername.setText(item.getUsername());
@@ -92,7 +92,13 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         bindProfileImage(holder, item);
 
         // 태그 버튼 클릭 시 Repository를 통해 태그 목록을 가져옴
-        holder.tvTagCount.setOnClickListener(v -> showTaggedUserDialog(feedId, item));
+        holder.tvTagCount.setOnClickListener(
+                v -> showTaggedUserDialog(
+                        feedId,
+                        item,
+                        holder.itemView.getContext()
+                )
+        );
 
         // 지도 표시 여부를 설정함
         if (item.isMapVisible()
@@ -164,6 +170,11 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
 
         // 북마크 상태를 설정함
         boolean isBookmarked = bookmarkedPositions.contains(position);
+
+        holder.ivBookmark.setImageResource(
+                isBookmarked ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark
+        );
+
         holder.ivBookmark.setImageTintList(
                 ColorStateList.valueOf(
                         isBookmarked ? Color.parseColor("#B8FF06") : Color.WHITE
@@ -224,10 +235,20 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         holder.layoutFeedBody.setOnClickListener(detailClickListener);
         holder.layoutRecordArea.setOnClickListener(detailClickListener);
 
-        // 프로필 또는 닉네임 클릭 시 해당 유저 프로필/마이페이지로 이동함
+        // 프로필 또는 닉네임 클릭 시 내 글이면 마이페이지, 남의 글이면 러너페이지로 이동함
         View.OnClickListener profileClickListener = v -> {
-            Intent intent = new Intent(context, MyPageActivity.class);
-            intent.putExtra("username", item.getUsername());
+            Long writerId = item.getWriterId();
+            int myId = TokenManager.getUserId(context);
+
+            if (writerId == null || writerId == myId) {
+                Intent intent = new Intent(context, MyPageActivity.class);
+                context.startActivity(intent);
+                return;
+            }
+
+            Intent intent = new Intent(context, RunnerPageActivity.class);
+            intent.putExtra("user_id", writerId.intValue());
+            intent.putExtra("nickname", item.getUsername());
             context.startActivity(intent);
         };
 
@@ -301,7 +322,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
     /*
      * 태그된 사람 목록을 보여주는 함수임
      */
-    private void showTaggedUserDialog(Long feedId, FeedItem item) {
+    private void showTaggedUserDialog(Long feedId, FeedItem item, Context context) {
         if (item.getTagCount() <= 0) {
             Toast.makeText(
                     context,
@@ -311,7 +332,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
             return;
         }
 
-        FeedRepository feedRepository = new FeedRepository();
+        FeedRepository feedRepository = new FeedRepository(context);
 
         feedRepository.getTaggedUsers(
                 feedId,
@@ -356,12 +377,6 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         );
     }
 
-    /*
-     * 현재 FeedItem에 feedId 필드가 없으므로 임시 feedId를 만드는 함수임
-     */
-    private Long getTemporaryFeedId(int position) {
-        return (long) position + 1L;
-    }
 
     /*
      * dp 값을 px 값으로 변환하는 함수임

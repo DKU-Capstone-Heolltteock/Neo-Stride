@@ -42,8 +42,7 @@
         android:id="@+id/community_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@+id/layout_top_bar"
-        android:layout_above="@+id/bottom_layout" />
+        android:layout_below="@+id/layout_top_bar" />
 
     <LinearLayout
         android:id="@+id/bottom_layout"

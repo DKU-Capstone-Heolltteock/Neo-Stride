@@ -6,6 +6,7 @@ import com.neostride.app.feature.mypage.model.CommunityContentResponse;
 import com.neostride.app.feature.runnerpage.api.RunnerPageService;
 import com.neostride.app.feature.runnerpage.model.RunnerProfileResponse;
 
+
 import java.util.List;
 
 import retrofit2.Call;
@@ -21,9 +22,14 @@ public class RunnerPageRepository {
 
     private final RunnerPageService apiService;
 
+
     public RunnerPageRepository() {
         this.apiService = ApiClient.getInstance().create(RunnerPageService.class);
     }
+    //임시목서버
+    /*public RunnerPageRepository() {
+        this.apiService = MockApiClient.getInstance().create(RunnerPageService.class);
+    }*/
 
     // 러너 프로필을 조회해 Retrofit Callback으로 반환
     public void getRunnerProfile(int userId, Callback<RunnerProfileResponse> callback) {

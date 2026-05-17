@@ -5,14 +5,17 @@
     android:orientation="vertical"
     android:background="#111111">
 
+    <!-- 검색 상단 패널 -->
     <LinearLayout
+        android:id="@+id/layout_search_top_panel"
         android:layout_width="match_parent"
-        android:layout_height="158dp"
+        android:layout_height="130dp"
         android:orientation="vertical"
-        android:background="#202020"
+        android:background="@drawable/bg_search_top_panel"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:paddingTop="52dp">
+        android:paddingTop="24dp"
+        android:elevation="2dp">
 
         <EditText
             android:id="@+id/et_search"
@@ -24,6 +27,8 @@
             android:drawableTint="#B6FF3B"
             android:singleLine="true"
             android:textColor="#FFFFFF"
+            android:textColorHint="#777777"
+            android:hint=""
             android:paddingStart="14dp"
             android:paddingEnd="16dp" />
 
@@ -146,75 +151,82 @@
 
     </LinearLayout>
 
+    <!-- 팁 카테고리 버튼 영역 -->
     <LinearLayout
         android:id="@+id/layout_tip_category"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="58dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         android:background="#202020"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         android:visibility="gone">
 
         <TextView
             android:id="@+id/btn_tip_all"
-            android:layout_width="52dp"
-            android:layout_height="28dp"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
             android:gravity="center"
             android:text="전체"
             android:textStyle="bold"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:textColor="#000000"
-            android:background="@drawable/bg_tip_category_selected" />
+            android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/btn_tip_free"
-            android:layout_width="52dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
             android:gravity="center"
             android:text="자유"
             android:textStyle="bold"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:textColor="#000000"
-            android:background="@drawable/bg_tip_category_unselected" />
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/btn_tip_training"
-            android:layout_width="52dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
             android:gravity="center"
             android:text="훈련"
             android:textStyle="bold"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:textColor="#000000"
-            android:background="@drawable/bg_tip_category_unselected" />
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/btn_tip_course"
-            android:layout_width="52dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
             android:gravity="center"
             android:text="코스"
             android:textStyle="bold"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:textColor="#000000"
-            android:background="@drawable/bg_tip_category_unselected" />
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp" />
 
         <TextView
             android:id="@+id/btn_tip_gear"
-            android:layout_width="52dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="8dp"
+            android:layout_width="0dp"
+            android:layout_height="36dp"
+            android:layout_weight="1"
             android:gravity="center"
             android:text="장비"
             android:textStyle="bold"
-            android:textSize="13sp"
+            android:textSize="14sp"
             android:textColor="#000000"
-            android:background="@drawable/bg_tip_category_unselected" />
+            android:layout_marginStart="4dp" />
 
     </LinearLayout>
 
@@ -224,8 +236,10 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:background="#111111"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="10dp" />
+        android:paddingStart="0dp"
+        android:paddingEnd="0dp"
+        android:paddingTop="18dp"
+        android:paddingBottom="120dp"
+        android:clipToPadding="false" />
 
 </LinearLayout>

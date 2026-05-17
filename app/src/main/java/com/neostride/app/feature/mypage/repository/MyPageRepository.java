@@ -1,7 +1,5 @@
 package com.neostride.app.feature.mypage.repository;
 
-import android.util.Log;
-
 import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.feature.mypage.api.MyPageService;
 import com.neostride.app.feature.mypage.model.CommunityContentResponse;
@@ -9,7 +7,6 @@ import com.neostride.app.feature.mypage.model.UserProfileResponse;
 
 import java.util.List;
 
-import retrofit2.Call;
 import retrofit2.Callback;
 
 
@@ -20,9 +17,14 @@ import retrofit2.Callback;
 public class MyPageRepository {
     private MyPageService apiService;
 
+
     public MyPageRepository() {
         this.apiService = ApiClient.getInstance().create(MyPageService.class);
     }
+    //아래는 목서버연결
+    /*public MyPageRepository() {
+        this.apiService = MockApiClient.getInstance().create(MyPageService.class);
+    }*/
 
     // 현재 사용자 프로필 정보를 조회한다.
     public void getUserProfile(Callback<UserProfileResponse> callback) {

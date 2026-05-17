@@ -3,7 +3,7 @@
 
     <!-- 바깥 네온 윤곽 -->
     <item>
-        <shape android:shape="rectangle">
+        <shape>
             <solid android:color="#050505" />
             <corners android:radius="28dp" />
             <stroke
@@ -19,7 +19,7 @@
         android:right="2dp"
         android:bottom="2dp">
 
-        <shape android:shape="rectangle">
+        <shape>
             <solid android:color="#242424" />
             <corners android:radius="26dp" />
             <stroke

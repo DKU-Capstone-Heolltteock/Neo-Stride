@@ -19,8 +19,9 @@ import android.widget.Toast;
 import androidx.appcompat.widget.SwitchCompat;
 
 import com.neostride.app.R;
+import com.neostride.app.feature.feed.model.FeedResponse;
 import com.neostride.app.feature.feed.model.FeedUploadRequest;
-import com.neostride.app.feature.feed.model.FeedUploadResponse;
+import com.neostride.app.feature.feed.model.TagUser;
 import com.neostride.app.feature.feed.repository.FeedRepository;
 import com.neostride.app.feature.running.model.RunningRecordResponse;
 
@@ -44,6 +45,9 @@ public class FeedUploadDialog {
     private LinearLayout layoutSelectedPhotos;
 
     private final ArrayList<Uri> selectedImageUris = new ArrayList<>();
+
+    // 태그 선택된 사용자 ID 목록을 저장함
+    private final ArrayList<Long> selectedTaggedUserIds = new ArrayList<>();
 
     private TextView tvPrivacyValue;
     private EditText etFeedTitle;
@@ -122,11 +126,19 @@ public class FeedUploadDialog {
         // 태그할 사람 선택 다이얼로그를 표시함
         layoutTagPeople.setOnClickListener(v -> {
             TagPeopleDialog tagDialog =
-                    new TagPeopleDialog(context, selectedCount -> {
-                        selectedTagCount = selectedCount;
+                    new TagPeopleDialog(context, selectedUsers -> {
+                        selectedTaggedUserIds.clear();
+
+                        for (TagUser user : selectedUsers) {
+                            if (user.getUserId() != null) {
+                                selectedTaggedUserIds.add(user.getUserId());
+                            }
+                        }
+
+                        selectedTagCount = selectedTaggedUserIds.size();
 
                         tvTagCount.setVisibility(android.view.View.VISIBLE);
-                        tvTagCount.setText(String.valueOf(selectedCount));
+                        tvTagCount.setText(String.valueOf(selectedTagCount));
                     });
 
             tagDialog.show();
@@ -175,21 +187,37 @@ public class FeedUploadDialog {
                 convertPrivacyToServerValue(tvPrivacyValue.getText().toString()),
                 mapVisible,
                 mapVisible ? routeMapImageUri : null,
-                new ArrayList<>(),
+                new ArrayList<>(selectedTaggedUserIds),
                 convertImageUrisToStrings(),
                 recordData.getDistance(),
                 formatRunningTime((int) recordData.getTime()),
                 formatPace(recordData.getPace()),
                 selectedTagCount
         );
-
-        FeedRepository feedRepository = new FeedRepository();
+        //임시로 로그찍음
+        android.util.Log.e(
+                "FeedUploadCheck",
+                "request = {"
+                        + "\"title\":\"" + title + "\", "
+                        + "\"content\":\"" + content + "\", "
+                        + "\"privacy\":\"" + convertPrivacyToServerValue(tvPrivacyValue.getText().toString()) + "\", "
+                        + "\"mapVisible\":" + mapVisible + ", "
+                        + "\"routeMapImageUri\":\"" + (mapVisible ? routeMapImageUri : null) + "\", "
+                        + "\"taggedUserIds\":" + selectedTaggedUserIds + ", "
+                        + "\"imageUrls\":" + convertImageUrisToStrings() + ", "
+                        + "\"distance\":" + recordData.getDistance() + ", "
+                        + "\"runningTime\":\"" + formatRunningTime((int) recordData.getTime()) + "\", "
+                        + "\"pace\":\"" + formatPace(recordData.getPace()) + "\", "
+                        + "\"tagCount\":" + selectedTagCount
+                        + "}"
+        );
+        FeedRepository feedRepository = new FeedRepository(context);
 
         feedRepository.uploadFeed(
                 request,
-                new FeedRepository.RepositoryCallback<FeedUploadResponse>() {
+                new FeedRepository.RepositoryCallback<FeedResponse>() {
                     @Override
-                    public void onSuccess(FeedUploadResponse result) {
+                    public void onSuccess(FeedResponse result) {
                         if (onFeedUploadedListener != null) {
                             onFeedUploadedListener.onFeedUploaded(result);
                         }
@@ -301,7 +329,9 @@ public class FeedUploadDialog {
      * 화면에 표시되는 공개 범위 문구를 서버용 값으로 변환하는 함수임
      */
     private String convertPrivacyToServerValue(String privacyText) {
-        switch (privacyText) {
+        String text = privacyText.trim();
+
+        switch (text) {
             case "나만 보기":
                 return "PRIVATE";
 
@@ -311,13 +341,18 @@ public class FeedUploadDialog {
 
             case "뱃지홀더":
             case "뱃지홀더에게만":
+            case "배지홀더":
+            case "배지홀더에게만":
                 return "BADGE_HOLDER";
 
+            case "전체":
             case "모두":
-            case "모두에게만":
+            case "전체 공개":
+            case "공개":
                 return "PUBLIC";
 
             default:
+                android.util.Log.e("FeedUploadCheck", "알 수 없는 공개범위 값 = " + privacyText);
                 return "FRIEND";
         }
     }
@@ -379,6 +414,6 @@ public class FeedUploadDialog {
      * 피드 업로드 성공 결과를 외부로 전달하기 위한 인터페이스임
      */
     public interface OnFeedUploadedListener {
-        void onFeedUploaded(FeedUploadResponse response);
+        void onFeedUploaded(FeedResponse response);
     }
 }

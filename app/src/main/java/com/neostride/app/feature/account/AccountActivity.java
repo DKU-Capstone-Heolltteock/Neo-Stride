@@ -99,6 +99,8 @@ public class AccountActivity extends AppCompatActivity {
         setContentView(R.layout.activity_account);
 
         accountApi = ApiClient.getInstance().create(AccountApi.class);
+        //목서버 연결용
+        //accountApi = MockApiClient.getInstance().create(AccountApi.class);
 
         initViews();
         fetchAccountInfo();

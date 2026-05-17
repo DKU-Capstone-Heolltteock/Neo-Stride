@@ -124,6 +124,8 @@ public class BadgeActivity extends AppCompatActivity {
         BadgeService service = ApiClient.getInstance().create(BadgeService.class);
         BadgeRepository repository = new BadgeRepository(service);
         repository.fetchBadgeDetail(this::updateBadgeUI);
+        /*BadgeService service = MockApiClient.getInstance().create(BadgeService.class);
+        BadgeRepository repository = new BadgeRepository(service);임시 목서버*/
     }
 
     // ─── NONE 등급일 때 1km 이상 기록 중 최고 페이스 기록을 서버에서 조회해 UI에 표시 ───

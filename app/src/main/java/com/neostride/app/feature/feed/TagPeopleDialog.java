@@ -15,20 +15,27 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.neostride.app.R;
 import com.neostride.app.feature.feed.model.TagUser;
+import com.neostride.app.feature.feed.repository.FeedRepository;
 
 import java.util.ArrayList;
 import java.util.List;
 
+/*
+ * 피드 업로드 시 태그할 친구를 선택하는 다이얼로그 클래스임
+ * 친구 목록 API를 통해 태그 가능한 사용자 목록을 불러오고,
+ * 선택된 사용자를 칩 형태로 표시함
+ */
 public class TagPeopleDialog {
 
     public interface OnTagSelectedListener {
-        void onTagSelected(int count);
+        void onTagSelected(List<TagUser> selectedUsers);
     }
 
     private final Context context;
@@ -101,12 +108,8 @@ public class TagPeopleDialog {
 
         rvTagPeople.setAdapter(adapter);
 
-        /*
-         * TODO:
-         * 서버 친구 목록 API가 완성되면 이 부분을 서버 응답으로 교체하면 됨
-         * 지금은 화면 동작 확인용 임시 데이터임
-         */
-        loadTempUsers();
+        // 친구 목록 API를 호출해서 태그 가능한 사용자 목록을 불러옴
+        loadFriendUsers();
 
         etSearchPeople.addTextChangedListener(new TextWatcher() {
             @Override
@@ -136,27 +139,50 @@ public class TagPeopleDialog {
         });
 
         btnDone.setOnClickListener(v -> {
-            listener.onTagSelected(selectedUserList.size());
+            listener.onTagSelected(new ArrayList<>(selectedUserList));
             dialog.dismiss();
         });
-
         dialog.show();
     }
 
-    private void loadTempUsers() {
-        /*
-         * 서버 API 연결 전까지 태그 가능한 사용자 목록을 빈 화면으로 둠
-         *
-         * TODO:
-         * GET /api/users/taggable?keyword=
-         * 서버 API 완성 후 응답 데이터를 originUserList, visibleUserList에 추가하면 됨
-         */
-        originUserList.clear();
-        visibleUserList.clear();
+    /*
+     * 태그 가능한 친구 목록을 서버 또는 Mock 서버에서 불러오는 함수임
+     */
+    private void loadFriendUsers() {
+        FeedRepository feedRepository = new FeedRepository(context);
 
-        adapter.notifyDataSetChanged();
+        feedRepository.getFriendList(new FeedRepository.RepositoryCallback<List<TagUser>>() {
+            @Override
+            public void onSuccess(List<TagUser> data) {
+                originUserList.clear();
+                visibleUserList.clear();
+
+                if (data != null) {
+                    originUserList.addAll(data);
+                    visibleUserList.addAll(data);
+                }
+
+                adapter.notifyDataSetChanged();
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(
+                        context,
+                        message,
+                        Toast.LENGTH_SHORT
+                ).show();
+
+                originUserList.clear();
+                visibleUserList.clear();
+                adapter.notifyDataSetChanged();
+            }
+        });
     }
 
+    /*
+     * 사용자를 선택하거나 선택 해제하는 함수임
+     */
     private void toggleUser(TagUser user) {
         TagUser selectedTarget = null;
 
@@ -174,13 +200,17 @@ public class TagPeopleDialog {
         }
     }
 
+    /*
+     * 검색어에 따라 사용자 목록을 필터링하는 함수임
+     */
     private void filterUsers(String keyword) {
         String lowerKeyword = keyword.toLowerCase().trim();
 
         visibleUserList.clear();
 
         for (TagUser user : originUserList) {
-            if (user.getNickname().toLowerCase().contains(lowerKeyword)) {
+            if (user.getNickname() != null
+                    && user.getNickname().toLowerCase().contains(lowerKeyword)) {
                 visibleUserList.add(user);
             }
         }
@@ -188,6 +218,9 @@ public class TagPeopleDialog {
         adapter.notifyDataSetChanged();
     }
 
+    /*
+     * 선택된 사용자들을 상단 칩 형태로 다시 그리는 함수임
+     */
     private void renderSelectedTags() {
         layoutSelectedTags.removeAllViews();
 
@@ -221,6 +254,9 @@ public class TagPeopleDialog {
         }
     }
 
+    /*
+     * 선택된 사용자 칩 배경을 만드는 함수임
+     */
     private GradientDrawable createChipBackground() {
         GradientDrawable drawable = new GradientDrawable();
 
@@ -231,6 +267,9 @@ public class TagPeopleDialog {
         return drawable;
     }
 
+    /*
+     * dp 값을 px 값으로 변환하는 함수임
+     */
     private int dp(int value) {
         return (int) (
                 value *
