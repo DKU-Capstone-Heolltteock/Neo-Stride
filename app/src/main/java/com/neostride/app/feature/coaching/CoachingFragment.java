@@ -430,12 +430,24 @@ public class CoachingFragment extends Fragment {
 
                 // 상태 아이콘 설정 (기존 switch 문 로직 통합)
                 if (plan.status.equals("completed")) {
+                    // 거리: 완료 시점이면 목표 거리 달성한 것 → 초록 체크
                     ivDistStatus.setImageResource(R.drawable.ic_check_circle);
                     ivDistStatus.setColorFilter(0xFFCCFF00);
                     tvDistStatus.setTextColor(0xFFCCCCCC);
-                    ivPaceStatus.setImageResource(R.drawable.ic_check_circle);
-                    ivPaceStatus.setColorFilter(0xFFCCFF00);
-                    tvPaceStatus.setTextColor(0xFFCCCCCC);
+
+                    // 페이스: 실제 소요 시간이 목표 시간을 초과했으면 미달성 (빨간 X)
+                    int targetTimeSec = (int) (plan.distanceKm * plan.paceSecPerKm);
+                    boolean paceAchieved = plan.completedElapsedSec == 0
+                            || plan.completedElapsedSec <= targetTimeSec;
+                    if (paceAchieved) {
+                        ivPaceStatus.setImageResource(R.drawable.ic_check_circle);
+                        ivPaceStatus.setColorFilter(0xFFCCFF00);
+                        tvPaceStatus.setTextColor(0xFFCCCCCC);
+                    } else {
+                        ivPaceStatus.setImageResource(R.drawable.ic_x_circle);
+                        ivPaceStatus.setColorFilter(0xFFFF3B30);
+                        tvPaceStatus.setTextColor(0xFFCCCCCC); // 글씨는 기본 회색 유지
+                    }
                 } else if (plan.status.equals("missed")) {
                     ivDistStatus.setImageResource(R.drawable.ic_x_circle);
                     ivDistStatus.setColorFilter(0xFFFF3B30);
@@ -762,6 +774,7 @@ public class CoachingFragment extends Fragment {
                         plan.status = planDay.getStatus(); // 완료(completed), 예정(pending) 등의 상태
                         plan.description = planDay.getDescription(); // 훈련 설명 (예: "토요일 첫 코칭")
                         plan.aiFeedbackComment = planDay.getAiFeedbackComment(); // AI가 남긴 코멘트
+                        plan.completedElapsedSec = planDay.getActualDurationSec(); // 실제 완료 시간 (있으면) - 러닝 탭 완료 화면에서 초과 시간 표시용
 
                         // 4. 완성된 데이터를 로컬 저장소(SharedPreferences)에 날짜별로 안전하게 저장합니다.
                         GoalStorage.savePlan(requireContext(), key, plan);

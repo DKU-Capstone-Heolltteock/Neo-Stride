@@ -1,7 +1,11 @@
 package com.neostride.app.feature.auth;
 
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.StyleSpan;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -65,6 +69,13 @@ public class LoginActivity extends AppCompatActivity {
         btnLogin = findViewById(R.id.btn_login);
         tvRegister = findViewById(R.id.tv_register);
         tvFindAccount = findViewById(R.id.tv_find);
+
+        // "Register here" 부분만 굵게 표시
+        String registerText = "Don't have an account yet? Register here";
+        SpannableString spannable = new SpannableString(registerText);
+        int boldStart = registerText.indexOf("Register here");
+        spannable.setSpan(new StyleSpan(Typeface.BOLD), boldStart, registerText.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        tvRegister.setText(spannable);
 
         // Repository 생성함
         authRepository = new AuthRepository();

@@ -160,6 +160,7 @@ public class GoalStorage {
         public String paceStr;
         public String description;
         public String aiFeedbackComment;
+        public long completedElapsedSec = 0;  // 목표 완료 시 총 경과 시간(초) - 완료 화면 복원용
 
         /**
          * 저장된 status가 "pending"이더라도 해당 날짜가 이미 지났으면 "missed"를 반환한다.

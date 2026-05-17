@@ -36,6 +36,9 @@ public class PlanDayResponse implements Serializable {
     @SerializedName("ai_feedback_at")
     private String aiFeedbackAt;
 
+    @SerializedName("actual_duration_sec")
+    private int actualDurationSec;          // 실제 완료 시 소요된 총 시간(초) — 완료 화면에 -MM:SS 초과 표시용
+
     // Getter
     public int getPlanDayId() { return planDayId; }
     public String getPlanDate() { return planDate; }
@@ -45,6 +48,7 @@ public class PlanDayResponse implements Serializable {
     public boolean isCompleted() { return isCompleted; }
     public String getAiFeedbackComment() { return aiFeedbackComment; }
     public String getAiFeedbackAt() { return aiFeedbackAt; }
+    public int getActualDurationSec() { return actualDurationSec; }
 
     // 편의 메서드
     public String getFormattedPace() {

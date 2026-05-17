@@ -1,18 +1,22 @@
 package com.neostride.app.feature.running;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Build;
-import android.os.PowerManager;
-import android.provider.Settings;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -25,6 +29,8 @@ import androidx.viewpager2.widget.ViewPager2;
 import android.widget.ProgressBar;
 import android.graphics.PorterDuff;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.cardview.widget.CardView;
@@ -77,7 +83,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     // ── 지도 및 위치 ──
     private GoogleMap mMap;
     private FusedLocationProviderClient fusedLocationClient;
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1000;
+    private ActivityResultLauncher<String> locationPermissionLauncher;
 
     // ── 레포지터리 ──
     private RunningRepository runningRepository;
@@ -107,6 +113,10 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private double targetDistanceKm = 3.5;
     private int targetTimeSeconds = 1299;
 
+    // ── 오늘 코칭 플랜 날짜 키 및 서버 plan_day_id ──
+    private String todayPlanKey = "";
+    private Integer todayPlanServerId = null; // 서버 plan_day_id (null이면 로컬 플랜)
+
     // ── GPS 경로 및 거리 집계 ──
     private List<LatLng> routePoints = new ArrayList<>();
     private List<String> routeTimestamps = new ArrayList<>();
@@ -115,6 +125,21 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private float totalDistanceMeters = 0f;
     private float finalPaceMinPerKm = 0f;
     private float finalCalories = 0f;
+
+    // ── 화면 꺼짐/켜짐 상태 ──
+    private boolean isScreenOn = true;
+    private final BroadcastReceiver screenStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                isScreenOn = false;
+            } else if (Intent.ACTION_SCREEN_ON.equals(intent.getAction())) {
+                isScreenOn = true;
+                // 화면 켜지면 쌓인 GPS 포인트를 한 번에 다시 그림
+                if (isRunning && mMap != null) drawColoredRoute();
+            }
+        }
+    };
 
     // ── GPS 필터 상수 ──
     private static final float MIN_DISTANCE_FILTER = 1f;   // 최소 이동 거리(m)
@@ -131,6 +156,61 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     // ── 페이스 임계값 (구간 평균 기반으로 동적 계산) ──
     private float paceThresholdVerySlow, paceThresholdSlow, paceThresholdFast, paceThresholdVeryFast;
     private boolean paceThresholdsSet = false;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // 위치 권한 런처 등록 — 허용 즉시 지도 갱신
+        locationPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                isGranted -> {
+                    if (!isGranted || !isAdded()) return;
+                    // 허용됐을 때 지도가 이미 준비됐으면 즉시 내 위치로 이동
+                    if (mMap != null) {
+                        try { mMap.setMyLocationEnabled(true); } catch (SecurityException ignored) {}
+                        moveToCurrentLocation(false);
+                    }
+                    // mMap이 아직 null이면 onMapReady()에서 자동 처리됨
+
+                    // 위치 권한 허용 직후 → 배터리 최적화 제외 요청 (한 번만)
+                    requestBatteryOptimizationExemptionOnce();
+                }
+        );
+    }
+
+    // ─── 코칭 탭으로 이동 — MainActivity의 tab_coaching 클릭을 프로그램적으로 트리거 ───
+    private void navigateToCoachingTab() {
+        if (!isAdded()) return;
+        View coachingTab = requireActivity().findViewById(R.id.tab_coaching);
+        if (coachingTab != null) coachingTab.performClick();
+    }
+
+    // ─── 배터리 최적화 제외 요청 (백그라운드 크래쉬 방지) — 앱 설치 후 한 번만 표시 ───
+    private void requestBatteryOptimizationExemptionOnce() {
+        if (!isAdded() || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+
+        SharedPreferences prefs = requireContext()
+                .getSharedPreferences("neo_stride_prefs", Context.MODE_PRIVATE);
+        if (prefs.getBoolean("battery_opt_asked", false)) return; // 이미 물어봤으면 패스
+
+        PowerManager pm = (PowerManager) requireContext().getSystemService(Context.POWER_SERVICE);
+        if (pm == null) return;
+
+        String pkg = requireContext().getPackageName();
+        if (pm.isIgnoringBatteryOptimizations(pkg)) {
+            prefs.edit().putBoolean("battery_opt_asked", true).apply();
+            return; // 이미 제외돼 있으면 묻지 않음
+        }
+
+        try {
+            Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + pkg));
+            startActivity(intent);
+            prefs.edit().putBoolean("battery_opt_asked", true).apply();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
     @Nullable
     @Override
@@ -208,7 +288,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             layoutStopWarning.setVisibility(View.GONE);
             stopTracking(false);
         });
-        if (btnGoalCompleted != null) btnGoalCompleted.setOnClickListener(view -> resetToReady());
+        if (btnGoalCompleted != null) btnGoalCompleted.setOnClickListener(view -> navigateToCoachingTab());
     }
 
     // ─── 러닝 모드 ViewPager2 설정: 자유 러닝 / 오늘의 목표 카드 구성 및 자동 슬라이드 ───
@@ -218,39 +298,70 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
         // 오늘 날짜 코칭 목표 확인
         Calendar today = Calendar.getInstance();
-        String key = today.get(Calendar.YEAR) + "-" + (today.get(Calendar.MONTH) + 1) + "-" + today.get(Calendar.DAY_OF_MONTH);
-        GoalStorage.PlanData plan = GoalStorage.getPlan(requireContext(), key);
+        todayPlanKey = today.get(Calendar.YEAR) + "-" + (today.get(Calendar.MONTH) + 1) + "-" + today.get(Calendar.DAY_OF_MONTH);
+        GoalStorage.PlanData plan = GoalStorage.getPlan(requireContext(), todayPlanKey);
+        boolean isCompletedPlan = false;
 
         if (plan != null) {
-            modes.add(new RunningModeItem("측정 시작", "오늘의 목표", 0xFFFF9500, true));
             targetDistanceKm = plan.distanceKm;
             targetTimeSeconds = (int)(plan.distanceKm * plan.paceSecPerKm);
+
+            // 서버에서 가져온 플랜이면 plan_day_id 보존 (AI Coaching 라벨 표시에 필요)
+            if (plan.goalId != null && plan.goalId.startsWith("goal_server_")) {
+                todayPlanServerId = plan.planId;
+            } else {
+                todayPlanServerId = null;
+            }
+
+            isCompletedPlan = "completed".equals(plan.status);
+            // 완료 상태면 카드 내용을 "목표 완료 / 코칭 탭에서 확인" 으로 (형광 초록)
+            // 미완료면 기본 "측정 시작 / 오늘의 목표" (오렌지)
+            if (isCompletedPlan) {
+                modes.add(new RunningModeItem("목표 완료", "코칭 탭에서 확인", 0xFFCCFF00, true));
+            } else {
+                modes.add(new RunningModeItem("측정 시작", "오늘의 목표", 0xFFFF9500, true));
+            }
         }
 
-        // 1. 어댑터 설정
+        // 1. 어댑터 설정 — 완료된 플랜이어도 ViewPager는 살아있어야 좌우 슬라이드 가능
+        final boolean planCompleted = isCompletedPlan;
         viewPagerRunningMode.setAdapter(new RunningModeAdapter(modes, (item, position) -> {
-            if (viewPagerRunningMode.getCurrentItem() == position) {
-                isCoachingRun = item.isCoaching;
-                layoutStartButtons.setVisibility(View.GONE);
-                layoutRunningControls.setVisibility(View.VISIBLE);
-                layoutCoachingGoals.setVisibility(isCoachingRun ? View.VISIBLE : View.GONE);
-                startTracking();
+            if (viewPagerRunningMode.getCurrentItem() != position) return;
+            // 완료된 코칭 카드(1번)를 누르면 코칭 탭으로 이동
+            if (planCompleted && item.isCoaching) {
+                navigateToCoachingTab();
+                return;
             }
+            isCoachingRun = item.isCoaching;
+            layoutStartButtons.setVisibility(View.GONE);
+            layoutRunningControls.setVisibility(View.VISIBLE);
+            layoutCoachingGoals.setVisibility(isCoachingRun ? View.VISIBLE : View.GONE);
+            startTracking();
         }));
 
-        // 2. 페이지 변경 콜백 설정
+        // 2. 페이지 변경 콜백 설정 — plan 상태는 매번 storage에서 최신값 읽음 (handleGoalCompleted 후에도 대응)
         viewPagerRunningMode.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
             @Override public void onPageSelected(int position) {
                 if (modes.get(position).isCoaching) {
                     layoutCoachingGoals.setVisibility(View.VISIBLE);
-                    tvGoalDistanceLabel.setText(String.format("%.2fkm", targetDistanceKm));
-                    progressGoalDistance.setProgress(0);
-                    if (targetTimeSeconds > 0) {
-                        ((View) progressGoalTime.getParent()).setVisibility(View.VISIBLE);
-                        tvGoalTimeLabel.setText(String.format("%02d:%02d", targetTimeSeconds / 60, targetTimeSeconds % 60));
-                        progressGoalTime.setProgress(0);
+                    GoalStorage.PlanData currentPlan = todayPlanKey.isEmpty() ? null
+                            : GoalStorage.getPlan(requireContext(), todayPlanKey);
+                    boolean isCompletedNow = currentPlan != null && "completed".equals(currentPlan.status);
+                    if (isCompletedNow) {
+                        renderCompletedGauges(currentPlan);
                     } else {
-                        ((View) progressGoalTime.getParent()).setVisibility(View.GONE);
+                        // 미완료 — 기본 표시 (게이지 비움)
+                        tvGoalDistanceLabel.setText(String.format("%.2fkm", targetDistanceKm));
+                        progressGoalDistance.getProgressDrawable().clearColorFilter();
+                        progressGoalDistance.setProgress(0);
+                        if (targetTimeSeconds > 0) {
+                            ((View) progressGoalTime.getParent()).setVisibility(View.VISIBLE);
+                            tvGoalTimeLabel.setText(String.format("%02d:%02d", targetTimeSeconds / 60, targetTimeSeconds % 60));
+                            progressGoalTime.getProgressDrawable().clearColorFilter();
+                            progressGoalTime.setProgress(0);
+                        } else {
+                            ((View) progressGoalTime.getParent()).setVisibility(View.GONE);
+                        }
                     }
                 } else {
                     layoutCoachingGoals.setVisibility(View.GONE);
@@ -267,11 +378,11 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             else { page.setScaleX(0.85f); page.setScaleY(0.85f); }
         });
 
-        //  모든 설정이 끝난 후 '자동 슬라이드' 실행
-        if (plan != null && !"completed".equals(plan.status)) {
+        //  모든 설정이 끝난 후 '자동 슬라이드' — 오늘의 목표(1번 인덱스)로 이동
+        // (페이지 변경 콜백 안에서 완료 상태든 미완료든 적절히 그려줌)
+        if (plan != null) {
             viewPagerRunningMode.postDelayed(() -> {
                 if (isAdded() && viewPagerRunningMode != null) {
-                    // 오늘의 목표(1번 인덱스)로 스르륵 이동
                     viewPagerRunningMode.setCurrentItem(1, true);
                 }
             }, 150);
@@ -304,9 +415,12 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         String currentBadge = BadgeTier.getTierNameByRecord(totalDistanceMeters / 1000f, paceSeconds);
 
         // 서버 전송용 Request 객체 생성
+        // 코칭 러닝이면 서버 plan_day_id 전송 → 기록탭 AI Coaching 라벨 표시 연결
+        Integer planId = (isCoachingRun && todayPlanServerId != null) ? todayPlanServerId : null;
+
         RunningRecordRequest request = new RunningRecordRequest(
                 currentUserId,
-                null, // planId (필요시 추가)
+                planId,
                 totalDistanceMeters / 1000f,
                 durationSeconds,
                 paceSeconds,
@@ -405,15 +519,21 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                         handleGoalCompleted();
                         return;
                     }
-                    double remainingKm = Math.max(0, targetDistanceKm - curKm);
-                    tvGoalDistanceLabel.setText(String.format("%.2fkm", remainingKm));
-                    int progress = (int) ((curKm / targetDistanceKm) * 10000);
-                    progressGoalDistance.setProgress(progress);
+                    // 화면 켜진 상태에서만 UI 텍스트/프로그레스 갱신
+                    if (isScreenOn) {
+                        double remainingKm = Math.max(0, targetDistanceKm - curKm);
+                        tvGoalDistanceLabel.setText(String.format("%.2fkm", remainingKm));
+                        int progress = (int) ((curKm / targetDistanceKm) * 10000);
+                        progressGoalDistance.setProgress(progress);
+                    }
                 }
                 routePoints.add(newPoint);
                 routeTimestamps.add(timeStr);
-                drawColoredRoute();
-                if (mMap != null) mMap.animateCamera(CameraUpdateFactory.newLatLng(newPoint));
+                // 화면 켜진 상태에서만 지도 조작 (꺼진 상태에서 Map 조작 시 NaN/Binder 크래시)
+                if (isScreenOn && mMap != null) {
+                    drawColoredRoute();
+                    mMap.animateCamera(CameraUpdateFactory.newLatLng(newPoint));
+                }
             });
         } else {
             lastLocation = location;
@@ -521,32 +641,39 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         tvElapsedTime.setText("00 : 00"); tvDistance.setText("0 m");
     }
 
-    // ─── 배터리 최적화 예외 요청 팝업 표시 (시스템 설정 바로 진입) ───
-    private void requestIgnoreBatteryOptimization() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
-        PowerManager pm = (PowerManager) requireContext().getSystemService(android.content.Context.POWER_SERVICE);
-        if (pm == null || pm.isIgnoringBatteryOptimizations(requireContext().getPackageName())) return;
-        Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-        intent.setData(Uri.parse("package:" + requireContext().getPackageName()));
-        startActivity(intent);
-    }
 
-    // ─── 이번 러닝 등급과 캐시된 등급을 비교해 상승 시 등급 상승 팝업 표시 ───
+    // ─── 이번 러닝 등급과 캐시된 등급을 비교해 상승 시 등급 상승 팝업 표시 (자유 러닝용 - 닫으면 초기화) ───
     private void checkAndShowTierUpgrade() {
         float distanceKm = totalDistanceMeters / 1000f;
         int paceSeconds = (int) (finalPaceMinPerKm * 60);
         BadgeTier newTier = BadgeTier.fromString(BadgeTier.getTierNameByRecord(distanceKm, paceSeconds));
 
         if (newTier != BadgeTier.NONE && newTier.ordinal() > cachedCurrentTier.ordinal()) {
-            showTierUpgradeDialog(cachedCurrentTier, newTier);
+            showTierUpgradeDialog(cachedCurrentTier, newTier, true);
             cachedCurrentTier = newTier;
         } else {
             resetToReady();
         }
     }
 
+    // ─── 코칭 목표 완료 즉시 자동 호출 - 등급 상승이 있을 때만 다이얼로그 표시 (UI는 유지) ───
+    private void autoShowTierUpgradeIfAny() {
+        float distanceKm = totalDistanceMeters / 1000f;
+        int paceSeconds = (int) (finalPaceMinPerKm * 60);
+        BadgeTier newTier = BadgeTier.fromString(BadgeTier.getTierNameByRecord(distanceKm, paceSeconds));
+
+        if (newTier != BadgeTier.NONE && newTier.ordinal() > cachedCurrentTier.ordinal()) {
+            BadgeTier oldTier = cachedCurrentTier;
+            cachedCurrentTier = newTier;
+            showTierUpgradeDialog(oldTier, newTier, false); // 닫아도 초기화 X — 완료 UI 유지
+        }
+        // 등급 변동 없으면 아무것도 하지 않음 (완료 UI 그대로 유지)
+    }
+
     // ─── 이전·새 등급을 pill 배경으로 표시하는 등급 상승 축하 다이얼로그 ───
-    private void showTierUpgradeDialog(BadgeTier oldTier, BadgeTier newTier) {
+    // resetOnDismiss=true: 확인 클릭 시 resetToReady() 실행 (자유 러닝)
+    // resetOnDismiss=false: 확인 클릭 시 다이얼로그만 닫음 (코칭 자동 호출)
+    private void showTierUpgradeDialog(BadgeTier oldTier, BadgeTier newTier, boolean resetOnDismiss) {
         if (!isAdded()) return;
 
         android.view.View dialogView = android.view.LayoutInflater.from(requireContext())
@@ -592,7 +719,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
         dialogView.findViewById(R.id.btn_tier_confirm).setOnClickListener(v -> {
             dialog.dismiss();
-            resetToReady();
+            if (resetOnDismiss) resetToReady();
         });
 
         dialog.show();
@@ -626,7 +753,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    // ─── AI 코칭 목표 달성 시 타이머·GPS 중지 후 형광색 완료 UI 표시 ───
+    // ─── AI 코칭 목표 달성 시 타이머·GPS 중지 후 완료 UI 표시 및 백엔드 전송 ───
     private void handleGoalCompleted() {
         isRunning = false;
         timerHandler.removeCallbacks(timerRunnable);
@@ -634,22 +761,111 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
         if (isPaused) pausedDuration += SystemClock.elapsedRealtime() - pauseStartTime;
 
-        // UI 세리머니 (형광색으로 고정)
+        // 페이스·칼로리 계산 (sendDataToBackend에서 finalPaceMinPerKm·finalCalories 사용)
+        long totalSec = (SystemClock.elapsedRealtime() - startTime - pausedDuration) / 1000;
+        elapsedMillis  = totalSec * 1000;
+        float distanceKm = totalDistanceMeters / 1000f;
+        finalPaceMinPerKm = (distanceKm >= 0.01f) ? (totalSec / 60f) / distanceKm : 0f;
+        finalCalories     = 70.0f * distanceKm * 1.036f;
+
+        // 오늘 플랜 상태를 completed로 저장 → 재진입 시 완료 상태 유지
+        if (!todayPlanKey.isEmpty()) {
+            GoalStorage.PlanData todayPlan = GoalStorage.getPlan(requireContext(), todayPlanKey);
+            if (todayPlan != null) {
+                todayPlan.status = "completed";
+                todayPlan.completedElapsedSec = totalSec;  // 완료 화면 복원용
+                GoalStorage.savePlan(requireContext(), todayPlanKey, todayPlan);
+            }
+        }
+
+        // 백엔드로 기록 전송 — 등급 상승 체크는 btnGoalCompleted 클릭 시점으로 이동
+        // (checkAndShowTierUpgrade가 내부적으로 resetToReady()를 호출해 완료 UI를 초기화시키는 버그 방지)
+        sendDataToBackend();
+
+        // ── UI 세리머니 ──
         int neonGreen = 0xFFCCFF00;
         tvGoalDistanceLabel.setText("0.00km");
         progressGoalDistance.getProgressDrawable().setColorFilter(neonGreen, android.graphics.PorterDuff.Mode.SRC_IN);
         progressGoalDistance.setProgress(10000);
 
-        // 시간 게이지가 활성화되어 있다면 같이 초록색으로
+        // 시간 게이지: 시간 초과 상태였으면 빨간색 + "-MM:SS" 유지, 시간 내 완료면 형광 초록
         if (targetTimeSeconds > 0) {
-            progressGoalTime.getProgressDrawable().setColorFilter(neonGreen, android.graphics.PorterDuff.Mode.SRC_IN);
-            progressGoalTime.setProgress(10000);
+            boolean isOvertime = totalSec > targetTimeSeconds;
+            if (isOvertime) {
+                // 초과 상태를 명시적으로 다시 그려준다 (타이머가 마지막에 못 그렸을 수도 있음)
+                long overtime = totalSec - targetTimeSeconds;
+                tvGoalTimeLabel.setText(String.format("-%02d:%02d", overtime / 60, overtime % 60));
+                progressGoalTime.getProgressDrawable().setColorFilter(0xFFFF4444, android.graphics.PorterDuff.Mode.SRC_IN);
+                progressGoalTime.setProgress(10000);
+            } else {
+                tvGoalTimeLabel.setText("00:00");
+                progressGoalTime.getProgressDrawable().setColorFilter(neonGreen, android.graphics.PorterDuff.Mode.SRC_IN);
+                progressGoalTime.setProgress(10000);
+            }
         }
 
-        // 컨트롤러 숨기고 완료 버튼 노출
+        // 컨트롤러 숨기고 ViewPager 다시 표시 — 오늘의 목표 카드를 "목표 완료" 카드로 갱신
         layoutRunningControls.setVisibility(View.GONE);
-        if (btnGoalCompleted != null) {
-            btnGoalCompleted.setVisibility(View.VISIBLE);
+        if (layoutStartButtons != null) layoutStartButtons.setVisibility(View.VISIBLE);
+        if (btnGoalCompleted != null) btnGoalCompleted.setVisibility(View.GONE);
+
+        // 어댑터를 다시 빌드해 1번 카드를 "목표 완료 / 코칭 탭에서 확인" 으로 교체
+        rebuildViewPagerAsCompleted();
+
+        // 목표 완료 시점에 등급 상승 다이얼로그 자동 표시 (완료 UI는 그대로 유지)
+        autoShowTierUpgradeIfAny();
+    }
+
+    // ─── 라이브 완료 후 ViewPager 카드를 완료 상태로 교체 (setupViewPager와 동일 구조) ───
+    private void rebuildViewPagerAsCompleted() {
+        if (viewPagerRunningMode == null) return;
+        List<RunningModeItem> modes = new ArrayList<>();
+        modes.add(new RunningModeItem("측정 시작", "자유 러닝", 0xFFCCFF00, false));
+        modes.add(new RunningModeItem("목표 완료", "코칭 탭에서 확인", 0xFFCCFF00, true));
+
+        viewPagerRunningMode.setAdapter(new RunningModeAdapter(modes, (item, position) -> {
+            if (viewPagerRunningMode.getCurrentItem() != position) return;
+            if (item.isCoaching) {
+                // 완료된 코칭 카드 → 코칭 탭으로 이동
+                navigateToCoachingTab();
+            } else {
+                // 자유 러닝 카드 → 자유 러닝 시작
+                isCoachingRun = false;
+                layoutStartButtons.setVisibility(View.GONE);
+                layoutRunningControls.setVisibility(View.VISIBLE);
+                layoutCoachingGoals.setVisibility(View.GONE);
+                startTracking();
+            }
+        }));
+
+        viewPagerRunningMode.postDelayed(() -> {
+            if (isAdded() && viewPagerRunningMode != null) {
+                viewPagerRunningMode.setCurrentItem(1, false); // 코칭 카드 위치
+            }
+        }, 100);
+    }
+
+    // ─── 완료 상태 게이지 렌더링: 거리 100% 초록, 시간은 초과면 빨강 / 시간 내면 초록 ───
+    private void renderCompletedGauges(GoalStorage.PlanData plan) {
+        int neonGreen = 0xFFCCFF00;
+
+        // 거리 게이지: 완료(형광 초록 100%)
+        tvGoalDistanceLabel.setText("0.00km");
+        progressGoalDistance.getProgressDrawable().setColorFilter(neonGreen, android.graphics.PorterDuff.Mode.SRC_IN);
+        progressGoalDistance.setProgress(10000);
+
+        // 시간 게이지: 초과면 빨강 + "-MM:SS", 시간 내 완료면 형광 초록 + "00:00"
+        if (targetTimeSeconds > 0) {
+            ((View) progressGoalTime.getParent()).setVisibility(View.VISIBLE);
+            long overtime = plan.completedElapsedSec - targetTimeSeconds;
+            if (plan.completedElapsedSec > 0 && overtime > 0) {
+                tvGoalTimeLabel.setText(String.format("-%02d:%02d", overtime / 60, overtime % 60));
+                progressGoalTime.getProgressDrawable().setColorFilter(0xFFFF4444, android.graphics.PorterDuff.Mode.SRC_IN);
+            } else {
+                tvGoalTimeLabel.setText("00:00");
+                progressGoalTime.getProgressDrawable().setColorFilter(neonGreen, android.graphics.PorterDuff.Mode.SRC_IN);
+            }
+            progressGoalTime.setProgress(10000);
         }
     }
 
@@ -757,14 +973,17 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    // ─── 위치 권한 확인 후 부여 시 내 위치로 카메라 이동, 미부여 시 권한 요청 ───
+    // ─── 위치 권한이 이미 있으면 내 위치로 이동, 없으면 onCreateView에서 이미 요청 중 ───
     private void checkPermissionAndMoveCamera() {
-        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
             if (mMap != null) {
-                mMap.setMyLocationEnabled(true);
+                try { mMap.setMyLocationEnabled(true); } catch (SecurityException ignored) {}
                 moveToCurrentLocation(false);
             }
-        } else { requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE); }
+        }
+        // 권한 없을 때는 onCreateView()의 locationPermissionLauncher가 이미 요청함
+        // → 허용되면 런처 콜백에서 즉시 지도 갱신
     }
 
     // ─── 현재 위치를 1회 조회해 지도 카메라를 이동 (isAnimate=true이면 애니메이션) ───
@@ -781,8 +1000,28 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) checkPermissionAndMoveCamera();
+    public void onResume() {
+        super.onResume();
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        requireContext().registerReceiver(screenStateReceiver, filter);
+
+        // 위치 권한 요청 — onResume에서 처리해야 알림 권한 다이얼로그가 닫힌 뒤 순서대로 뜸
+        // (onCreateView에서 요청하면 알림 다이얼로그와 충돌해 Android가 무시함)
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION);
+        } else {
+            // 위치 권한이 이미 있는 경우 → 바로 배터리 최적화 요청 (한 번만)
+            requestBatteryOptimizationExemptionOnce();
+        }
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        try { requireContext().unregisterReceiver(screenStateReceiver); } catch (Exception ignored) {}
     }
 
     @Override

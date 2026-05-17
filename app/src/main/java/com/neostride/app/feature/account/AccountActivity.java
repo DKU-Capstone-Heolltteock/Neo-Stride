@@ -64,7 +64,7 @@ public class AccountActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Bitmap bitmap = (Bitmap) result.getData().getExtras().get("data");
                     if (bitmap != null) {
-                        ivProfile.setImageBitmap(bitmap);
+                        Glide.with(AccountActivity.this).load(bitmap).circleCrop().into(ivProfile);
                         // TODO: 백엔드 연결 시 multipart 업로드
                     }
                 }

@@ -1,6 +1,7 @@
 package com.neostride.app.feature.mypage;
 
 import android.content.Intent;
+import com.bumptech.glide.Glide;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -87,7 +88,7 @@ public class MyPageActivity extends AppCompatActivity {
             result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Bitmap bitmap = (Bitmap) result.getData().getExtras().get("data");
-                    ivProfile.setImageBitmap(bitmap);
+                    Glide.with(MyPageActivity.this).load(bitmap).circleCrop().into(ivProfile);
                     uploadProfileImageBitmap(bitmap);
                 }
             }
@@ -113,7 +114,7 @@ public class MyPageActivity extends AppCompatActivity {
             result -> {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Uri imageUri = result.getData().getData();
-                    ivProfile.setImageURI(imageUri);
+                    Glide.with(MyPageActivity.this).load(imageUri).circleCrop().into(ivProfile);
                     uploadProfileImageUri(imageUri);
                 }
             }

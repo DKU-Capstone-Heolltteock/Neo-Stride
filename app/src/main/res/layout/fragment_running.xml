@@ -171,14 +171,14 @@
     <!-- 자바 에러(btn_goal_completed)를 해결하는 핵심 부분입니다. -->
     <androidx.cardview.widget.CardView
         android:id="@+id/btn_goal_completed"
-        android:layout_width="match_parent"
+        android:layout_width="175dp"
         android:layout_height="70dp"
-        android:layout_gravity="bottom"
-        android:layout_marginStart="40dp"
-        android:layout_marginEnd="40dp"
-        android:layout_marginBottom="160dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="125dp"
         app:cardBackgroundColor="#CCFF00"
         app:cardCornerRadius="35dp"
+        app:cardElevation="8dp"
+        app:cardPreventCornerOverlap="false"
         android:visibility="gone">
         <LinearLayout
             android:layout_width="match_parent"
@@ -188,16 +188,16 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="오늘의 목표 완료"
+                android:text="목표 완료"
                 android:textColor="#000000"
-                android:textSize="20sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="자세한 정보는 코칭 탭에서 확인"
-                android:textColor="#333333"
-                android:textSize="13sp" />
+                android:text="코칭 탭에서 확인"
+                android:textColor="#000000"
+                android:textSize="12sp" />
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
