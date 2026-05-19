@@ -77,8 +77,8 @@ public class TipDetailActivity extends AppCompatActivity {
     private TextView tvBookmark;
     private TextView tvEmptyComment;
 
-    // 코스 펼치기 버튼 텍스트임
-    private TextView tvCourseToggle;
+    // 코스 펼치기/접기 화살표 아이콘임
+    private ImageView tvCourseToggle;
 
     // 댓글 입력창임
     private EditText etComment;
@@ -99,6 +99,10 @@ public class TipDetailActivity extends AppCompatActivity {
 
     // 코스 지도 이미지임
     private ImageView ivCourseMap;
+
+    // 코스 주소 레이아웃·텍스트뷰임
+    private LinearLayout layoutCourseAddress;
+    private TextView tvCourseAddress;
 
     // 팁 관련 API 호출을 담당하는 Repository임
     private TipRepository tipRepository;
@@ -191,6 +195,8 @@ public class TipDetailActivity extends AppCompatActivity {
         layoutBookmarkArea = findViewById(R.id.layout_tip_detail_bookmark_area);
 
         ivCourseMap = findViewById(R.id.iv_tip_detail_course_map);
+        layoutCourseAddress = findViewById(R.id.layout_tip_detail_course_address);
+        tvCourseAddress = findViewById(R.id.tv_tip_detail_course_address);
 
         etComment = findViewById(R.id.et_tip_detail_comment);
     }
@@ -323,10 +329,11 @@ public class TipDetailActivity extends AppCompatActivity {
         }
 
         if (tvCourseToggle != null) {
-            tvCourseToggle.setText("코스 보기");
+            tvCourseToggle.setRotation(0f); // 접힌 상태 = 아래 화살표
         }
 
         bindCourseMapImage();
+        bindCourseAddress(response.getCourseAddress());
 
         /*
          * 일반 첨부 이미지만 본문 이미지 영역에 표시함
@@ -397,6 +404,20 @@ public class TipDetailActivity extends AppCompatActivity {
     }
 
     /*
+     * 코스 주소를 지도 이미지 아래에 표시함
+     * 주소가 없으면 주소 레이아웃을 숨김
+     */
+    private void bindCourseAddress(String address) {
+        if (layoutCourseAddress == null || tvCourseAddress == null) return;
+        if (address == null || address.trim().isEmpty()) {
+            layoutCourseAddress.setVisibility(View.GONE);
+            return;
+        }
+        tvCourseAddress.setText(address);
+        layoutCourseAddress.setVisibility(View.VISIBLE);
+    }
+
+    /*
      * 코스 보기 버튼을 눌렀을 때 코스 지도 영역을 펼치거나 접는 함수임
      */
     private void toggleCourseMap() {
@@ -418,7 +439,11 @@ public class TipDetailActivity extends AppCompatActivity {
         layoutCourseMap.setVisibility(isCourseExpanded ? View.VISIBLE : View.GONE);
 
         if (tvCourseToggle != null) {
-            tvCourseToggle.setText(isCourseExpanded ? "접기" : "코스 보기");
+            // 펼침 = 위 화살표(180°), 접힘 = 아래 화살표(0°)
+            tvCourseToggle.animate()
+                    .rotation(isCourseExpanded ? 180f : 0f)
+                    .setDuration(200)
+                    .start();
         }
     }
 

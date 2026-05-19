@@ -27,6 +27,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import com.neostride.app.R;
 import com.neostride.app.common.network.TokenManager;
+import com.neostride.app.feature.community.tip.TipCourseDetailDialog;
 import com.neostride.app.feature.main.record.CalendarAdapter;
 import com.neostride.app.feature.main.record.CalendarDayItem;
 import com.neostride.app.feature.main.record.DailyRecordAdapter;
@@ -63,6 +64,8 @@ public class FeedRecordPickerDialog {
     private final Context context;
     private final OnRecordSelectedListener listener;
     private Dialog dialog;
+    // true 이면 기록 카드 클릭 시 TipCourseDetailDialog 를 사용함 (팁 코스 선택 모드)
+    private boolean isCoursePicker = false;
 
     private ViewPager2 vpCalendar;
     private TextView tvMonthYear;
@@ -77,15 +80,21 @@ public class FeedRecordPickerDialog {
 
     /*
      * 기록이 선택됐을 때 호출되는 콜백 인터페이스임
-     * routeMapUri: FeedRecordDetailDialog 에서 캡처한 지도 스냅샷 URI (null 가능)
+     * routeMapUri: 지도 스냅샷 URI (null 가능)
+     * address: 코스 중간 지점 역지오코딩 주소 (코스 선택 모드에서만 전달, 피드 모드는 null)
      */
     public interface OnRecordSelectedListener {
-        void onRecordSelected(RunningRecordResponse record, String routeMapUri);
+        void onRecordSelected(RunningRecordResponse record, String routeMapUri, String address);
     }
 
     public FeedRecordPickerDialog(Context context, OnRecordSelectedListener listener) {
         this.context  = context;
         this.listener = listener;
+    }
+
+    /** true 로 설정하면 기록 카드 클릭 시 TipCourseDetailDialog 를 표시함 */
+    public void setCoursePicker(boolean isCoursePicker) {
+        this.isCoursePicker = isCoursePicker;
     }
 
     /** 업로드 완료 등 외부에서 picker를 닫을 때 사용 */
@@ -120,7 +129,7 @@ public class FeedRecordPickerDialog {
 
         // ── 달력 페이저 어댑터 ─────────────────────────────────────────────
         pagerAdapter = new CalendarMonthPagerAdapter(
-                context, baseMonth, allServerRecords, listener);
+                context, baseMonth, allServerRecords, listener, isCoursePicker);
 
         vpCalendar.setAdapter(pagerAdapter);
 
@@ -315,15 +324,18 @@ public class FeedRecordPickerDialog {
         private final Context context;
         private final YearMonth baseMonth;
         private final OnRecordSelectedListener onRecordSelected;
+        private final boolean isCoursePicker;
         private List<RunningRecordResponse> records = new ArrayList<>();
 
         CalendarMonthPagerAdapter(Context ctx, YearMonth baseMonth,
                                   List<RunningRecordResponse> initialRecords,
-                                  OnRecordSelectedListener onRecordSelected) {
+                                  OnRecordSelectedListener onRecordSelected,
+                                  boolean isCoursePicker) {
             this.context          = ctx;
             this.baseMonth        = baseMonth;
             this.records          = initialRecords;
             this.onRecordSelected = onRecordSelected;
+            this.isCoursePicker   = isCoursePicker;
         }
 
         void setRecords(List<RunningRecordResponse> newRecords) {
@@ -351,14 +363,21 @@ public class FeedRecordPickerDialog {
             rvRecs.setLayoutManager(new LinearLayoutManager(context));
             rvRecs.setNestedScrollingEnabled(false);
 
-            // 기록 카드 어댑터 — 카드 클릭 시 FeedRecordDetailDialog 열어 상세 확인 후 업로드
+            // 기록 카드 어댑터 — 카드 클릭 시 상세 다이얼로그 열어 확인 후 선택/업로드
             DailyRecordAdapter dailyAdapter = new DailyRecordAdapter(new ArrayList<>(), item -> {
                 for (RunningRecordResponse res : records) {
                     if (res.getCreatedAt().equals(item.getDate())) {
-                        new FeedRecordDetailDialog(context, res,
-                                (record, routeMapUri) ->
-                                        onRecordSelected.onRecordSelected(record, routeMapUri))
-                                .show();
+                        if (isCoursePicker) {
+                            new TipCourseDetailDialog(context, res,
+                                    (record, routeMapUri, address) ->
+                                            onRecordSelected.onRecordSelected(record, routeMapUri, address))
+                                    .show();
+                        } else {
+                            new FeedRecordDetailDialog(context, res,
+                                    (record, routeMapUri) ->
+                                            onRecordSelected.onRecordSelected(record, routeMapUri, null))
+                                    .show();
+                        }
                         return;
                     }
                 }

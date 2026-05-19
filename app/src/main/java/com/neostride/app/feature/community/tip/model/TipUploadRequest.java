@@ -15,6 +15,9 @@ public class TipUploadRequest {
 
     private String routeMapImageUrl;
 
+    // 코스 중간 지점 역지오코딩 주소 (코스 카테고리일 때만 사용)
+    private String courseAddress;
+
     private List<String> imageUrls;
 
     public TipUploadRequest(
@@ -23,6 +26,7 @@ public class TipUploadRequest {
             String content,
             boolean gpsVisible,
             String routeMapImageUrl,
+            String courseAddress,
             List<String> imageUrls
     ) {
         this.category = category;
@@ -30,6 +34,7 @@ public class TipUploadRequest {
         this.content = content;
         this.gpsVisible = gpsVisible;
         this.routeMapImageUrl = routeMapImageUrl;
+        this.courseAddress = courseAddress;
         this.imageUrls = imageUrls;
     }
 
@@ -51,6 +56,10 @@ public class TipUploadRequest {
 
     public String getRouteMapImageUrl() {
         return routeMapImageUrl;
+    }
+
+    public String getCourseAddress() {
+        return courseAddress;
     }
 
     public List<String> getImageUrls() {

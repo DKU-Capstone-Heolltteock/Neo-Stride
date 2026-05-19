@@ -15,11 +15,15 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners;
+
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.neostride.app.R;
+import com.neostride.app.feature.community.feed.FeedRecordPickerDialog;
 import com.neostride.app.feature.community.tip.model.TipDetailResponse;
 import com.neostride.app.feature.community.tip.model.TipUploadRequest;
 import com.neostride.app.feature.community.tip.model.TipUploadResponse;
@@ -35,6 +39,8 @@ public class TipUploadActivity extends AppCompatActivity {
     private ImageView btnBack;
     private TextView btnDone;
 
+    private FrameLayout layoutGpsContainer;
+    private TextView btnRemoveGpsOverlay;
     private ImageView btnGps;
     private ImageView btnAddPhoto;
 
@@ -53,6 +59,7 @@ public class TipUploadActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> gpsRecordLauncher;
     private boolean gpsSelected = false;
     private String selectedRouteMapUri = null;
+    private String selectedCourseAddress = null;
 
     private TipRepository tipRepository;
 
@@ -89,8 +96,17 @@ public class TipUploadActivity extends AppCompatActivity {
         btnBack = findViewById(R.id.btn_back);
         btnDone = findViewById(R.id.btn_done);
 
+        layoutGpsContainer = findViewById(R.id.layout_gps_container);
+        btnRemoveGpsOverlay = findViewById(R.id.btn_remove_gps_overlay);
         btnGps = findViewById(R.id.btn_gps);
         btnAddPhoto = findViewById(R.id.btn_add_photo);
+
+        btnRemoveGpsOverlay.setOnClickListener(v -> {
+            gpsSelected = false;
+            selectedRouteMapUri = null;
+            updateGpsButton();
+            renderSelectedPhotos();
+        });
 
         scrollSelectedPhotos = findViewById(R.id.scroll_selected_photos);
         layoutSelectedPhotos = findViewById(R.id.layout_selected_photos);
@@ -111,8 +127,19 @@ public class TipUploadActivity extends AppCompatActivity {
         btnCourse.setOnClickListener(v -> selectCategory(btnCourse, "코스", true));
 
         btnGps.setOnClickListener(v -> {
-            Intent intent = new Intent(this, TipRecordSelectActivity.class);
-            gpsRecordLauncher.launch(intent);
+            FeedRecordPickerDialog[] pickerHolder = new FeedRecordPickerDialog[1];
+            pickerHolder[0] = new FeedRecordPickerDialog(this,
+                    (record, routeMapUri, address) -> {
+                        if (pickerHolder[0] != null) pickerHolder[0].dismiss();
+                        gpsSelected = true;
+                        selectedRouteMapUri = routeMapUri;
+                        selectedCourseAddress = address;
+                        Toast.makeText(this, "GPS 기록이 등록되었습니다", Toast.LENGTH_SHORT).show();
+                        updateGpsButton();
+                        renderSelectedPhotos();
+                    });
+            pickerHolder[0].setCoursePicker(true);
+            pickerHolder[0].show();
         });
 
         btnBack.setOnClickListener(v -> finish());
@@ -198,7 +225,7 @@ public class TipUploadActivity extends AppCompatActivity {
                 && !detail.getRouteMapImageUrl().isEmpty()) {
             gpsSelected = true;
             selectedRouteMapUri = detail.getRouteMapImageUrl();
-            btnGps.setAlpha(1.0f);
+            updateGpsButton();
         }
 
         // 이미지 URL 복원
@@ -243,8 +270,9 @@ public class TipUploadActivity extends AppCompatActivity {
         String serverCategory = convertCategory(selectedCategory);
         String routeMapImageUrl = selectedRouteMapUri == null ? "" : selectedRouteMapUri;
 
+        String courseAddr = selectedCourseAddress != null ? selectedCourseAddress : "";
         TipUploadRequest request = new TipUploadRequest(
-                serverCategory, title, content, gpsSelected, routeMapImageUrl, imageUrlStrings);
+                serverCategory, title, content, gpsSelected, routeMapImageUrl, courseAddr, imageUrlStrings);
 
         tipRepository.updateTip(editTipId, request, new TipRepository.TipUploadCallback() {
             @Override
@@ -290,7 +318,7 @@ public class TipUploadActivity extends AppCompatActivity {
 
                     if (gpsSelected) {
                         Toast.makeText(this, "GPS 기록이 등록되었습니다", Toast.LENGTH_SHORT).show();
-                        btnGps.setAlpha(1.0f);
+                        updateGpsButton();
                         renderSelectedPhotos();
                     }
                 }
@@ -336,7 +364,7 @@ public class TipUploadActivity extends AppCompatActivity {
 
         selectedCategory = category;
 
-        btnGps.setVisibility(isCourse ? View.VISIBLE : View.GONE);
+        layoutGpsContainer.setVisibility(isCourse ? View.VISIBLE : View.GONE);
     }
 
     private void applyCategoryButtonStyle(TextView button, boolean selected, String colorHex) {
@@ -409,12 +437,14 @@ public class TipUploadActivity extends AppCompatActivity {
         /*
          * 팁 업로드 요청 DTO를 생성함
          */
+        String courseAddr = selectedCourseAddress != null ? selectedCourseAddress : "";
         TipUploadRequest request = new TipUploadRequest(
                 serverCategory,
                 title,
                 content,
                 gpsSelected,
                 routeMapImageUrl,
+                courseAddr,
                 imageUrlStrings
         );
 
@@ -486,19 +516,36 @@ public class TipUploadActivity extends AppCompatActivity {
     private void renderSelectedPhotos() {
         layoutSelectedPhotos.removeAllViews();
 
-        if (!gpsSelected && selectedImageUris.isEmpty()) {
+        // GPS 기록은 btnGps 버튼 내부에 표시되므로 스크롤 영역에는 포함하지 않음
+        if (selectedImageUris.isEmpty()) {
             scrollSelectedPhotos.setVisibility(View.GONE);
             return;
         }
 
         scrollSelectedPhotos.setVisibility(View.VISIBLE);
 
-        if (gpsSelected && selectedRouteMapUri != null) {
-            addGpsThumbnail();
-        }
-
         for (Uri uri : selectedImageUris) {
             addPhotoThumbnail(uri);
+        }
+    }
+
+    /**
+     * GPS 기록 선택 상태에 따라 btnGps 아이콘을 업데이트함
+     * - 선택됨: 경로 지도 이미지를 버튼 내부에 표시하고 × 오버레이 표시
+     * - 미선택: ic_location 아이콘으로 복원하고 × 오버레이 숨김
+     */
+    private void updateGpsButton() {
+        if (gpsSelected && selectedRouteMapUri != null) {
+            Glide.with(this)
+                    .load(selectedRouteMapUri)
+                    .transform(new RoundedCorners(dp(6)))
+                    .into(btnGps);
+            btnRemoveGpsOverlay.setVisibility(View.VISIBLE);
+        } else {
+            Glide.with(this).clear(btnGps);
+            btnGps.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            btnGps.setImageResource(R.drawable.ic_location);
+            btnRemoveGpsOverlay.setVisibility(View.GONE);
         }
     }
 

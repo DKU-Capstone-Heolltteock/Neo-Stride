@@ -42,6 +42,9 @@ public class TipDetailResponse {
     // 경로 지도 이미지 URL임
     private String routeMapImageUrl;
 
+    // 코스 중간 지점 역지오코딩 주소임
+    private String courseAddress;
+
     // 첨부 이미지 URL 목록임
     private List<String> imageUrls;
 
@@ -108,6 +111,10 @@ public class TipDetailResponse {
 
     public String getRouteMapImageUrl() {
         return routeMapImageUrl;
+    }
+
+    public String getCourseAddress() {
+        return courseAddress;
     }
 
     public List<String> getImageUrls() {

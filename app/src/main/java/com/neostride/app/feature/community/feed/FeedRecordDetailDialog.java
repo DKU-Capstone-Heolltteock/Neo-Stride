@@ -131,6 +131,10 @@ public class FeedRecordDetailDialog implements OnMapReadyCallback {
         updatePaceThresholds();
         setupExpandableCard();
 
+        // 피드 업로드 스냅샷 목적의 화면이므로 페이스 분석 카드 숨김
+        View cardAnalysis = dialog.findViewById(R.id.card_analysis);
+        if (cardAnalysis != null) cardAnalysis.setVisibility(View.GONE);
+
         // ── MapView 수명주기 초기화 ──────────────────────────────────────────
         mapView.onCreate(null);
         dialog.setOnDismissListener(d -> {

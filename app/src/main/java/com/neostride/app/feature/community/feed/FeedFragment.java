@@ -107,9 +107,10 @@ public class FeedFragment extends Fragment {
 
         pickerRef[0] = new FeedRecordPickerDialog(
                 requireContext(),
-                (record, routeMapUri) -> {
+                (record, routeMapUri, address) -> {
                     // picker는 뒤에 유지 — FeedUploadDialog 위에 열림
                     // routeMapUri: FeedRecordDetailDialog 에서 캡처한 지도 스냅샷 (null 가능)
+                    // address: 피드 업로드에서는 사용하지 않음
                     currentFeedUploadDialog = new FeedUploadDialog(
                             requireContext(),
                             record,
