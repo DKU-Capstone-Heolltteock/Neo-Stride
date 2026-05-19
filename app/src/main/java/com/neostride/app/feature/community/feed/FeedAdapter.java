@@ -106,14 +106,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         // 프로필 이미지를 설정함
         bindProfileImage(holder, item);
 
-        // 태그 버튼 클릭 시 Repository를 통해 태그 목록을 가져옴
-        holder.tvTagCount.setOnClickListener(
-                v -> showTaggedUserDialog(
-                        feedId,
-                        item,
-                        holder.itemView.getContext()
-                )
-        );
+        // 미니 피드뷰에서는 태그 아이콘 클릭 불가 — 상세 페이지에서만 반응함
+        holder.tvTagCount.setOnClickListener(null);
+        holder.tvTagCount.setClickable(false);
 
         // 지도 표시 여부를 설정함
         if (item.isMapVisible()
@@ -454,9 +449,9 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
 
         feedRepository.getTaggedUsers(
                 feedId,
-                new FeedRepository.RepositoryCallback<List<String>>() {
+                new FeedRepository.RepositoryCallback<List<com.neostride.app.feature.community.feed.model.TagUser>>() {
                     @Override
-                    public void onSuccess(List<String> taggedUsers) {
+                    public void onSuccess(List<com.neostride.app.feature.community.feed.model.TagUser> taggedUsers) {
                         if (taggedUsers == null || taggedUsers.isEmpty()) {
                             Toast.makeText(
                                     context,
@@ -466,16 +461,18 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
                             return;
                         }
 
-                        String[] userArray = taggedUsers.toArray(new String[0]);
+                        // 닉네임 배열로 변환해서 AlertDialog에 표시
+                        String[] userArray = taggedUsers.stream()
+                                .map(u -> u.getNickname() != null ? u.getNickname() : "알 수 없음")
+                                .toArray(String[]::new);
 
                         AlertDialog.Builder builder = new AlertDialog.Builder(context);
                         builder.setTitle("태그된 사람");
 
                         builder.setItems(userArray, (dialog, which) -> {
-                            String selectedUsername = userArray[which];
-
+                            com.neostride.app.feature.community.feed.model.TagUser selected = taggedUsers.get(which);
                             Intent intent = new Intent(context, MyPageActivity.class);
-                            intent.putExtra("username", selectedUsername);
+                            intent.putExtra("username", selected.getNickname());
                             context.startActivity(intent);
                         });
 

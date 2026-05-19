@@ -12,6 +12,7 @@ if (propertiesFile.exists()) {
 }
 // local.properties에 주소가 입력되지 않았다면 일단 로컬 서버 주소를 기본값으로 설정
 val baseUrl = properties.getProperty("BASE_URL") ?: "\"http://10.0.2.2:8080/\""
+val mapsApiKey = properties.getProperty("MAPS_API_KEY") ?: ""
 
 android {
     namespace = "com.neostride.app"
@@ -34,6 +35,9 @@ android {
 
         // ── baseUrl 변수를 자바 코드에서 쓸 수 있게 등록 ──
         buildConfigField("String", "BASE_URL", baseUrl)
+
+        // ── Google Maps API 키를 Manifest에 주입 ──
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {

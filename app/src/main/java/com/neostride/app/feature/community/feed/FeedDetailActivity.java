@@ -1,6 +1,5 @@
 package com.neostride.app.feature.community.feed;
 
-import android.app.Dialog;
 import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -10,11 +9,8 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.Window;
-import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
-import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupWindow;
@@ -36,6 +32,7 @@ import com.neostride.app.feature.community.feed.model.FeedCommentResponse;
 import com.neostride.app.feature.community.feed.model.FeedDetailResponse;
 import com.neostride.app.feature.community.feed.model.FeedLikeResponse;
 import com.neostride.app.feature.community.feed.repository.FeedRepository;
+import com.neostride.app.feature.community.feed.model.TagUser;
 import com.neostride.app.feature.community.mypage.MyPageActivity;
 import com.neostride.app.feature.community.runnerpage.RunnerPageActivity;
 
@@ -911,9 +908,9 @@ public class FeedDetailActivity extends AppCompatActivity {
 
         feedRepository.getTaggedUsers(
                 feedId,
-                new FeedRepository.RepositoryCallback<List<String>>() {
+                new FeedRepository.RepositoryCallback<List<TagUser>>() {
                     @Override
-                    public void onSuccess(List<String> data) {
+                    public void onSuccess(List<TagUser> data) {
                         if (data == null || data.isEmpty()) {
                             Toast.makeText(
                                     FeedDetailActivity.this,
@@ -923,7 +920,7 @@ public class FeedDetailActivity extends AppCompatActivity {
                             return;
                         }
 
-                        showTaggedUserDialog(data);
+                        showTaggedUserPopup(data);
                     }
 
                     @Override
@@ -1112,130 +1109,79 @@ public class FeedDetailActivity extends AppCompatActivity {
     }
 
     /*
-     * 태그된 사람 목록을 커스텀 Dialog로 보여주는 함수임
-     * 태그 목록 데이터는 Repository에서 전달받은 값을 사용함
+     * 태그된 사람 목록을 PopupWindow로 보여주는 함수임
+     * layout_owner_more_options.xml 과 동일한 CardView (#1A1A1A, 16dp, 15dp) 배경을 공유함
+     * tvTagBadge 바로 아래에 앵커됨
      */
-    private void showTaggedUserDialog(List<String> taggedUsers) {
-        Dialog dialog = new Dialog(this);
-        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+    private void showTaggedUserPopup(List<TagUser> taggedUsers) {
+        View popupView = LayoutInflater.from(this).inflate(R.layout.layout_popup_tagged_users, null);
+        LinearLayout listContainer = popupView.findViewById(R.id.layout_tagged_user_list);
 
-        LinearLayout rootLayout = new LinearLayout(this);
-        rootLayout.setOrientation(LinearLayout.VERTICAL);
-        rootLayout.setPadding(dp(22), dp(20), dp(22), dp(18));
-        rootLayout.setBackgroundResource(R.drawable.bg_tagged_user_dialog);
+        // PopupWindow 먼저 생성 — 행의 클릭 리스너에서 dismiss() 참조하기 위해 루프 전에 선언
+        int popupWidth = (int) (190 * getResources().getDisplayMetrics().density);
+        PopupWindow popup = new PopupWindow(
+                popupView,
+                popupWidth,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                true
+        );
+        popup.setOutsideTouchable(true);
+        popup.setElevation(25);
 
-        TextView titleView = new TextView(this);
-        titleView.setText("태그된 사람");
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(22);
-        titleView.setTypeface(null, Typeface.BOLD);
+        for (TagUser user : taggedUsers) {
+            View rowView = LayoutInflater.from(this).inflate(R.layout.item_tagged_user_row, listContainer, false);
 
-        LinearLayout.LayoutParams titleParams =
-                new LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                );
-        titleParams.setMargins(0, 0, 0, dp(14));
-        titleView.setLayoutParams(titleParams);
+            ImageView ivTagProfile = rowView.findViewById(R.id.iv_tagged_user_profile);
+            ImageView ivTagBadge = rowView.findViewById(R.id.iv_tagged_user_badge);
+            TextView tvNickname = rowView.findViewById(R.id.tv_tagged_user_nickname);
 
-        rootLayout.addView(titleView);
+            // 닉네임 세팅
+            tvNickname.setText(user.getNickname() != null ? user.getNickname() : "알 수 없음");
 
-        for (String taggedUser : taggedUsers) {
-            LinearLayout userRow = new LinearLayout(this);
-            userRow.setOrientation(LinearLayout.HORIZONTAL);
-            userRow.setGravity(Gravity.CENTER_VERTICAL);
-            userRow.setPadding(dp(10), dp(10), dp(10), dp(10));
-            userRow.setBackgroundResource(R.drawable.bg_tagged_user_item);
+            // 프로필 이미지 — Glide 원형 처리
+            ivTagProfile.setImageTintList(null);
+            String profileUrl = user.getProfileImageUrl();
+            if (profileUrl != null && !profileUrl.trim().isEmpty()) {
+                com.bumptech.glide.Glide.with(this)
+                        .load(profileUrl)
+                        .circleCrop()
+                        .placeholder(R.drawable.ic_profile)
+                        .error(R.drawable.ic_profile)
+                        .into(ivTagProfile);
+            } else {
+                ivTagProfile.setImageResource(R.drawable.ic_profile);
+            }
 
-            LinearLayout.LayoutParams rowParams =
-                    new LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            dp(58)
-                    );
-            rowParams.setMargins(0, 0, 0, dp(10));
-            userRow.setLayoutParams(rowParams);
+            // 배지 — 등급이 있으면 색상 적용 후 표시
+            com.neostride.app.feature.badge.model.BadgeTier tier =
+                    com.neostride.app.feature.badge.model.BadgeTier.fromString(user.getBadgeTier());
+            if (!tier.isNone()) {
+                ivTagBadge.setColorFilter(tier.getColor());
+                ivTagBadge.setVisibility(View.VISIBLE);
+            } else {
+                ivTagBadge.setVisibility(View.GONE);
+            }
 
-            ImageView profileImage = new ImageView(this);
-            profileImage.setImageResource(R.drawable.ic_profile);
-            profileImage.setImageTintList(null);
+            // 프로필·닉네임·배지·행 전체 클릭 — 해당 유저의 러너페이지로 이동
+            View.OnClickListener goRunnerPage = v -> {
+                popup.dismiss();
+                Intent intent = new Intent(this, RunnerPageActivity.class);
+                intent.putExtra("user_id", user.getUserId() != null ? user.getUserId().intValue() : -1);
+                intent.putExtra("nickname", user.getNickname());
+                startActivity(intent);
+            };
+            ivTagProfile.setOnClickListener(goRunnerPage);
+            tvNickname.setOnClickListener(goRunnerPage);
+            ivTagBadge.setOnClickListener(goRunnerPage);
+            rowView.setOnClickListener(goRunnerPage);
 
-            LinearLayout.LayoutParams profileParams =
-                    new LinearLayout.LayoutParams(dp(34), dp(34));
-            profileParams.setMargins(0, 0, dp(12), 0);
-            profileImage.setLayoutParams(profileParams);
-
-            TextView nameView = new TextView(this);
-            nameView.setText(taggedUser);
-            nameView.setTextColor(Color.WHITE);
-            nameView.setTextSize(17);
-            nameView.setTypeface(null, Typeface.BOLD);
-
-            LinearLayout.LayoutParams nameParams =
-                    new LinearLayout.LayoutParams(
-                            0,
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            1
-                    );
-            nameView.setLayoutParams(nameParams);
-
-            TextView moveText = new TextView(this);
-            moveText.setText("보기");
-            moveText.setTextColor(Color.parseColor(NEON_COLOR));
-            moveText.setTextSize(13);
-            moveText.setTypeface(null, Typeface.BOLD);
-
-            FrameLayout moveBadge = new FrameLayout(this);
-            moveBadge.setPadding(dp(10), dp(5), dp(10), dp(5));
-            moveBadge.setBackgroundResource(R.drawable.bg_tagged_user_view_badge);
-            moveBadge.addView(moveText);
-
-            userRow.addView(profileImage);
-            userRow.addView(nameView);
-            userRow.addView(moveBadge);
-
-            userRow.setOnClickListener(v -> {
-                dialog.dismiss();
-
-                Toast.makeText(
-                        FeedDetailActivity.this,
-                        taggedUser + " 프로필 이동은 사용자 ID 연결 후 구현 예정",
-                        Toast.LENGTH_SHORT
-                ).show();
-            });
-
-            rootLayout.addView(userRow);
+            listContainer.addView(rowView);
         }
 
-        TextView closeButton = new TextView(this);
-        closeButton.setText("닫기");
-        closeButton.setTextColor(Color.parseColor(NEON_COLOR));
-        closeButton.setTextSize(16);
-        closeButton.setTypeface(null, Typeface.BOLD);
-        closeButton.setGravity(Gravity.CENTER);
-        closeButton.setPadding(0, dp(12), 0, 0);
-
-        closeButton.setOnClickListener(v -> dialog.dismiss());
-
-        rootLayout.addView(closeButton);
-
-        dialog.setContentView(rootLayout);
-
-        Window window = dialog.getWindow();
-
-        if (window != null) {
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-
-            WindowManager.LayoutParams params = window.getAttributes();
-            params.width = (int) (getResources().getDisplayMetrics().widthPixels * 0.86);
-            params.height = WindowManager.LayoutParams.WRAP_CONTENT;
-            params.gravity = Gravity.CENTER;
-
-            window.setAttributes(params);
-            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            window.setDimAmount(0.65f);
+        // tvTagBadge 우측 상단 기준선, 팝업은 왼쪽으로 펼쳐짐 — 수정/삭제 팝업과 동일한 공식
+        if (tvTagBadge != null) {
+            popup.showAsDropDown(tvTagBadge, -popupWidth + tvTagBadge.getWidth(), 8);
         }
-
-        dialog.show();
     }
 
     /*

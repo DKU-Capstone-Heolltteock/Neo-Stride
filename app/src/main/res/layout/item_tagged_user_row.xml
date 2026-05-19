@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    태그된 사용자 1행 레이아웃임
+    팝업 내부에 반복 inflate 되어 사용됨
+    프로필 원형 이미지 + 배지 아이콘 + 닉네임으로 구성됨
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="48dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="16dp"
+    android:paddingVertical="6dp">
+
+    <!-- 원형 프로필 이미지 -->
+    <ImageView
+        android:id="@+id/iv_tagged_user_profile"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_profile" />
+
+    <!-- 닉네임 -->
+    <TextView
+        android:id="@+id/tv_tagged_user_nickname"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <!-- 배지 아이콘 — 닉네임 바로 오른쪽, 댓글 행과 동일한 5dp 간격 -->
+    <ImageView
+        android:id="@+id/iv_tagged_user_badge"
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:layout_marginStart="5dp"
+        android:src="@drawable/ic_badge"
+        android:visibility="gone" />
+
+</LinearLayout>

@@ -158,4 +158,13 @@ public interface FeedApi {
             @Path("feedId") Long feedId,
             @Path("commentId") Long commentId
     );
+
+    /*
+     * 피드에 태그된 사용자 목록 조회 API임
+     * GET /api/community/feeds/{feedId}/tagged-users
+     */
+    @GET("api/community/feeds/{feedId}/tagged-users")
+    Call<List<TagUser>> getTaggedUsers(
+            @Path("feedId") Long feedId
+    );
 }
