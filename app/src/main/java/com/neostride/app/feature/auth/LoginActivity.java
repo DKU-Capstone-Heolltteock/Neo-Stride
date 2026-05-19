@@ -170,7 +170,7 @@ public class LoginActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<LoginResponse> call, Throwable t) {
-                Log.e("LOGIN", "요청 실패: " + t.getMessage());
+                Log.d("LOGIN", "서버 연결 실패");
                 Toast.makeText(LoginActivity.this, "서버 연결 실패", Toast.LENGTH_SHORT).show();
             }
         });

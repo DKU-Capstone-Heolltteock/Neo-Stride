@@ -163,10 +163,10 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
-        <!-- Google Maps API 키 -->
+        <!-- Google Maps API 키 (local.properties의 MAPS_API_KEY에서 주입됨) -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyBK52DjufNEbeLsSf4cVNO3UIq5ZeJb2RQ" />
+            android:value="${MAPS_API_KEY}" />
 
     </application>
 

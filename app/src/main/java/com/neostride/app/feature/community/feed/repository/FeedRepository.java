@@ -516,14 +516,25 @@ public class FeedRepository {
 
 
     /*
-     * 태그된 사용자 목록을 조회하는 함수임
-     * 현재 서버에 태그 조회 API가 없으면 빈 리스트를 반환함
+     * 피드에 태그된 사용자 목록을 조회하는 함수임
+     * GET /api/community/feeds/{feedId}/tagged-users
      */
-    public void getTaggedUsers(
-            Long feedId,
-            RepositoryCallback<List<String>> callback
-    ) {
-        callback.onSuccess(new ArrayList<>());
+    public void getTaggedUsers(Long feedId, RepositoryCallback<List<TagUser>> callback) {
+        feedApi.getTaggedUsers(feedId).enqueue(new Callback<List<TagUser>>() {
+            @Override
+            public void onResponse(Call<List<TagUser>> call, Response<List<TagUser>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError("오류 코드 " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<TagUser>> call, Throwable t) {
+                callback.onError("서버에 연결할 수 없습니다");
+            }
+        });
     }
 
     /*
