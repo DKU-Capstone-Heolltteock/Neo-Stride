@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/layout_feed_detail_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#0B0B0B">
@@ -9,7 +10,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
-        android:fillViewport="true">
+        android:fillViewport="false"
+        android:paddingBottom="130dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -21,30 +23,28 @@
             android:paddingBottom="0dp">
 
             <!-- 상단 뒤로가기 -->
-            <LinearLayout
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:layout_height="48dp">
 
                 <ImageView
                     android:id="@+id/btn_feed_detail_back"
                     android:layout_width="36dp"
                     android:layout_height="36dp"
+                    android:layout_gravity="start|center_vertical"
                     android:padding="7dp"
                     android:src="@drawable/ic_arrow_left"
-                    app:tint="#FFFFFF" />
+                    app:tint="#B8FF06" />
 
                 <TextView
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
+                    android:layout_gravity="center"
                     android:text="피드 상세"
-                    android:textColor="#FFFFFF"
-                    android:textSize="20sp"
+                    android:textColor="#B8FF06"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
-            </LinearLayout>
+            </FrameLayout>
 
             <!-- 달린 루트 보기 -->
             <LinearLayout
@@ -58,11 +58,18 @@
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp">
 
+                <ImageView
+                    android:id="@+id/iv_route_gradient_icon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_marginEnd="10dp"
+                    android:src="@drawable/ic_chart" />
+
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="⚑ 달린 루트 보기"
+                    android:text="달린 루트 보기"
                     android:textColor="#B8FF06"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -104,11 +111,19 @@
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp">
 
+                <ImageView
+                    android:id="@+id/iv_record_gradient_icon"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_marginEnd="10dp"
+                    android:src="@drawable/ic_record_info"
+                    app:tint="#B8FF06" />
+
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="▰ 기록 정보 보기"
+                    android:text="기록 정보 보기"
                     android:textColor="#B8FF06"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -244,6 +259,9 @@
                         android:id="@+id/iv_detail_profile"
                         android:layout_width="30dp"
                         android:layout_height="30dp"
+                        android:adjustViewBounds="false"
+                        android:background="@null"
+                        android:scaleType="centerCrop"
                         android:src="@drawable/ic_profile" />
 
                     <TextView
@@ -259,17 +277,31 @@
                         android:textSize="14sp"
                         android:textStyle="bold" />
 
+                    <!-- 작성자 뱃지: 닉네임 바로 오른쪽 -->
+                    <ImageView
+                        android:id="@+id/iv_detail_badge"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="6dp"
+                        android:src="@drawable/ic_badge"
+                        android:visibility="gone" />
+
+                    <!-- 닉네임/뱃지를 왼쪽에 고정시키고 시간/태그를 오른쪽으로 미는 Spacer -->
+                    <Space
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
                     <TextView
                         android:id="@+id/tv_detail_time"
-                        android:layout_width="0dp"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
                         android:ellipsize="end"
                         android:singleLine="true"
-                        android:text="· 7분 전"
+                        android:text="2026.05.16"
                         android:textColor="#A0A0A0"
-                        android:textSize="13sp"
+                        android:textSize="12sp"
                         android:textStyle="bold" />
 
                     <!-- 피드 태그 뱃지 : 아이콘 + 숫자 -->
@@ -337,12 +369,19 @@
                     android:scaleType="centerCrop"
                     android:visibility="gone" />
 
+                <!-- 구분선 -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#4A4A4A" />
+
                 <!-- 좋아요 / 댓글 / 북마크 액션 영역 -->
                 <LinearLayout
                     android:id="@+id/layout_detail_action_area"
                     android:layout_width="match_parent"
                     android:layout_height="58dp"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="6dp"
                     android:gravity="center"
                     android:orientation="horizontal">
 
@@ -457,8 +496,8 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="12dp"
-                    android:background="#333333" />
+                    android:layout_marginTop="6dp"
+                    android:background="#4A4A4A" />
 
                 <!-- 댓글 제목 -->
                 <TextView
@@ -498,9 +537,6 @@
                     카드 배경이 입력창 뒤까지 이어지도록 여백을 카드 내부에 둠.
                     이렇게 해야 입력창 위/뒤에 검은 빈 배경이 생기지 않음.
                 -->
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="92dp" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
@@ -510,9 +546,9 @@
         android:layout_width="match_parent"
         android:layout_height="58dp"
         android:layout_gravity="bottom"
-        android:layout_marginStart="18dp"
-        android:layout_marginEnd="18dp"
-        android:layout_marginBottom="18dp"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="60dp"
         android:background="@drawable/bg_feed_detail_comment_input"
         android:elevation="12dp"
         android:gravity="center_vertical"

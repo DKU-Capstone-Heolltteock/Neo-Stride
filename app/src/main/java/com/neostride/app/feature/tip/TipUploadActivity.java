@@ -56,15 +56,21 @@ public class TipUploadActivity extends AppCompatActivity {
 
     private TipRepository tipRepository;
 
+    // 편집 모드 지원 — Intent extras: mode="edit", tipId=<Long>
+    private boolean isEditMode = false;
+    private Long editTipId = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_tip_upload);
 
+        int sw = getResources().getDisplayMetrics().widthPixels;
+        int sh = getResources().getDisplayMetrics().heightPixels;
         getWindow().setLayout(
-                (int) (getResources().getDisplayMetrics().widthPixels * 0.88),
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                (int) (sw * 0.92f),
+                (int) (sh * 0.85f)
         );
 
         getWindow().setBackgroundDrawableResource(android.R.color.transparent);
@@ -92,7 +98,7 @@ public class TipUploadActivity extends AppCompatActivity {
         etTitle = findViewById(R.id.et_tip_title);
         etContent = findViewById(R.id.et_tip_content);
 
-        tipRepository = new TipRepository();
+        tipRepository = new TipRepository(this);
 
         initPhotoPicker();
         initGpsRecordLauncher();
@@ -120,7 +126,139 @@ public class TipUploadActivity extends AppCompatActivity {
             photoPickerLauncher.launch(new String[]{"image/*"});
         });
 
-        btnDone.setOnClickListener(v -> uploadTip());
+        btnDone.setOnClickListener(v -> submitTip());
+
+        // 편집 모드 진입 처리
+        handleEditModeIntent();
+    }
+
+    /*
+     * Intent extras로 "mode=edit" + "tipId"가 들어왔으면 편집 모드로 전환
+     * - 타이틀 변경
+     * - 서버에서 기존 팁 데이터 조회 → 폼에 채움
+     */
+    private void handleEditModeIntent() {
+        Intent intent = getIntent();
+        if (intent == null) return;
+        String mode = intent.getStringExtra("mode");
+        long tipIdExtra = intent.getLongExtra("tipId", -1L);
+        if (!"edit".equals(mode) || tipIdExtra <= 0) return;
+
+        isEditMode = true;
+        editTipId = tipIdExtra;
+
+        TextView tvTitle = findViewById(R.id.tv_title);
+        if (tvTitle != null) tvTitle.setText("Tip Edit");
+
+        // 기존 팁 데이터 조회 후 폼 채움
+        tipRepository.getTipDetail(editTipId, new TipRepository.TipDetailCallback() {
+            @Override
+            public void onSuccess(com.neostride.app.feature.tip.model.TipDetailResponse response) {
+                if (response == null) return;
+                prefillFromDetail(response);
+            }
+
+            @Override
+            public void onFailure(String message) {
+                Toast.makeText(TipUploadActivity.this,
+                        "팁 정보 불러오기 실패: " + message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    /*
+     * 서버에서 받은 기존 팁 데이터로 폼을 미리 채움
+     */
+    private void prefillFromDetail(com.neostride.app.feature.tip.model.TipDetailResponse detail) {
+        etTitle.setText(detail.getTitle() != null ? detail.getTitle() : "");
+        etContent.setText(detail.getContent() != null ? detail.getContent() : "");
+
+        // 카테고리 복원
+        String cat = detail.getCategory();
+        if (cat != null) {
+            switch (cat) {
+                case "훈련":
+                case "TRAINING":
+                    selectCategory(btnTraining, "훈련", false); break;
+                case "코스":
+                case "COURSE":
+                    selectCategory(btnCourse, "코스", true); break;
+                case "장비":
+                case "GEAR":
+                    selectCategory(btnGear, "장비", false); break;
+                case "자유":
+                case "FREE":
+                default:
+                    selectCategory(btnFree, "자유", false); break;
+            }
+        }
+
+        // GPS 경로 이미지 복원
+        if (detail.isGpsVisible() && detail.getRouteMapImageUrl() != null
+                && !detail.getRouteMapImageUrl().isEmpty()) {
+            gpsSelected = true;
+            selectedRouteMapUri = detail.getRouteMapImageUrl();
+            btnGps.setAlpha(1.0f);
+        }
+
+        // 이미지 URL 복원
+        if (detail.getImageUrls() != null) {
+            for (String url : detail.getImageUrls()) {
+                if (url == null || url.isEmpty()) continue;
+                try {
+                    selectedImageUris.add(Uri.parse(url));
+                } catch (Exception ignored) {}
+            }
+        }
+
+        renderSelectedPhotos();
+    }
+
+    /*
+     * 완료 버튼 — 편집 모드면 update, 신규면 upload
+     */
+    private void submitTip() {
+        if (isEditMode) {
+            updateTip();
+        } else {
+            uploadTip();
+        }
+    }
+
+    private void updateTip() {
+        String title = etTitle.getText().toString().trim();
+        String content = etContent.getText().toString().trim();
+        if (title.isEmpty()) {
+            Toast.makeText(this, "제목을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (content.isEmpty()) {
+            Toast.makeText(this, "내용을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        ArrayList<String> imageUrlStrings = new ArrayList<>();
+        for (Uri uri : selectedImageUris) imageUrlStrings.add(uri.toString());
+
+        String serverCategory = convertCategory(selectedCategory);
+        String routeMapImageUrl = selectedRouteMapUri == null ? "" : selectedRouteMapUri;
+
+        TipUploadRequest request = new TipUploadRequest(
+                serverCategory, title, content, gpsSelected, routeMapImageUrl, imageUrlStrings);
+
+        tipRepository.updateTip(editTipId, request, new TipRepository.TipUploadCallback() {
+            @Override
+            public void onSuccess(TipUploadResponse response) {
+                Toast.makeText(TipUploadActivity.this, "팁이 수정되었습니다", Toast.LENGTH_SHORT).show();
+                setResult(Activity.RESULT_OK);
+                finish();
+            }
+
+            @Override
+            public void onFailure(String message) {
+                Toast.makeText(TipUploadActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void initPhotoPicker() {
@@ -186,16 +324,45 @@ public class TipUploadActivity extends AppCompatActivity {
             String category,
             boolean isCourse
     ) {
-        btnFree.setSelected(false);
-        btnTraining.setSelected(false);
-        btnCourse.setSelected(false);
-        btnGear.setSelected(false);
+        // 모든 버튼 비선택 상태(회색)로 초기화
+        applyCategoryButtonStyle(btnFree, false, "#00E5FF");
+        applyCategoryButtonStyle(btnTraining, false, "#FF3DFF");
+        applyCategoryButtonStyle(btnCourse, false, "#FFB300");
+        applyCategoryButtonStyle(btnGear, false, "#00FF85");
 
-        selectedButton.setSelected(true);
+        // 선택된 버튼에 카테고리 색상 적용
+        String categoryColor = getCategoryColor(category);
+        applyCategoryButtonStyle(selectedButton, true, categoryColor);
 
         selectedCategory = category;
 
         btnGps.setVisibility(isCourse ? View.VISIBLE : View.GONE);
+    }
+
+    private void applyCategoryButtonStyle(TextView button, boolean selected, String colorHex) {
+        android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable();
+        drawable.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        drawable.setCornerRadius(20 * getResources().getDisplayMetrics().density);
+
+        if (selected) {
+            drawable.setColor(android.graphics.Color.parseColor(colorHex));
+            button.setTextColor(android.graphics.Color.BLACK);
+        } else {
+            drawable.setColor(android.graphics.Color.parseColor("#E0E0E0"));
+            button.setTextColor(android.graphics.Color.BLACK);
+        }
+
+        button.setBackground(drawable);
+    }
+
+    private String getCategoryColor(String category) {
+        switch (category) {
+            case "자유":   return "#00E5FF";
+            case "훈련":   return "#FF3DFF";
+            case "코스":   return "#FFB300";
+            case "장비":   return "#00FF85";
+            default:       return "#00E5FF";
+        }
     }
 
     private void uploadTip() {

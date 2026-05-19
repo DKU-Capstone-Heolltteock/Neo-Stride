@@ -13,6 +13,7 @@ public class UserProfileResponse {
     @SerializedName("status_message") public String statusMessage;
     @SerializedName("friend_count") public Integer friendCount;
     @SerializedName("post_count") public Integer postCount;
+    @SerializedName("tip_count") public Integer tipCount;
     @SerializedName("tagged_count") public Integer taggedCount;
     @SerializedName("commented_feed_count") public Integer commentedFeedCount;
     @SerializedName("liked_feed_count") public Integer likedFeedCount;

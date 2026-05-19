@@ -17,212 +17,178 @@ import retrofit2.Response;
 /*
  * 검색 데이터 처리를 담당하는 Repository 클래스임
  *
- * 정석 구조로 피드/팁/프로필/친구 검색을 분리함
- * 피드 검색은 FeedResponse,
- * 팁 검색은 TipResponse,
- * 프로필/친구 검색은 SearchUserResponse로 받음
+ * - 피드/팁/프로필: page(0-indexed) + size 기반 페이지네이션
+ * - 친구: 페이지네이션 없이 전체 목록 한 번에 로드
  */
 public class SearchRepository {
 
-    /*
-     * 검색 API 요청을 보내기 위한 Retrofit 인터페이스 객체임
-     */
     private final SearchApi searchApi;
-
-    /*
-     * Context가 필요할 수 있어 저장함
-     */
     private final Context context;
 
-    /*
-     * 피드 검색 콜백 인터페이스임
-     */
     public interface FeedSearchCallback {
         void onSuccess(List<FeedResponse> feedResponses);
         void onFailure(String message);
     }
 
-    /*
-     * 팁 검색 콜백 인터페이스임
-     */
     public interface TipSearchCallback {
         void onSuccess(List<TipResponse> tipResponses);
         void onFailure(String message);
     }
 
-    /*
-     * 사용자 검색 콜백 인터페이스임
-     * 프로필/친구 검색에서 사용함
-     */
     public interface UserSearchCallback {
         void onSuccess(List<SearchUserResponse> userResponses);
         void onFailure(String message);
     }
 
-    /*
-     * SearchRepository 생성자임
-     * 현재는 서버 미완성 상태를 고려해 MockApiClient를 사용함
-     */
-    /*
-    public SearchRepository(Context context) {
-        this.context = context.getApplicationContext();
-        this.searchApi = MockApiClient.getInstance().create(SearchApi.class);
-    }*/
     public SearchRepository(Context context) {
         this.context = context.getApplicationContext();
         this.searchApi = ApiClient.getInstance().create(SearchApi.class);
     }
 
-
     /*
-     * 피드 검색 요청을 실행하는 함수임
+     * 피드 검색/최신 목록 페이지 요청임
+     * keyword 없으면 최신순, 있으면 title+content 검색
      */
-    public void searchFeeds(
-            String keyword,
-            FeedSearchCallback callback
-    ) {
+    public void searchFeeds(String keyword, int page, int size, FeedSearchCallback callback) {
         String safeKeyword = getSafeKeyword(keyword);
 
-        searchApi.searchFeeds(safeKeyword).enqueue(new Callback<List<FeedResponse>>() {
+        searchApi.searchFeeds(safeKeyword, page, size).enqueue(new Callback<List<FeedResponse>>() {
             @Override
-            public void onResponse(
-                    Call<List<FeedResponse>> call,
-                    Response<List<FeedResponse>> response
-            ) {
+            public void onResponse(Call<List<FeedResponse>> call, Response<List<FeedResponse>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onFailure("피드 검색 실패: " + response.code());
+                    callback.onFailure("오류 코드 " + response.code());
                 }
             }
 
             @Override
-            public void onFailure(
-                    Call<List<FeedResponse>> call,
-                    Throwable t
-            ) {
-                callback.onFailure("피드 검색 요청 실패: " + t.getMessage());
+            public void onFailure(Call<List<FeedResponse>> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
             }
         });
     }
 
     /*
-     * 팁 검색 요청을 실행하는 함수임
+     * 팁 검색/최신 목록 페이지 요청임
+     * keyword 없으면 최신순, 있으면 title+content 검색
      */
-    public void searchTips(
-            String keyword,
-            String category,
-            TipSearchCallback callback
-    ) {
+    public void searchTips(String keyword, String category, int page, int size, TipSearchCallback callback) {
         String safeKeyword = getSafeKeyword(keyword);
         String safeCategory = getSafeCategory(category);
 
-        searchApi.searchTips(safeKeyword, safeCategory).enqueue(new Callback<List<TipResponse>>() {
+        searchApi.searchTips(safeKeyword, safeCategory, page, size).enqueue(new Callback<List<TipResponse>>() {
             @Override
-            public void onResponse(
-                    Call<List<TipResponse>> call,
-                    Response<List<TipResponse>> response
-            ) {
+            public void onResponse(Call<List<TipResponse>> call, Response<List<TipResponse>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onFailure("팁 검색 실패: " + response.code());
+                    callback.onFailure("오류 코드 " + response.code());
                 }
             }
 
             @Override
-            public void onFailure(
-                    Call<List<TipResponse>> call,
-                    Throwable t
-            ) {
-                callback.onFailure("팁 검색 요청 실패: " + t.getMessage());
+            public void onFailure(Call<List<TipResponse>> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
             }
         });
     }
 
     /*
-     * 프로필 검색 요청을 실행하는 함수임
+     * 프로필 키워드 검색 페이지 요청임
      */
-    public void searchProfiles(
-            String keyword,
-            UserSearchCallback callback
-    ) {
+    public void searchProfiles(String keyword, int page, int size, UserSearchCallback callback) {
         String safeKeyword = getSafeKeyword(keyword);
 
-        searchApi.searchProfiles(safeKeyword).enqueue(new Callback<List<SearchUserResponse>>() {
+        searchApi.searchProfiles(safeKeyword, page, size).enqueue(new Callback<List<SearchUserResponse>>() {
             @Override
-            public void onResponse(
-                    Call<List<SearchUserResponse>> call,
-                    Response<List<SearchUserResponse>> response
-            ) {
+            public void onResponse(Call<List<SearchUserResponse>> call, Response<List<SearchUserResponse>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onFailure("프로필 검색 실패: " + response.code());
+                    callback.onFailure("오류 코드 " + response.code());
                 }
             }
 
             @Override
-            public void onFailure(
-                    Call<List<SearchUserResponse>> call,
-                    Throwable t
-            ) {
-                callback.onFailure("프로필 검색 요청 실패: " + t.getMessage());
+            public void onFailure(Call<List<SearchUserResponse>> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
             }
         });
     }
 
     /*
-     * 친구 검색 요청을 실행하는 함수임
+     * 친구 키워드 검색 요청임 (페이지네이션 없이 전체 반환)
      */
-    public void searchFriends(
-            String keyword,
-            UserSearchCallback callback
-    ) {
+    public void searchFriends(String keyword, UserSearchCallback callback) {
         String safeKeyword = getSafeKeyword(keyword);
 
         searchApi.searchFriends(safeKeyword).enqueue(new Callback<List<SearchUserResponse>>() {
             @Override
-            public void onResponse(
-                    Call<List<SearchUserResponse>> call,
-                    Response<List<SearchUserResponse>> response
-            ) {
+            public void onResponse(Call<List<SearchUserResponse>> call, Response<List<SearchUserResponse>> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onFailure("친구 검색 실패: " + response.code());
+                    callback.onFailure("오류 코드 " + response.code());
                 }
             }
 
             @Override
-            public void onFailure(
-                    Call<List<SearchUserResponse>> call,
-                    Throwable t
-            ) {
-                callback.onFailure("친구 검색 요청 실패: " + t.getMessage());
+            public void onFailure(Call<List<SearchUserResponse>> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
             }
         });
     }
 
     /*
-     * 검색어 null 처리를 담당하는 함수임
+     * 배지 등급 기준 상위 프로필 페이지 요청임 (프로필 탭 키워드 없을 때 사용)
      */
-    private String getSafeKeyword(String keyword) {
-        if (keyword == null) {
-            return "";
-        }
+    public void getTopProfiles(int page, int size, UserSearchCallback callback) {
+        searchApi.getTopProfiles(page, size).enqueue(new Callback<List<SearchUserResponse>>() {
+            @Override
+            public void onResponse(Call<List<SearchUserResponse>> call, Response<List<SearchUserResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onFailure("오류 코드 " + response.code());
+                }
+            }
 
-        return keyword.trim();
+            @Override
+            public void onFailure(Call<List<SearchUserResponse>> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
+            }
+        });
     }
 
     /*
-     * 팁 카테고리 null 처리를 담당하는 함수임
+     * 내 친구 전체 목록 요청임 (친구 탭 — 페이지네이션 없이 전체 로드)
      */
-    private String getSafeCategory(String category) {
-        if (category == null || category.trim().isEmpty()) {
-            return "ALL";
-        }
+    public void getMyFriends(UserSearchCallback callback) {
+        searchApi.getMyFriends().enqueue(new Callback<List<SearchUserResponse>>() {
+            @Override
+            public void onResponse(Call<List<SearchUserResponse>> call, Response<List<SearchUserResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onFailure("오류 코드 " + response.code());
+                }
+            }
 
+            @Override
+            public void onFailure(Call<List<SearchUserResponse>> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
+            }
+        });
+    }
+
+    private String getSafeKeyword(String keyword) {
+        if (keyword == null) return "";
+        return keyword.trim();
+    }
+
+    private String getSafeCategory(String category) {
+        if (category == null || category.trim().isEmpty()) return "ALL";
         return category.trim().toUpperCase();
     }
 }

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="140dp"
+    android:layout_height="wrap_content"
+    app:cardBackgroundColor="#1A1A1A"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="15dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingVertical="8dp">
+
+        <LinearLayout
+            android:id="@+id/menu_edit"
+            style="@style/ProfileMenuItem">
+            <ImageView
+                android:src="@drawable/ic_write_feed"
+                style="@style/ProfileMenuIcon"
+                app:tint="#FFFFFF" />
+            <TextView
+                android:text="수정하기"
+                style="@style/ProfileMenuText"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/menu_delete"
+            style="@style/ProfileMenuItem">
+            <ImageView
+                android:src="@drawable/ic_delete"
+                style="@style/ProfileMenuIcon"
+                app:tint="#FFFFFF" />
+            <TextView
+                android:text="삭제하기"
+                style="@style/ProfileMenuText"
+                android:textColor="#FFFFFF" />
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

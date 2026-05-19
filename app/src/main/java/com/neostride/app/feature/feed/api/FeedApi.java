@@ -10,13 +10,20 @@ import com.neostride.app.feature.feed.model.FeedCommentRequest;
 import com.neostride.app.feature.feed.model.FeedCommentResponse;
 
 import java.util.List;
+import java.util.Map;
 
-
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.http.Body;
+import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
+import retrofit2.http.Multipart;
 import retrofit2.http.POST;
+import retrofit2.http.PUT;
+import retrofit2.http.Part;
+import retrofit2.http.PartMap;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
 
@@ -28,17 +35,16 @@ public interface FeedApi {
 
     /*
      * 피드 업로드 API임
-     * POST /api/feeds 요청을 서버로 전송함
+     * POST /api/community/feeds — multipart/form-data 방식으로 전송함
      *
-     * 현재 업로드 기능은 미완성 상태임
-     * 사진 업로드는 multipart 방식으로 추후 수정될 수 있음
-     *
-     * @Body
-     * 서버로 전송할 피드 업로드 데이터임
+     * @PartMap fields  : 텍스트 필드 (title, content, privacy, mapVisible 등)
+     * @Part    images  : 피드 사진 + 경로 지도 이미지 (각 Part의 name 으로 구분)
      */
+    @Multipart
     @POST("api/community/feeds")
     Call<FeedResponse> uploadFeed(
-            @Body FeedUploadRequest request
+            @PartMap Map<String, RequestBody> fields,
+            @Part List<MultipartBody.Part> images
     );
 
     /*
@@ -111,5 +117,45 @@ public interface FeedApi {
     Call<FeedCommentResponse> createFeedComment(
             @Path("feedId") Long feedId,
             @Body FeedCommentRequest request
+    );
+
+    /*
+     * 피드 삭제 API임
+     * DELETE /api/community/feeds/{feedId}
+     */
+    @DELETE("api/community/feeds/{feedId}")
+    Call<okhttp3.ResponseBody> deleteFeed(
+            @Path("feedId") Long feedId
+    );
+
+    /*
+     * 피드 수정 API임
+     * PUT /api/community/feeds/{feedId}
+     */
+    @PUT("api/community/feeds/{feedId}")
+    Call<FeedResponse> updateFeed(
+            @Path("feedId") Long feedId,
+            @Body FeedUploadRequest request
+    );
+
+    /*
+     * 피드 댓글 수정 API임
+     * PUT /api/community/feeds/{feedId}/comments/{commentId}
+     */
+    @PUT("api/community/feeds/{feedId}/comments/{commentId}")
+    Call<FeedCommentResponse> updateFeedComment(
+            @Path("feedId") Long feedId,
+            @Path("commentId") Long commentId,
+            @Body FeedCommentRequest request
+    );
+
+    /*
+     * 피드 댓글 삭제 API임
+     * DELETE /api/community/feeds/{feedId}/comments/{commentId}
+     */
+    @DELETE("api/community/feeds/{feedId}/comments/{commentId}")
+    Call<okhttp3.ResponseBody> deleteFeedComment(
+            @Path("feedId") Long feedId,
+            @Path("commentId") Long commentId
     );
 }

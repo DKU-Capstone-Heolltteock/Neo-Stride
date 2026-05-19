@@ -8,12 +8,14 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -54,6 +56,9 @@ public class TipDetailActivity extends AppCompatActivity {
 
     // 댓글 전송 버튼임
     private ImageView btnSendComment;
+
+    // 댓글 편집 중인지 추적 — null이면 새 댓글 작성 모드
+    private Long editingCommentId = null;
 
     private TextView tvNickname;
     private TextView tvTime;
@@ -115,6 +120,22 @@ public class TipDetailActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_tip_detail);
+
+        // 키보드(IME) 높이만큼 루트에 bottom padding 추가 → 댓글 입력창이 키보드 위로 따라 올라옴
+        // 입력창에 이미 marginBottom=60dp(네비바 보정)이 있어서, 그만큼 빼야 키보드 바로 위에 정확히 붙음
+        View rootForIme = findViewById(R.id.layout_tip_detail_root);
+        if (rootForIme != null) {
+            int existingMarginPx = (int) (60 * getResources().getDisplayMetrics().density);
+            androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(rootForIme, (v, insets) -> {
+                androidx.core.graphics.Insets imeInsets =
+                        insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime());
+                int padBottom = imeInsets.bottom > existingMarginPx
+                        ? imeInsets.bottom - existingMarginPx
+                        : 0;
+                v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), padBottom);
+                return insets;
+            });
+        }
 
         tipRepository = new TipRepository();
 
@@ -235,7 +256,7 @@ public class TipDetailActivity extends AppCompatActivity {
         isMine = response.isMine();
 
         tvNickname.setText(nickname);
-        tvTime.setText("· " + getSafeText(response.getCreatedAt(), "방금 전"));
+        tvTime.setText(formatDate(response.getCreatedAt()));
 
         /*
          * 카테고리 알림판은 배경을 채우지 않고
@@ -250,10 +271,29 @@ public class TipDetailActivity extends AppCompatActivity {
         tvLikeCount.setText("좋아요 " + likeCount);
         tvCommentCount.setText("댓글 " + commentCount);
 
-        ivProfile.setImageResource(R.drawable.ic_profile);
+        // 작성자 프로필 이미지: 원형 + Glide circleCrop
         ivProfile.setImageTintList(null);
+        String profileImageUrl = response.getProfileImageUrl();
+        if (profileImageUrl != null && !profileImageUrl.trim().isEmpty()) {
+            com.bumptech.glide.Glide.with(this)
+                    .load(profileImageUrl)
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_profile)
+                    .error(R.drawable.ic_profile)
+                    .into(ivProfile);
+        } else {
+            ivProfile.setImageResource(R.drawable.ic_profile);
+        }
 
-        ivBadge.setVisibility(response.isBadgeOwned() ? View.VISIBLE : View.GONE);
+        // 작성자 배지: 보유 시 등급별 색상으로 표시
+        com.neostride.app.feature.badge.model.BadgeTier tier =
+                com.neostride.app.feature.badge.model.BadgeTier.fromString(response.getBadgeType());
+        if (!response.isBadgeOwned() || tier.isNone()) {
+            ivBadge.setVisibility(View.GONE);
+        } else {
+            ivBadge.setVisibility(View.VISIBLE);
+            ivBadge.setColorFilter(tier.getColor());
+        }
 
         /*
          * GPS 코스 팁이면 상단 GPS 배너와 GPS 아이콘을 표시함
@@ -439,25 +479,67 @@ public class TipDetailActivity extends AppCompatActivity {
         LinearLayout.LayoutParams profileParams =
                 new LinearLayout.LayoutParams(dp(26), dp(26));
         profile.setLayoutParams(profileParams);
-        profile.setImageResource(R.drawable.ic_profile);
         profile.setImageTintList(null);
+        profile.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        profile.setBackground(null);
 
-        TextView nameAndTime = new TextView(this);
+        // 댓글 작성자 프로필 — 원형 처리
+        String commentProfileUrl = comment.getProfileImageUrl();
+        if (commentProfileUrl != null && !commentProfileUrl.trim().isEmpty()) {
+            com.bumptech.glide.Glide.with(this)
+                    .load(commentProfileUrl)
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_profile)
+                    .error(R.drawable.ic_profile)
+                    .into(profile);
+        } else {
+            profile.setImageResource(R.drawable.ic_profile);
+        }
+
+        // 닉네임 — 왼쪽
+        TextView nameView = new TextView(this);
         LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(
-                0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
+                LinearLayout.LayoutParams.WRAP_CONTENT
         );
         nameParams.setMargins(dp(8), 0, 0, 0);
-        nameAndTime.setLayoutParams(nameParams);
-        nameAndTime.setText(
-                getSafeText(comment.getNickname(), "알 수 없음")
-                        + " · "
-                        + getSafeText(comment.getCreatedAt(), "방금 전")
+        nameView.setLayoutParams(nameParams);
+        nameView.setText(getSafeText(comment.getNickname(), "알 수 없음"));
+        nameView.setTextColor(Color.WHITE);
+        nameView.setTextSize(13);
+        nameView.setTypeface(null, Typeface.BOLD);
+
+        // 배지 — 닉네임 바로 오른쪽
+        ImageView badgeView = new ImageView(this);
+        LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(dp(16), dp(16));
+        badgeParams.setMargins(dp(5), 0, 0, 0);
+        badgeView.setLayoutParams(badgeParams);
+        badgeView.setImageResource(R.drawable.ic_badge);
+        com.neostride.app.feature.badge.model.BadgeTier commentTier =
+                com.neostride.app.feature.badge.model.BadgeTier.fromString(comment.getBadgeType());
+        if (comment.isBadgeOwned() && !commentTier.isNone()) {
+            badgeView.setColorFilter(commentTier.getColor());
+            badgeView.setVisibility(View.VISIBLE);
+        } else {
+            badgeView.setVisibility(View.GONE);
+        }
+
+        // Spacer — 시간을 오른쪽으로 밀어냄
+        View spacer = new View(this);
+        spacer.setLayoutParams(new LinearLayout.LayoutParams(0, 1, 1f));
+
+        // 시간 — 오른쪽 (••• 바로 왼쪽)
+        TextView timeView = new TextView(this);
+        LinearLayout.LayoutParams timeParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        nameAndTime.setTextColor(Color.WHITE);
-        nameAndTime.setTextSize(13);
-        nameAndTime.setTypeface(null, Typeface.BOLD);
+        timeParams.setMargins(0, 0, dp(6), 0);
+        timeView.setLayoutParams(timeParams);
+        timeView.setText(formatDate(comment.getCreatedAt()));
+        timeView.setTextColor(Color.parseColor("#A0A0A0"));
+        timeView.setTextSize(12);
+        timeView.setTypeface(null, Typeface.BOLD);
 
         TextView more = new TextView(this);
         LinearLayout.LayoutParams moreParams =
@@ -471,8 +553,27 @@ public class TipDetailActivity extends AppCompatActivity {
         more.setVisibility(View.VISIBLE);
         more.setOnClickListener(v -> showCommentMoreMenu(more, comment));
 
+        // 프로필·닉네임·배지 클릭 — 내 댓글이면 무반응, 남의 댓글이면 러너페이지
+        int myId = TokenManager.getUserId(this);
+        Long commentWriterId = comment.getWriterId();
+        View.OnClickListener commentProfileClick = (commentWriterId != null && commentWriterId != myId)
+                ? v -> {
+                    Intent intent = new Intent(this, RunnerPageActivity.class);
+                    intent.putExtra("user_id", commentWriterId.intValue());
+                    intent.putExtra("nickname", comment.getNickname());
+                    startActivity(intent);
+                }
+                : null;
+
+        profile.setOnClickListener(commentProfileClick);
+        nameView.setOnClickListener(commentProfileClick);
+        badgeView.setOnClickListener(commentProfileClick);
+
         topRow.addView(profile);
-        topRow.addView(nameAndTime);
+        topRow.addView(nameView);
+        topRow.addView(badgeView);
+        topRow.addView(spacer);
+        topRow.addView(timeView);
         topRow.addView(more);
 
         TextView contentView = new TextView(this);
@@ -513,6 +614,10 @@ public class TipDetailActivity extends AppCompatActivity {
 
         if (tvNickname != null) {
             tvNickname.setOnClickListener(profileClickListener);
+        }
+
+        if (ivBadge != null) {
+            ivBadge.setOnClickListener(profileClickListener);
         }
 
         if (tvLikeCount != null) {
@@ -568,19 +673,91 @@ public class TipDetailActivity extends AppCompatActivity {
         if (btnSendComment != null) {
             btnSendComment.setOnClickListener(v -> {
                 String comment = etComment.getText().toString().trim();
-
                 if (comment.isEmpty()) {
-                    Toast.makeText(
-                            this,
-                            "댓글을 입력해주세요",
-                            Toast.LENGTH_SHORT
-                    ).show();
+                    Toast.makeText(this, "댓글을 입력해주세요", Toast.LENGTH_SHORT).show();
                     return;
                 }
-
-                createComment(comment);
+                if (editingCommentId != null) {
+                    updateTipComment(editingCommentId, comment);
+                } else {
+                    createComment(comment);
+                }
             });
         }
+    }
+
+    /*
+     * 댓글 수정 모드 진입 — 입력창에 기존 댓글 채우고 키보드 강제로 띄움
+     */
+    private void enterCommentEditMode(TipCommentResponse comment) {
+        editingCommentId = comment.getCommentId();
+        etComment.setText(comment.getContent() != null ? comment.getContent() : "");
+        etComment.setSelection(etComment.getText().length());
+        forceShowKeyboardOnComment();
+    }
+
+    /*
+     * 키보드를 강제로 띄움 — popup 닫힌 직후에도 안정적으로 동작
+     */
+    private void forceShowKeyboardOnComment() {
+        if (etComment == null) return;
+        etComment.requestFocus();
+        etComment.postDelayed(() -> {
+            if (etComment == null) return;
+            etComment.requestFocus();
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.showSoftInput(etComment, InputMethodManager.SHOW_FORCED);
+            }
+        }, 200);
+    }
+
+    /*
+     * 댓글 수정 API 호출
+     */
+    private void updateTipComment(Long commentId, String content) {
+        if (tipId == null) return;
+        tipRepository.updateTipComment(tipId, commentId, content,
+                new TipRepository.TipCommentCreateCallback() {
+                    @Override
+                    public void onSuccess(TipCommentResponse response) {
+                        Toast.makeText(TipDetailActivity.this, "댓글을 수정했습니다", Toast.LENGTH_SHORT).show();
+                        editingCommentId = null;
+                        etComment.setText("");
+                        loadTipDetail();  // 댓글 목록 갱신
+                    }
+
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(TipDetailActivity.this, message, Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    /*
+     * 댓글 삭제 확인 다이얼로그 → API
+     */
+    private void confirmAndDeleteComment(Long commentId) {
+        if (tipId == null || commentId == null) return;
+        com.neostride.app.feature.community.common.util.DangerConfirmDialog.show(
+                this,
+                "댓글 삭제",
+                "이 댓글을 정말 삭제하시겠습니까?",
+                "삭제",
+                () -> tipRepository.deleteTipComment(tipId, commentId,
+                        new TipRepository.TipDeleteCallback() {
+                            @Override
+                            public void onSuccess() {
+                                Toast.makeText(TipDetailActivity.this, "댓글을 삭제했습니다", Toast.LENGTH_SHORT).show();
+                                loadTipDetail();
+                            }
+
+                            @Override
+                            public void onFailure(String message) {
+                                Toast.makeText(TipDetailActivity.this, message, Toast.LENGTH_SHORT).show();
+                            }
+                        })
+        );
     }
 
     /*
@@ -706,6 +883,11 @@ public class TipDetailActivity extends AppCompatActivity {
         if (ivLike != null) {
             ivLike.setImageTintList(ColorStateList.valueOf(color));
         }
+
+        // 버튼 테두리도 활성화 상태로 — drawable selector의 state_activated 색상 적용
+        if (layoutLikeArea != null) {
+            layoutLikeArea.setActivated(liked);
+        }
     }
 
     /*
@@ -771,6 +953,11 @@ public class TipDetailActivity extends AppCompatActivity {
             tvBookmark.setTextColor(color);
             tvBookmark.setTypeface(null, Typeface.BOLD);
         }
+
+        // 버튼 테두리도 활성화 상태로
+        if (layoutBookmarkArea != null) {
+            layoutBookmarkArea.setActivated(bookmarked);
+        }
     }
 
     /*
@@ -778,43 +965,124 @@ public class TipDetailActivity extends AppCompatActivity {
      * 본인 글이면 수정/삭제, 남의 글이면 신고/차단 메뉴를 보여줌
      */
     private void showMoreMenu() {
-        PopupMenu popupMenu = new PopupMenu(this, tvMore);
-
         if (isMine) {
-            popupMenu.getMenu().add("수정");
-            popupMenu.getMenu().add("삭제");
+            showEditDeletePopup(tvMore,
+                    () -> launchTipEdit(),
+                    () -> confirmAndDeleteTip());
         } else {
-            popupMenu.getMenu().add("신고");
-            popupMenu.getMenu().add("차단");
+            showReportBlockPopup(tvMore,
+                    "게시글 신고 기능 연결 예정",
+                    () -> confirmAndBlockWriter());
         }
+    }
 
-        popupMenu.setOnMenuItemClickListener(menuItem -> {
-            String menuTitle = menuItem.getTitle().toString();
+    /*
+     * 팁 수정 — TipUploadActivity edit 모드로 실행
+     */
+    private void launchTipEdit() {
+        if (tipId == null) return;
+        Intent intent = new Intent(this, com.neostride.app.feature.tip.TipUploadActivity.class);
+        intent.putExtra("mode", "edit");
+        intent.putExtra("tipId", tipId.longValue());
+        startActivity(intent);
+    }
 
-            if (menuTitle.equals("수정")) {
-                Toast.makeText(this, "수정 기능 연결 예정", Toast.LENGTH_SHORT).show();
-                return true;
-            }
+    /*
+     * 팁 삭제 확인 다이얼로그 → API 호출 → 액티비티 종료
+     */
+    private void confirmAndDeleteTip() {
+        if (tipId == null) return;
+        com.neostride.app.feature.community.common.util.DangerConfirmDialog.show(
+                this,
+                "팁 삭제",
+                "정말 이 팁을 삭제하시겠습니까?",
+                "삭제",
+                () -> tipRepository.deleteTip(tipId, new com.neostride.app.feature.tip.repository.TipRepository.TipDeleteCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Toast.makeText(TipDetailActivity.this, "팁을 삭제했습니다", Toast.LENGTH_SHORT).show();
+                        finish();
+                    }
 
-            if (menuTitle.equals("삭제")) {
-                Toast.makeText(this, "삭제 API 연결 예정", Toast.LENGTH_SHORT).show();
-                return true;
-            }
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(TipDetailActivity.this, message, Toast.LENGTH_SHORT).show();
+                    }
+                })
+        );
+    }
 
-            if (menuTitle.equals("신고")) {
-                Toast.makeText(this, "게시글 신고 기능 연결 예정", Toast.LENGTH_SHORT).show();
-                return true;
-            }
+    /*
+     * 작성자 차단 — 러너페이지와 동일 스타일 다이얼로그
+     */
+    private void confirmAndBlockWriter() {
+        if (writerId == null) return;
+        String name = nickname != null ? nickname : "이 작성자";
+        com.neostride.app.feature.community.common.util.DangerConfirmDialog.show(
+                this,
+                "차단하기",
+                "상대방의 팁과 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 " + name + "님을 차단하시겠습니까?",
+                "차단",
+                () -> {
+                    com.neostride.app.feature.friend.repository.FriendRepository friendRepo =
+                            new com.neostride.app.feature.friend.repository.FriendRepository(
+                                    com.neostride.app.common.network.ApiClient.getInstance()
+                                            .create(com.neostride.app.feature.friend.api.FriendApi.class));
+                    com.neostride.app.feature.friend.model.FriendRequest req =
+                            new com.neostride.app.feature.friend.model.FriendRequest(
+                                    writerId.intValue(), "block");
+                    friendRepo.updateStatus(req, success -> runOnUiThread(() -> {
+                        if (success) {
+                            Toast.makeText(TipDetailActivity.this, name + "님을 차단했습니다.", Toast.LENGTH_SHORT).show();
+                            finish();
+                        } else {
+                            Toast.makeText(TipDetailActivity.this, "차단에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                        }
+                    }));
+                }
+        );
+    }
 
-            if (menuTitle.equals("차단")) {
-                Toast.makeText(this, "작성자 차단 기능 연결 예정", Toast.LENGTH_SHORT).show();
-                return true;
-            }
+    /*
+     * 본인 글일 때 ··· 드롭다운 — Runnable 콜백
+     */
+    private void showEditDeletePopup(View anchor, Runnable onEdit, Runnable onDelete) {
+        View menuView = LayoutInflater.from(this).inflate(R.layout.layout_owner_more_options, null);
+        int width = (int) (160 * getResources().getDisplayMetrics().density);
+        PopupWindow popup = new PopupWindow(menuView, width, LinearLayout.LayoutParams.WRAP_CONTENT, true);
+        popup.setOutsideTouchable(true);
+        popup.setElevation(25);
+        popup.showAsDropDown(anchor, -width + anchor.getWidth(), 8);
 
-            return false;
+        menuView.findViewById(R.id.menu_edit).setOnClickListener(v -> {
+            popup.dismiss();
+            if (onEdit != null) onEdit.run();
         });
+        menuView.findViewById(R.id.menu_delete).setOnClickListener(v -> {
+            popup.dismiss();
+            if (onDelete != null) onDelete.run();
+        });
+    }
 
-        popupMenu.show();
+    /*
+     * 러너페이지 스타일의 신고/차단 드롭다운 — 신고 토스트 유지, 차단은 Runnable 콜백
+     */
+    private void showReportBlockPopup(View anchor, String reportToast, Runnable onBlock) {
+        View menuView = LayoutInflater.from(this).inflate(R.layout.layout_runner_more_options, null);
+        int width = (int) (160 * getResources().getDisplayMetrics().density);
+        PopupWindow popup = new PopupWindow(menuView, width, LinearLayout.LayoutParams.WRAP_CONTENT, true);
+        popup.setOutsideTouchable(true);
+        popup.setElevation(25);
+        popup.showAsDropDown(anchor, -width + anchor.getWidth(), 8);
+
+        menuView.findViewById(R.id.menu_block).setOnClickListener(v -> {
+            popup.dismiss();
+            if (onBlock != null) onBlock.run();
+        });
+        menuView.findViewById(R.id.menu_report).setOnClickListener(v -> {
+            popup.dismiss();
+            Toast.makeText(this, reportToast, Toast.LENGTH_SHORT).show();
+        });
     }
 
     /*
@@ -822,43 +1090,42 @@ public class TipDetailActivity extends AppCompatActivity {
      * 본인 댓글이면 수정/삭제, 남의 댓글이면 신고/차단 메뉴를 보여줌
      */
     private void showCommentMoreMenu(View anchorView, TipCommentResponse comment) {
-        PopupMenu popupMenu = new PopupMenu(this, anchorView);
-
         if (comment.isMine()) {
-            popupMenu.getMenu().add("수정");
-            popupMenu.getMenu().add("삭제");
+            showEditDeletePopup(anchorView,
+                    () -> enterCommentEditMode(comment),
+                    () -> confirmAndDeleteComment(comment.getCommentId()));
         } else {
-            popupMenu.getMenu().add("신고");
-            popupMenu.getMenu().add("차단");
+            Long commentWriterId = comment.getWriterId();
+            showReportBlockPopup(anchorView, "댓글 신고 기능 연결 예정", () -> {
+                if (commentWriterId != null) {
+                    confirmAndBlockUser(commentWriterId.intValue(), "댓글 작성자");
+                }
+            });
         }
+    }
 
-        popupMenu.setOnMenuItemClickListener(menuItem -> {
-            String menuTitle = menuItem.getTitle().toString();
-
-            if (menuTitle.equals("수정")) {
-                Toast.makeText(this, "댓글 수정 API 연결 예정", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-
-            if (menuTitle.equals("삭제")) {
-                Toast.makeText(this, "댓글 삭제 API 연결 예정", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-
-            if (menuTitle.equals("신고")) {
-                Toast.makeText(this, "댓글 신고 기능 연결 예정", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-
-            if (menuTitle.equals("차단")) {
-                Toast.makeText(this, "댓글 작성자 차단 기능 연결 예정", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-
-            return false;
-        });
-
-        popupMenu.show();
+    /*
+     * 임의 userId 차단 (댓글 작성자 차단용)
+     */
+    private void confirmAndBlockUser(int targetUserId, String label) {
+        com.neostride.app.feature.community.common.util.DangerConfirmDialog.show(
+                this,
+                "차단하기",
+                "상대방의 팁과 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 이 " + label + "을 차단하시겠습니까?",
+                "차단",
+                () -> {
+                    com.neostride.app.feature.friend.repository.FriendRepository friendRepo =
+                            new com.neostride.app.feature.friend.repository.FriendRepository(
+                                    com.neostride.app.common.network.ApiClient.getInstance()
+                                            .create(com.neostride.app.feature.friend.api.FriendApi.class));
+                    com.neostride.app.feature.friend.model.FriendRequest req =
+                            new com.neostride.app.feature.friend.model.FriendRequest(targetUserId, "block");
+                    friendRepo.updateStatus(req, success -> runOnUiThread(() ->
+                            Toast.makeText(TipDetailActivity.this,
+                                    success ? label + "을 차단했습니다." : "차단에 실패했습니다.",
+                                    Toast.LENGTH_SHORT).show()));
+                }
+        );
     }
 
     /*
@@ -953,6 +1220,13 @@ public class TipDetailActivity extends AppCompatActivity {
         }
 
         return value;
+    }
+
+    /*
+     * ISO 시간 문자열을 화면 표시용으로 변환 (오늘 내: 상대 시간, 이전: 절대 날짜)
+     */
+    private String formatDate(String isoTime) {
+        return com.neostride.app.feature.community.common.util.TimeFormatter.format(isoTime);
     }
 
     /*

@@ -37,7 +37,7 @@ public class FeedUploadDialog {
 
     private final Context context;
     private final RunningRecordResponse recordData;
-    private final String routeMapImageUri;
+    private String routeMapImageUri;
     private final Runnable openPhotoPicker;
     private final OnFeedUploadedListener onFeedUploadedListener;
 
@@ -56,6 +56,17 @@ public class FeedUploadDialog {
 
     private int selectedTagCount = 0;
 
+    // 편집 모드 — 신규 작성과 동일 다이얼로그를 재사용 (recordData 없이)
+    private final boolean isEditMode;
+    private final Long editFeedId;
+    // 편집 시 보존할 기존 러닝 통계 (recordData 자리 대체용)
+    private double editDistance = 0.0;
+    private String editDurationText = "00:00";
+    private String editPaceText = "0:00/km";
+
+    /*
+     * 신규 작성용 생성자 (기록 상세에서 업로드 버튼 눌렀을 때)
+     */
     public FeedUploadDialog(
             Context context,
             RunningRecordResponse recordData,
@@ -68,6 +79,27 @@ public class FeedUploadDialog {
         this.routeMapImageUri = routeMapImageUri;
         this.openPhotoPicker = openPhotoPicker;
         this.onFeedUploadedListener = onFeedUploadedListener;
+        this.isEditMode = false;
+        this.editFeedId = null;
+    }
+
+    /*
+     * 편집 모드 생성자 — 기존 피드 상세를 불러와 폼에 채움
+     * 사진 추가 동작이 필요 없는 경우 openPhotoPicker는 빈 Runnable 전달 가능
+     */
+    public FeedUploadDialog(
+            Context context,
+            Long feedId,
+            Runnable openPhotoPicker,
+            OnFeedUploadedListener onFeedUploadedListener
+    ) {
+        this.context = context;
+        this.recordData = null;
+        this.routeMapImageUri = null;
+        this.openPhotoPicker = openPhotoPicker != null ? openPhotoPicker : () -> {};
+        this.onFeedUploadedListener = onFeedUploadedListener;
+        this.isEditMode = true;
+        this.editFeedId = feedId;
     }
 
     /*
@@ -84,18 +116,21 @@ public class FeedUploadDialog {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
             WindowManager.LayoutParams params = window.getAttributes();
-            params.width = (int) (context.getResources().getDisplayMetrics().widthPixels * 0.84);
-            params.height = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.62);
+            int sw = context.getResources().getDisplayMetrics().widthPixels;
+            int sh = context.getResources().getDisplayMetrics().heightPixels;
+            params.width  = (int) (sw * 0.92f);
+            params.height = (int) (sh * 0.85f);
             params.gravity = Gravity.CENTER;
-            params.y = -40;
 
             window.setAttributes(params);
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            window.setDimAmount(0.65f);
+            window.setDimAmount(0.7f);
         }
 
         ImageView btnAddPhoto = dialog.findViewById(R.id.btn_add_photo);
         TextView btnComplete = dialog.findViewById(R.id.btn_complete_upload);
+        ImageView btnBack = dialog.findViewById(R.id.btn_back_upload);
+        if (btnBack != null) btnBack.setOnClickListener(v -> dialog.dismiss());
 
         layoutSelectedPhotos = dialog.findViewById(R.id.layout_selected_photos);
 
@@ -156,10 +191,113 @@ public class FeedUploadDialog {
             privacyDialog.show();
         });
 
-        // 완료 버튼 클릭 시 피드 업로드 요청을 처리함
-        btnComplete.setOnClickListener(v -> uploadFeed());
+        // 완료 버튼 클릭 시 — 편집 모드면 업데이트, 신규면 업로드
+        btnComplete.setOnClickListener(v -> {
+            if (isEditMode) {
+                updateFeed();
+            } else {
+                uploadFeed();
+            }
+        });
 
         dialog.show();
+
+        // 편집 모드면 타이틀 "Feed Edit", 완료 버튼은 그대로 "완료" 유지
+        if (isEditMode && editFeedId != null) {
+            TextView tvUploadTitle = dialog.findViewById(R.id.tv_upload_title);
+            if (tvUploadTitle != null) tvUploadTitle.setText("Feed Edit");
+            prefillExistingFeed();
+        }
+    }
+
+    /*
+     * 편집 모드 — 기존 피드 상세 조회 후 폼 채움
+     */
+    private void prefillExistingFeed() {
+        FeedRepository repo = new FeedRepository(context);
+        repo.getFeedDetail(editFeedId, new FeedRepository.RepositoryCallback<com.neostride.app.feature.feed.model.FeedDetailResponse>() {
+            @Override
+            public void onSuccess(com.neostride.app.feature.feed.model.FeedDetailResponse detail) {
+                if (detail == null) return;
+                etFeedTitle.setText(detail.getTitle() != null ? detail.getTitle() : "");
+                etFeedContent.setText(detail.getContent() != null ? detail.getContent() : "");
+                switchMapVisible.setChecked(detail.isMapVisible());
+
+                // 기록/지도 정보 보존
+                if (detail.getDistance() != null) editDistance = parseFirstNumber(detail.getDistance());
+                if (detail.getDuration() != null) editDurationText = detail.getDuration();
+                if (detail.getPace() != null) editPaceText = detail.getPace();
+                if (detail.getRouteMapImageUri() != null) routeMapImageUri = detail.getRouteMapImageUri();
+                selectedTagCount = detail.getTaggedCount();
+
+                // 기존 이미지 표시
+                if (detail.getImageUrls() != null) {
+                    for (String url : detail.getImageUrls()) {
+                        if (url == null || url.isEmpty()) continue;
+                        try { selectedImageUris.add(Uri.parse(url)); } catch (Exception ignored) {}
+                    }
+                    renderSelectedPhotos();
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(context, "피드 정보 불러오기 실패: " + message, Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private double parseFirstNumber(String text) {
+        if (text == null) return 0.0;
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (char c : text.toCharArray()) {
+                if (Character.isDigit(c) || c == '.') sb.append(c);
+                else if (sb.length() > 0) break;
+            }
+            return sb.length() == 0 ? 0.0 : Double.parseDouble(sb.toString());
+        } catch (Exception e) { return 0.0; }
+    }
+
+    /*
+     * 편집 모드 완료 — PUT 호출
+     */
+    private void updateFeed() {
+        String title = etFeedTitle.getText().toString().trim();
+        String content = etFeedContent.getText().toString().trim();
+        if (title.isEmpty()) {
+            Toast.makeText(context, "제목을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (content.isEmpty()) {
+            Toast.makeText(context, "내용을 입력해주세요", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        boolean mapVisible = switchMapVisible.isChecked();
+
+        FeedUploadRequest request = new FeedUploadRequest(
+                title, content,
+                convertPrivacyToServerValue(tvPrivacyValue.getText().toString()),
+                mapVisible, mapVisible ? routeMapImageUri : null,
+                new ArrayList<>(selectedTaggedUserIds),
+                convertImageUrisToStrings(),
+                editDistance, editDurationText, editPaceText, selectedTagCount
+        );
+
+        FeedRepository repo = new FeedRepository(context);
+        repo.updateFeed(editFeedId, request, new FeedRepository.RepositoryCallback<FeedResponse>() {
+            @Override
+            public void onSuccess(FeedResponse result) {
+                if (onFeedUploadedListener != null) onFeedUploadedListener.onFeedUploaded(result);
+                Toast.makeText(context, "피드가 수정되었습니다", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     /*

@@ -135,12 +135,13 @@
             app:tabPaddingStart="0dp"
             app:tabPaddingEnd="0dp"
             app:tabMaxWidth="0dp"
+            app:tabRippleColor="@android:color/transparent"
             app:layout_constraintTop_toBottomOf="@+id/layout_status">
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="내가 쓴 피드 Nul" />
+                android:text="내가 쓴 글" />
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
@@ -153,7 +154,7 @@
                 android:text="내 활동" />
         </com.google.android.material.tabs.TabLayout>
 
-        <!-- 피드 리사이클러뷰 -->
+        <!-- 게시글 리사이클러뷰 -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rv_my_feeds"
             android:layout_width="match_parent"
@@ -163,7 +164,7 @@
             android:clipToPadding="false"
             app:layout_constraintTop_toBottomOf="@+id/tab_layout" />
 
-        <!-- 피드 없을 때 빈 상태 안내 문구 -->
+        <!-- 빈 상태 안내 문구 -->
         <TextView
             android:id="@+id/tv_empty_state"
             android:layout_width="match_parent"

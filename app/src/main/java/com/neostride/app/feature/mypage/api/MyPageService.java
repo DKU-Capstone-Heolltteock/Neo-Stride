@@ -2,6 +2,7 @@ package com.neostride.app.feature.mypage.api;
 
 import com.neostride.app.feature.mypage.model.CommunityContentResponse;
 import com.neostride.app.feature.mypage.model.UserProfileResponse;
+import com.neostride.app.feature.tip.model.TipResponse;
 
 import java.util.List;
 
@@ -55,6 +56,10 @@ public interface MyPageService {
     // 내가 북마크 한 피드 목록 조회
     @GET("community/contents/bookmarks")
     Call<List<CommunityContentResponse>> getBookmarkedFeeds();
+
+    // 내가 쓴 팁 목록 조회
+    @GET("api/community/tips/me")
+    Call<List<TipResponse>> getMyTips();
 
     // 북마크 상태 토글 (저장/해제)
     @POST("community/bookmark/{contentId}")

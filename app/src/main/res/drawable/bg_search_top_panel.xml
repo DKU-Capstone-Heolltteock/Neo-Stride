@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
 
-    <!-- 검색 상단 영역 배경색임 -->
-    <solid android:color="#202020" />
+    <!-- 피드/팁 카드와 동일한 배경색임 -->
+    <solid android:color="#222222" />
 
-    <!-- 피드/팁 화면처럼 하단 양쪽을 둥글게 처리함 -->
-    <corners
-        android:bottomLeftRadius="28dp"
-        android:bottomRightRadius="28dp" />
+    <!-- 팁/피드 헤더와 동일한 radius 적용임 -->
+    <corners android:radius="24dp" />
 
 </shape>

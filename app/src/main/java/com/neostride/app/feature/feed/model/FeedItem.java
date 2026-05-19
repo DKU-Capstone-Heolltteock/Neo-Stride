@@ -12,6 +12,8 @@ public class FeedItem {
     private Long writerId;
     private String profileImageUrl;
     private String username;
+    private boolean badgeOwned;
+    private String badgeType;
     private String time;
 
     private String title;
@@ -30,11 +32,32 @@ public class FeedItem {
 
     private List<String> imageUrls;
 
+    // 현재 로그인 사용자의 인터랙션 상태 — 카드 하이라이트용
+    private boolean liked;
+    private boolean bookmarked;
+    private boolean commented;
+    private boolean tagged;
+
+    // 본인 글 여부 — ··· 메뉴 분기용
+    private boolean mine;
+
+    public boolean isLiked() { return liked; }
+    public boolean isBookmarked() { return bookmarked; }
+    public boolean isCommented() { return commented; }
+    public boolean isTagged() { return tagged; }
+    public boolean isMine() { return mine; }
+
+    public void setLiked(boolean liked) { this.liked = liked; }
+    public void setBookmarked(boolean bookmarked) { this.bookmarked = bookmarked; }
+    public void setMine(boolean mine) { this.mine = mine; }
+
     public FeedItem(
             Long feedId,
             Long writerId,
             String profileImageUrl,
             String username,
+            boolean badgeOwned,
+            String badgeType,
             String time,
             String title,
             String content,
@@ -46,12 +69,18 @@ public class FeedItem {
             String pace,
             boolean mapVisible,
             String routeMapImageUri,
-            List<String> imageUrls
+            List<String> imageUrls,
+            boolean liked,
+            boolean bookmarked,
+            boolean commented,
+            boolean tagged
     ) {
         this.feedId = feedId;
         this.writerId = writerId;
         this.profileImageUrl = profileImageUrl;
         this.username = username;
+        this.badgeOwned = badgeOwned;
+        this.badgeType = badgeType;
         this.time = time;
         this.title = title;
         this.content = content;
@@ -64,7 +93,14 @@ public class FeedItem {
         this.mapVisible = mapVisible;
         this.routeMapImageUri = routeMapImageUri;
         this.imageUrls = imageUrls;
+        this.liked = liked;
+        this.bookmarked = bookmarked;
+        this.commented = commented;
+        this.tagged = tagged;
     }
+
+    public boolean isBadgeOwned() { return badgeOwned; }
+    public String getBadgeType() { return badgeType; }
 
     public Long getFeedId() {
         return feedId;

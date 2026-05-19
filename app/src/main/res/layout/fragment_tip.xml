@@ -109,11 +109,13 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- 배지 안내 영역 -->
+        <!-- 배지 안내 영역 — 러닝 팁 헤더와 동일 width, 12dp 간격 유지 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
+            android:layout_marginStart="12dp"
             android:layout_marginTop="12dp"
+            android:layout_marginEnd="12dp"
             android:padding="4dp"
             android:background="@drawable/bg_badge_outer"
             android:orientation="horizontal"
@@ -167,7 +169,7 @@
             android:layout_height="0dp"
             android:layout_weight="1"
             android:clipToPadding="false"
-            android:paddingTop="14dp"
+            android:paddingTop="0dp"
             android:paddingBottom="130dp" />
 
     </LinearLayout>
@@ -179,7 +181,7 @@
         android:layout_height="72dp"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="32dp"
-        android:layout_marginBottom="110dp"
+        android:layout_marginBottom="115dp"
         android:background="@drawable/bg_write_feed_button"
         android:padding="17dp"
         android:src="@drawable/ic_write_feed"

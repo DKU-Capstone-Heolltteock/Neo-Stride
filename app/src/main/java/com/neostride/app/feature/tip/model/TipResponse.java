@@ -33,6 +33,8 @@ public class TipResponse {
 
     private boolean liked;
     private boolean bookmarked;
+    private boolean commented;
+    private boolean mine;
 
     private String createdAt;
 
@@ -98,6 +100,18 @@ public class TipResponse {
 
     public boolean isBookmarked() {
         return bookmarked;
+    }
+
+    public void setBookmarked(boolean bookmarked) {
+        this.bookmarked = bookmarked;
+    }
+
+    public boolean isCommented() {
+        return commented;
+    }
+
+    public boolean isMine() {
+        return mine;
     }
 
     public String getCreatedAt() {

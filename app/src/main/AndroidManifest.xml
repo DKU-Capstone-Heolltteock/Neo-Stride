@@ -30,12 +30,14 @@
         <!-- 팁 상세 액티비티 -->
         <activity
             android:name=".feature.tip.TipDetailActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- 피드 상세 액티비티 -->
         <activity
             android:name=".feature.feed.FeedDetailActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- 팁 업로드 시 기록 선택 액티비티 -->
         <activity
@@ -114,6 +116,11 @@
             android:name=".feature.tip.TipUploadActivity"
             android:exported="false"
             android:theme="@style/Theme.NeoStride.TipUploadDialog" />
+
+        <!-- 패치노트 상세 액티비티 -->
+        <activity
+            android:name=".feature.event.PatchNoteDetailActivity"
+            android:exported="false" />
 
         <!-- 마이페이지 액티비티 -->
         <activity

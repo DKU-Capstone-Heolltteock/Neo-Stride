@@ -10,11 +10,19 @@ import com.neostride.app.feature.tip.model.TipCommentResponse;
 import com.neostride.app.feature.tip.model.TipLikeResponse;
 
 import java.util.List;
+import java.util.Map;
 
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.http.Body;
+import retrofit2.http.DELETE;
 import retrofit2.http.GET;
+import retrofit2.http.Multipart;
 import retrofit2.http.POST;
+import retrofit2.http.PUT;
+import retrofit2.http.Part;
+import retrofit2.http.PartMap;
 import retrofit2.http.Path;
 
 
@@ -26,11 +34,16 @@ public interface TipApi {
 
     /*
      * 팁 업로드 API임
-     * POST /api/community/tips 요청을 서버로 전송함
+     * POST /api/community/tips — multipart/form-data 방식으로 전송함
+     *
+     * @PartMap fields : 텍스트 필드 (category, title, content, gpsVisible 등)
+     * @Part    images : 첨부 사진 + GPS 경로 지도 이미지
      */
+    @Multipart
     @POST("api/community/tips")
     Call<TipUploadResponse> uploadTip(
-            @Body TipUploadRequest request
+            @PartMap Map<String, RequestBody> fields,
+            @Part List<MultipartBody.Part> images
     );
 
     /*
@@ -76,6 +89,46 @@ public interface TipApi {
     Call<TipCommentResponse> createTipComment(
             @Path("tipId") Long tipId,
             @Body TipCommentRequest request
+    );
+
+    /*
+     * 팁 삭제 API임
+     * DELETE /api/community/tips/{tipId}
+     */
+    @DELETE("api/community/tips/{tipId}")
+    Call<okhttp3.ResponseBody> deleteTip(
+            @Path("tipId") Long tipId
+    );
+
+    /*
+     * 팁 수정 API임
+     * PUT /api/community/tips/{tipId}
+     */
+    @PUT("api/community/tips/{tipId}")
+    Call<TipUploadResponse> updateTip(
+            @Path("tipId") Long tipId,
+            @Body TipUploadRequest request
+    );
+
+    /*
+     * 팁 댓글 수정 API임
+     * PUT /api/community/tips/{tipId}/comments/{commentId}
+     */
+    @PUT("api/community/tips/{tipId}/comments/{commentId}")
+    Call<TipCommentResponse> updateTipComment(
+            @Path("tipId") Long tipId,
+            @Path("commentId") Long commentId,
+            @Body TipCommentRequest request
+    );
+
+    /*
+     * 팁 댓글 삭제 API임
+     * DELETE /api/community/tips/{tipId}/comments/{commentId}
+     */
+    @DELETE("api/community/tips/{tipId}/comments/{commentId}")
+    Call<okhttp3.ResponseBody> deleteTipComment(
+            @Path("tipId") Long tipId,
+            @Path("commentId") Long commentId
     );
 
 }

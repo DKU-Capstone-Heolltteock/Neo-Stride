@@ -1,5 +1,9 @@
 package com.neostride.app.feature.tip.repository;
 
+import android.content.Context;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.OpenableColumns;
 import android.util.Log;
 
 import com.neostride.app.common.network.ApiClient;
@@ -12,8 +16,19 @@ import com.neostride.app.feature.tip.model.TipBookmarkResponse;
 import com.neostride.app.feature.tip.model.TipCommentRequest;
 import com.neostride.app.feature.tip.model.TipCommentResponse;
 import com.neostride.app.feature.tip.model.TipLikeResponse;
-import java.util.List;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -29,17 +44,24 @@ public class TipRepository {
     private final TipApi tipApi;
 
     /*
-     * TipRepository 생성자임
-     * 개발 중에는 MockApiClient를 사용해 목서버 응답을 받음
-     * 실제 서버 연결 시에는 ApiClient로 되돌려야 함
+     * Context — uploadTip 에서 content:// URI 를 읽을 때 필요함
+     * null 허용: uploadTip 을 호출하지 않는 곳은 기존 no-arg 생성자를 그대로 사용 가능
      */
-    /*public TipRepository() {
-        tipApi = MockApiClient
-                .getInstance()
-                .create(TipApi.class);
-    }*/
+    private final Context context;
 
+    /*
+     * 기존 호출부 호환용 no-arg 생성자 (uploadTip 외의 모든 기능에서 사용)
+     */
     public TipRepository() {
+        this(null);
+    }
+
+    /*
+     * 이미지 업로드가 필요한 경우 Context 를 전달받는 생성자
+     * TipUploadActivity 에서 new TipRepository(this) 로 생성함
+     */
+    public TipRepository(Context context) {
+        this.context = context != null ? context.getApplicationContext() : null;
         tipApi = ApiClient
                 .getInstance()
                 .create(TipApi.class);
@@ -47,13 +69,43 @@ public class TipRepository {
 
     /*
      * 팁 업로드 함수임
-     * 사용자가 작성한 팁 데이터를 서버로 전송함
+     * 텍스트 필드는 @PartMap 으로, 이미지(GPS 경로 지도 + 첨부 사진)는 MultipartBody.Part 리스트로 전송함
+     * 피드 업로드, 마이페이지 프로필 이미지와 동일한 multipart/form-data 방식임
      */
     public void uploadTip(
             TipUploadRequest request,
             TipUploadCallback callback
     ) {
-        tipApi.uploadTip(request)
+        // ── 텍스트 필드 ─────────────────────────────────────────────────────────
+        Map<String, RequestBody> fields = new HashMap<>();
+        fields.put("category",   toPlainBody(request.getCategory()));
+        fields.put("title",      toPlainBody(request.getTitle()));
+        fields.put("content",    toPlainBody(request.getContent()));
+        fields.put("gpsVisible", toPlainBody(String.valueOf(request.isGpsVisible())));
+
+        // ── 이미지 파트 ──────────────────────────────────────────────────────────
+        List<MultipartBody.Part> imageParts = new ArrayList<>();
+
+        // GPS 경로 지도 이미지 (file:// URI)
+        if (request.isGpsVisible()
+                && request.getRouteMapImageUrl() != null
+                && !request.getRouteMapImageUrl().trim().isEmpty()) {
+            MultipartBody.Part routeMapPart =
+                    uriToMultipartPart(context, request.getRouteMapImageUrl(), "routeMapImage");
+            if (routeMapPart != null) imageParts.add(routeMapPart);
+        }
+
+        // 첨부 사진 (content:// URI)
+        if (request.getImageUrls() != null) {
+            for (String uriString : request.getImageUrls()) {
+                if (uriString == null || uriString.trim().isEmpty()) continue;
+                MultipartBody.Part part = uriToMultipartPart(context, uriString, "images");
+                if (part != null) imageParts.add(part);
+            }
+        }
+
+        // ── API 호출 ─────────────────────────────────────────────────────────────
+        tipApi.uploadTip(fields, imageParts)
                 .enqueue(new Callback<TipUploadResponse>() {
                     @Override
                     public void onResponse(
@@ -65,7 +117,7 @@ public class TipRepository {
                         if (response.isSuccessful() && response.body() != null) {
                             callback.onSuccess(response.body());
                         } else {
-                            callback.onFailure("팁 업로드 실패 / code = " + response.code());
+                            callback.onFailure("오류 코드 " + response.code());
                         }
                     }
 
@@ -75,9 +127,105 @@ public class TipRepository {
                             Throwable t
                     ) {
                         Log.e(TAG, "uploadTip onFailure = " + t.getMessage());
-                        callback.onFailure(t.getMessage());
+                        callback.onFailure("서버에 연결할 수 없습니다");
                     }
                 });
+    }
+
+    // ── 헬퍼 메서드 ──────────────────────────────────────────────────────────────
+
+    /*
+     * 문자열을 text/plain RequestBody 로 변환함
+     */
+    private static RequestBody toPlainBody(String value) {
+        return RequestBody.create(
+                value != null ? value : "",
+                MediaType.parse("text/plain")
+        );
+    }
+
+    /*
+     * 로컬 URI (file:// 또는 content://) 를 MultipartBody.Part 로 변환함
+     * http:// 등 원격 URI 는 null 을 반환함
+     */
+    private static MultipartBody.Part uriToMultipartPart(
+            Context context, String uriString, String partName) {
+        try {
+            Uri uri = Uri.parse(uriString);
+            String scheme = uri.getScheme();
+            byte[] bytes;
+            String filename;
+
+            if ("file".equals(scheme)) {
+                // file:// — TipRecordSelectActivity 가 캐시에 저장한 경로 지도 PNG
+                File file = new File(uri.getPath());
+                filename = file.getName();
+                FileInputStream fis = new FileInputStream(file);
+                bytes = readAllBytes(fis);
+                fis.close();
+            } else if ("content".equals(scheme)) {
+                // content:// — 갤러리에서 선택한 사진
+                if (context == null) return null;
+                filename = queryDisplayName(context, uri);
+                InputStream is = context.getContentResolver().openInputStream(uri);
+                if (is == null) return null;
+                bytes = readAllBytes(is);
+                is.close();
+            } else {
+                Log.w(TAG, "uriToMultipartPart: unsupported scheme — " + uriString);
+                return null;
+            }
+
+            RequestBody body = RequestBody.create(
+                    bytes,
+                    MediaType.parse(guessMimeType(filename))
+            );
+            return MultipartBody.Part.createFormData(partName, filename, body);
+
+        } catch (Exception e) {
+            Log.e(TAG, "uriToMultipartPart failed: " + uriString, e);
+            return null;
+        }
+    }
+
+    /*
+     * InputStream 을 byte 배열로 읽어 반환함
+     */
+    private static byte[] readAllBytes(InputStream is) throws java.io.IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] chunk = new byte[8192];
+        int n;
+        while ((n = is.read(chunk)) != -1) {
+            buffer.write(chunk, 0, n);
+        }
+        return buffer.toByteArray();
+    }
+
+    /*
+     * content:// URI 에서 파일명을 조회함
+     */
+    private static String queryDisplayName(Context context, Uri uri) {
+        String result = "image.jpg";
+        Cursor cursor = context.getContentResolver()
+                .query(uri, null, null, null, null);
+        if (cursor != null && cursor.moveToFirst()) {
+            int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+            if (idx >= 0) result = cursor.getString(idx);
+            cursor.close();
+        }
+        return result;
+    }
+
+    /*
+     * 파일명 확장자를 기반으로 MIME 타입을 추측함
+     */
+    private static String guessMimeType(String filename) {
+        if (filename == null) return "image/jpeg";
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".png"))  return "image/png";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".gif"))  return "image/gif";
+        return "image/jpeg";
     }
 
     /*
@@ -99,7 +247,7 @@ public class TipRepository {
                         if (response.isSuccessful() && response.body() != null) {
                             callback.onSuccess(response.body());
                         } else {
-                            callback.onFailure("팁 조회 실패 / code = " + response.code());
+                            callback.onFailure("오류 코드 " + response.code());
                         }
                     }
 
@@ -109,7 +257,7 @@ public class TipRepository {
                             Throwable t
                     ) {
                         Log.e(TAG, "getTips onFailure = " + t.getMessage());
-                        callback.onFailure(t.getMessage());
+                        callback.onFailure("서버에 연결할 수 없습니다");
                     }
                 });
     }
@@ -134,7 +282,7 @@ public class TipRepository {
                         if (response.isSuccessful() && response.body() != null) {
                             callback.onSuccess(response.body());
                         } else {
-                            callback.onFailure("팁 상세 조회 실패 / code = " + response.code());
+                            callback.onFailure("오류 코드 " + response.code());
                         }
                     }
 
@@ -144,7 +292,7 @@ public class TipRepository {
                             Throwable t
                     ) {
                         Log.e(TAG, "getTipDetail onFailure = " + t.getMessage());
-                        callback.onFailure(t.getMessage());
+                        callback.onFailure("서버에 연결할 수 없습니다");
                     }
                 });
     }
@@ -168,7 +316,7 @@ public class TipRepository {
                         if (response.isSuccessful() && response.body() != null) {
                             callback.onSuccess(response.body());
                         } else {
-                            callback.onFailure("좋아요 처리 실패 / code = " + response.code());
+                            callback.onFailure("오류 코드 " + response.code());
                         }
                     }
 
@@ -178,9 +326,61 @@ public class TipRepository {
                             Throwable t
                     ) {
                         Log.e(TAG, "toggleTipLike onFailure = " + t.getMessage());
-                        callback.onFailure(t.getMessage());
+                        callback.onFailure("서버에 연결할 수 없습니다");
                     }
                 });
+    }
+
+    /*
+     * 팁 수정 함수임 (PUT /api/community/tips/{tipId})
+     */
+    public void updateTip(
+            Long tipId,
+            com.neostride.app.feature.tip.model.TipUploadRequest request,
+            TipUploadCallback callback
+    ) {
+        tipApi.updateTip(tipId, request).enqueue(new Callback<com.neostride.app.feature.tip.model.TipUploadResponse>() {
+            @Override
+            public void onResponse(Call<com.neostride.app.feature.tip.model.TipUploadResponse> call,
+                                   Response<com.neostride.app.feature.tip.model.TipUploadResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onFailure("오류 코드 " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<com.neostride.app.feature.tip.model.TipUploadResponse> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
+            }
+        });
+    }
+
+    /*
+     * 팁 삭제 함수임
+     */
+    public void deleteTip(Long tipId, TipDeleteCallback callback) {
+        tipApi.deleteTip(tipId).enqueue(new Callback<okhttp3.ResponseBody>() {
+            @Override
+            public void onResponse(Call<okhttp3.ResponseBody> call, Response<okhttp3.ResponseBody> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess();
+                } else {
+                    callback.onFailure("오류 코드 " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<okhttp3.ResponseBody> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
+            }
+        });
+    }
+
+    public interface TipDeleteCallback {
+        void onSuccess();
+        void onFailure(String message);
     }
 
     /*
@@ -202,7 +402,7 @@ public class TipRepository {
                         if (response.isSuccessful() && response.body() != null) {
                             callback.onSuccess(response.body());
                         } else {
-                            callback.onFailure("북마크 처리 실패 / code = " + response.code());
+                            callback.onFailure("오류 코드 " + response.code());
                         }
                     }
 
@@ -212,7 +412,7 @@ public class TipRepository {
                             Throwable t
                     ) {
                         Log.e(TAG, "toggleTipBookmark onFailure = " + t.getMessage());
-                        callback.onFailure(t.getMessage());
+                        callback.onFailure("서버에 연결할 수 없습니다");
                     }
                 });
     }
@@ -239,7 +439,7 @@ public class TipRepository {
                         if (response.isSuccessful() && response.body() != null) {
                             callback.onSuccess(response.body());
                         } else {
-                            callback.onFailure("댓글 작성 실패 / code = " + response.code());
+                            callback.onFailure("오류 코드 " + response.code());
                         }
                     }
 
@@ -249,9 +449,55 @@ public class TipRepository {
                             Throwable t
                     ) {
                         Log.e(TAG, "createTipComment onFailure = " + t.getMessage());
-                        callback.onFailure(t.getMessage());
+                        callback.onFailure("서버에 연결할 수 없습니다");
                     }
                 });
+    }
+
+    /*
+     * 팁 댓글 수정 API 호출
+     */
+    public void updateTipComment(
+            Long tipId,
+            Long commentId,
+            String content,
+            TipCommentCreateCallback callback
+    ) {
+        TipCommentRequest request = new TipCommentRequest(content);
+        tipApi.updateTipComment(tipId, commentId, request)
+                .enqueue(new Callback<TipCommentResponse>() {
+                    @Override
+                    public void onResponse(Call<TipCommentResponse> call, Response<TipCommentResponse> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            callback.onSuccess(response.body());
+                        } else {
+                            callback.onFailure("오류 코드 " + response.code());
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<TipCommentResponse> call, Throwable t) {
+                        callback.onFailure("서버에 연결할 수 없습니다");
+                    }
+                });
+    }
+
+    /*
+     * 팁 댓글 삭제 API 호출
+     */
+    public void deleteTipComment(Long tipId, Long commentId, TipDeleteCallback callback) {
+        tipApi.deleteTipComment(tipId, commentId).enqueue(new Callback<okhttp3.ResponseBody>() {
+            @Override
+            public void onResponse(Call<okhttp3.ResponseBody> call, Response<okhttp3.ResponseBody> response) {
+                if (response.isSuccessful()) callback.onSuccess();
+                else callback.onFailure("오류 코드 " + response.code());
+            }
+
+            @Override
+            public void onFailure(Call<okhttp3.ResponseBody> call, Throwable t) {
+                callback.onFailure("서버에 연결할 수 없습니다");
+            }
+        });
     }
 
     /*

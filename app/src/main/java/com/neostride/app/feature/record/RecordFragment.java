@@ -158,7 +158,7 @@ public class RecordFragment extends Fragment {
 
         TextView btnConfirm = new TextView(requireContext());
         btnConfirm.setText("완료");
-        btnCancel.setTextColor(Color.parseColor("#888888"));
+        btnConfirm.setTextColor(Color.parseColor("#888888"));
         btnConfirm.setTextSize(15);
         btnConfirm.setPadding(dp(20), dp(10), dp(20), dp(10));
         btnConfirm.setOnClickListener(v2 -> {

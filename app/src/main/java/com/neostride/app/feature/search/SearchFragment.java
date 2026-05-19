@@ -4,12 +4,16 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -38,12 +42,26 @@ import java.util.Map;
 /*
  * 커뮤니티 검색 화면 Fragment 클래스임
  *
- * 정석 구조로 피드/팁/프로필/친구 검색을 분리함
- * 피드 검색 결과는 기존 FeedAdapter와 item_feed.xml을 사용함
- * 팁 검색 결과는 기존 TipAdapter와 item_tip.xml을 사용함
- * 프로필/친구 검색 결과는 SearchUserAdapter와 item_search.xml을 사용함
+ * 피드/팁/프로필: page(0-indexed) 기반 무한 스크롤 페이지네이션
+ * - 스크롤 끝 근접 시 다음 페이지 자동 로드 후 기존 목록에 append
+ * - 탭 전환 또는 keyword 변경 시 page=0으로 리셋
+ * 친구 탭: 페이지네이션 없이 전체 목록 한 번에 로드
  */
 public class SearchFragment extends Fragment {
+
+    /*
+     * 페이지당 항목 수
+     */
+    private static final int PAGE_SIZE = 10;
+
+    /*
+     * 검색창 디바운스 딜레이 (ms)
+     * 타이핑 멈춘 후 이 시간이 지나야 API 요청을 보냄
+     */
+    private static final long SEARCH_DEBOUNCE_MS = 300;
+
+    private final Handler debounceHandler = new Handler(Looper.getMainLooper());
+    private Runnable debounceRunnable;
 
     private EditText etSearch;
     private RecyclerView rvSearch;
@@ -53,11 +71,8 @@ public class SearchFragment extends Fragment {
     private TextView tabProfile;
     private TextView tabFriend;
 
-    private View lineFeed;
-    private View lineTip;
-    private View lineProfile;
-    private View lineFriend;
-    private View lineFull;
+    private View tabIndicator;
+    private FrameLayout layoutMainTabContainer;
 
     private LinearLayout layoutTipCategory;
 
@@ -71,15 +86,49 @@ public class SearchFragment extends Fragment {
 
     /*
      * 현재 선택된 메인 검색 탭임
-     * FEED, TIP, PROFILE, FRIEND 중 하나임
      */
     private String currentTab = "FEED";
 
     /*
      * 현재 선택된 팁 카테고리임
-     * TIP 탭에서만 의미 있음
      */
     private String currentTipCategory = "ALL";
+
+    // ──────────────────────────────────────────────────
+    // 페이지네이션 상태
+    // ──────────────────────────────────────────────────
+
+    /*
+     * 현재 로드된 페이지 번호 (0-indexed)
+     */
+    private int currentPage = 0;
+
+    /*
+     * 현재 API 요청이 진행 중이면 true — 중복 요청 방지
+     */
+    private boolean isLoading = false;
+
+    /*
+     * 더 불러올 데이터가 없으면 false — 스크롤 감지 중단
+     */
+    private boolean hasMore = true;
+
+    // ──────────────────────────────────────────────────
+    // 어댑터 & 데이터 리스트 (어댑터와 같은 참조를 공유)
+    // append 시 리스트에 추가 후 notifyItemRangeInserted 호출
+    // ──────────────────────────────────────────────────
+
+    private FeedAdapter feedAdapter;
+    private final List<FeedItem> feedItemList = new ArrayList<>();
+
+    private TipAdapter tipAdapter;
+    private final ArrayList<TipItem> tipItemList = new ArrayList<>();
+    private final Map<Long, Boolean>  tipLikedMap       = new HashMap<>();
+    private final Map<Long, Boolean>  tipBookmarkedMap   = new HashMap<>();
+    private final Map<Long, Integer>  tipLikeCountMap    = new HashMap<>();
+
+    private SearchUserAdapter userAdapter;
+    private final List<SearchUserResponse> userItemList = new ArrayList<>();
 
     public SearchFragment() {
         // Fragment 기본 생성자가 필요함
@@ -110,7 +159,7 @@ public class SearchFragment extends Fragment {
         applyTipCategoryStyles(currentTipCategory);
 
         /*
-         * 최초 진입 시 피드 검색 결과를 불러옴
+         * 최초 진입 시 피드 탭으로 시작함
          */
         changeMainTab("FEED");
     }
@@ -122,32 +171,52 @@ public class SearchFragment extends Fragment {
         etSearch = view.findViewById(R.id.et_search);
         rvSearch = view.findViewById(R.id.rv_search);
 
-        tabFeed = view.findViewById(R.id.tab_feed);
-        tabTip = view.findViewById(R.id.tab_tip);
+        tabFeed    = view.findViewById(R.id.tab_feed);
+        tabTip     = view.findViewById(R.id.tab_tip);
         tabProfile = view.findViewById(R.id.tab_profile);
-        tabFriend = view.findViewById(R.id.tab_friend);
+        tabFriend  = view.findViewById(R.id.tab_friend);
 
-        lineFeed = view.findViewById(R.id.line_feed);
-        lineTip = view.findViewById(R.id.line_tip);
-        lineProfile = view.findViewById(R.id.line_profile);
-        lineFriend = view.findViewById(R.id.line_friend);
-        lineFull = view.findViewById(R.id.line_full);
+        tabIndicator         = view.findViewById(R.id.tab_indicator);
+        layoutMainTabContainer = view.findViewById(R.id.layout_main_tab_container);
 
         layoutTipCategory = view.findViewById(R.id.layout_tip_category);
 
-        btnTipAll = view.findViewById(R.id.btn_tip_all);
-        btnTipFree = view.findViewById(R.id.btn_tip_free);
+        btnTipAll      = view.findViewById(R.id.btn_tip_all);
+        btnTipFree     = view.findViewById(R.id.btn_tip_free);
         btnTipTraining = view.findViewById(R.id.btn_tip_training);
-        btnTipCourse = view.findViewById(R.id.btn_tip_course);
-        btnTipGear = view.findViewById(R.id.btn_tip_gear);
+        btnTipCourse   = view.findViewById(R.id.btn_tip_course);
+        btnTipGear     = view.findViewById(R.id.btn_tip_gear);
     }
 
     /*
-     * RecyclerView 기본 설정을 초기화하는 함수임
-     * 실제 Adapter는 탭별 검색 결과를 받은 뒤 교체함
+     * RecyclerView 기본 설정 + 무한 스크롤 리스너를 초기화하는 함수임
      */
     private void initRecyclerView() {
         rvSearch.setLayoutManager(new LinearLayoutManager(requireContext()));
+
+        rvSearch.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                /*
+                 * 아래 방향 스크롤이 아니거나 로딩 중이거나 더 이상 데이터 없으면 무시함
+                 * 친구 탭은 페이지네이션이 없으므로 무시함
+                 */
+                if (dy <= 0 || isLoading || !hasMore || "FRIEND".equals(currentTab)) return;
+
+                LinearLayoutManager lm = (LinearLayoutManager) rvSearch.getLayoutManager();
+                if (lm == null) return;
+
+                int total       = lm.getItemCount();
+                int lastVisible = lm.findLastVisibleItemPosition();
+
+                /*
+                 * 마지막에서 3번째 아이템이 보이면 다음 페이지 요청함
+                 */
+                if (lastVisible >= total - 3) {
+                    loadNextPage();
+                }
+            }
+        });
     }
 
     /*
@@ -162,37 +231,38 @@ public class SearchFragment extends Fragment {
      */
     private void initListeners() {
         etSearch.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                // 입력 전 처리 없음
-            }
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
-                requestSearch();
+                /*
+                 * 글자 입력마다 즉시 요청하지 않고 300ms 동안 추가 입력이 없을 때만 요청함
+                 * 이전에 예약된 요청이 있으면 취소하고 새로 예약함
+                 */
+                if (debounceRunnable != null) {
+                    debounceHandler.removeCallbacks(debounceRunnable);
+                }
+                debounceRunnable = () -> resetAndLoad();
+                debounceHandler.postDelayed(debounceRunnable, SEARCH_DEBOUNCE_MS);
             }
 
-            @Override
-            public void afterTextChanged(Editable s) {
-                // 입력 후 처리 없음
-            }
+            @Override public void afterTextChanged(Editable s) {}
         });
 
-        tabFeed.setOnClickListener(v -> changeMainTab("FEED"));
-        tabTip.setOnClickListener(v -> changeMainTab("TIP"));
+        tabFeed.setOnClickListener(v    -> changeMainTab("FEED"));
+        tabTip.setOnClickListener(v     -> changeMainTab("TIP"));
         tabProfile.setOnClickListener(v -> changeMainTab("PROFILE"));
-        tabFriend.setOnClickListener(v -> changeMainTab("FRIEND"));
+        tabFriend.setOnClickListener(v  -> changeMainTab("FRIEND"));
 
-        btnTipAll.setOnClickListener(v -> changeTipCategory("ALL"));
-        btnTipFree.setOnClickListener(v -> changeTipCategory("FREE"));
+        btnTipAll.setOnClickListener(v      -> changeTipCategory("ALL"));
+        btnTipFree.setOnClickListener(v     -> changeTipCategory("FREE"));
         btnTipTraining.setOnClickListener(v -> changeTipCategory("TRAINING"));
-        btnTipCourse.setOnClickListener(v -> changeTipCategory("COURSE"));
-        btnTipGear.setOnClickListener(v -> changeTipCategory("GEAR"));
+        btnTipCourse.setOnClickListener(v   -> changeTipCategory("COURSE"));
+        btnTipGear.setOnClickListener(v     -> changeTipCategory("GEAR"));
     }
 
     /*
      * 메인 검색 탭을 변경하는 함수임
-     * 선택된 탭에 따라 UI를 갱신하고 해당 타입 검색을 다시 호출함
      */
     private void changeMainTab(String tab) {
         currentTab = tab;
@@ -202,36 +272,56 @@ public class SearchFragment extends Fragment {
         tabProfile.setTextColor(0xFFFFFFFF);
         tabFriend.setTextColor(0xFFFFFFFF);
 
-        lineFeed.setVisibility(View.GONE);
-        lineTip.setVisibility(View.GONE);
-        lineProfile.setVisibility(View.GONE);
-        lineFriend.setVisibility(View.GONE);
-        lineFull.setVisibility(View.GONE);
-
         if (tab.equals("FEED")) {
             tabFeed.setTextColor(0xFFB6FF3B);
-            lineFeed.setVisibility(View.VISIBLE);
+            slideIndicatorToTab(0, true);
             layoutTipCategory.setVisibility(View.GONE);
 
         } else if (tab.equals("TIP")) {
             tabTip.setTextColor(0xFFB6FF3B);
-            lineTip.setVisibility(View.VISIBLE);
-            lineFull.setVisibility(View.VISIBLE);
+            slideIndicatorToTab(1, true);
             layoutTipCategory.setVisibility(View.VISIBLE);
             applyTipCategoryStyles(currentTipCategory);
 
         } else if (tab.equals("PROFILE")) {
             tabProfile.setTextColor(0xFFB6FF3B);
-            lineProfile.setVisibility(View.VISIBLE);
+            slideIndicatorToTab(2, true);
             layoutTipCategory.setVisibility(View.GONE);
 
         } else if (tab.equals("FRIEND")) {
             tabFriend.setTextColor(0xFFB6FF3B);
-            lineFriend.setVisibility(View.VISIBLE);
+            slideIndicatorToTab(3, true);
             layoutTipCategory.setVisibility(View.GONE);
         }
 
-        requestSearch();
+        resetAndLoad();
+    }
+
+    /*
+     * 탭 인디케이터를 해당 탭 인덱스 위치로 슬라이드하는 함수임
+     */
+    private void slideIndicatorToTab(int tabIndex, boolean animate) {
+        if (tabIndicator == null || layoutMainTabContainer == null) return;
+
+        int containerWidth = layoutMainTabContainer.getWidth();
+        if (containerWidth == 0) {
+            tabIndicator.post(() -> slideIndicatorToTab(tabIndex, false));
+            return;
+        }
+
+        float tabWidth      = containerWidth / 4f;
+        float indicatorWidth = dp(32);
+        float targetX       = tabIndex * tabWidth + (tabWidth - indicatorWidth) / 2f;
+
+        if (animate) {
+            tabIndicator.animate()
+                    .translationX(targetX)
+                    .setDuration(220)
+                    .setInterpolator(new DecelerateInterpolator())
+                    .start();
+        } else {
+            tabIndicator.setTranslationX(targetX);
+        }
     }
 
     /*
@@ -240,30 +330,27 @@ public class SearchFragment extends Fragment {
     private void changeTipCategory(String category) {
         currentTipCategory = category;
         applyTipCategoryStyles(category);
-        requestSearch();
+        resetAndLoad();
     }
 
     /*
      * 팁 카테고리 버튼 스타일을 전체 갱신하는 함수임
-     * 선택된 버튼만 카테고리별 색상으로 강조함
      */
     private void applyTipCategoryStyles(String selectedCategory) {
-        setCategoryButtonStyle(btnTipAll, "ALL".equals(selectedCategory), "#B6FF3B");
-        setCategoryButtonStyle(btnTipFree, "FREE".equals(selectedCategory), "#00E5FF");
+        setCategoryButtonStyle(btnTipAll,      "ALL".equals(selectedCategory),      "#B6FF3B");
+        setCategoryButtonStyle(btnTipFree,     "FREE".equals(selectedCategory),     "#00E5FF");
         setCategoryButtonStyle(btnTipTraining, "TRAINING".equals(selectedCategory), "#FF3DFF");
-        setCategoryButtonStyle(btnTipCourse, "COURSE".equals(selectedCategory), "#FFB300");
-        setCategoryButtonStyle(btnTipGear, "GEAR".equals(selectedCategory), "#00FF85");
+        setCategoryButtonStyle(btnTipCourse,   "COURSE".equals(selectedCategory),   "#FFB300");
+        setCategoryButtonStyle(btnTipGear,     "GEAR".equals(selectedCategory),     "#00FF85");
     }
 
     /*
      * 팁 카테고리 버튼 1개의 선택/비선택 스타일을 적용하는 함수임
      */
     private void setCategoryButtonStyle(TextView button, boolean isSelected, String selectedColorCode) {
-        if (button == null) {
-            return;
-        }
+        if (button == null) return;
 
-        int selectedColor = Color.parseColor(selectedColorCode);
+        int selectedColor   = Color.parseColor(selectedColorCode);
         int unselectedColor = Color.parseColor("#E8E8E8");
 
         GradientDrawable drawable = new GradientDrawable();
@@ -284,46 +371,90 @@ public class SearchFragment extends Fragment {
         button.setBackground(drawable);
     }
 
+    // ──────────────────────────────────────────────────
+    // 페이지네이션 핵심 로직
+    // ──────────────────────────────────────────────────
+
     /*
-     * 현재 탭에 따라 알맞은 검색 API를 호출하는 함수임
+     * 페이지 상태를 초기화하고 첫 페이지를 새로 로드하는 함수임
+     * 탭 전환, keyword 변경, 카테고리 변경 시 호출함
      */
-    private void requestSearch() {
-        if (searchRepository == null || etSearch == null) {
-            return;
-        }
+    private void resetAndLoad() {
+        currentPage = 0;
+        isLoading   = false;
+        hasMore     = true;
 
-        String keyword = etSearch.getText() == null
-                ? ""
-                : etSearch.getText().toString();
+        /*
+         * 각 탭의 데이터 리스트를 비우고 어댑터 참조도 초기화함
+         * 다음 load 시 새 어댑터를 생성해 RecyclerView에 연결함
+         */
+        feedItemList.clear();
+        tipItemList.clear();
+        tipLikedMap.clear();
+        tipBookmarkedMap.clear();
+        tipLikeCountMap.clear();
+        userItemList.clear();
 
-        if (currentTab.equals("FEED")) {
-            requestFeedSearch(keyword);
+        feedAdapter = null;
+        tipAdapter  = null;
+        userAdapter = null;
 
-        } else if (currentTab.equals("TIP")) {
-            requestTipSearch(keyword);
+        rvSearch.setAdapter(null);
 
-        } else if (currentTab.equals("PROFILE")) {
-            requestProfileSearch(keyword);
+        loadPage();
+    }
 
-        } else if (currentTab.equals("FRIEND")) {
-            requestFriendSearch(keyword);
+    /*
+     * 스크롤 끝에서 다음 페이지를 요청하는 함수임
+     */
+    private void loadNextPage() {
+        currentPage++;
+        loadPage();
+    }
+
+    /*
+     * 현재 탭과 페이지 번호로 API를 호출하는 함수임
+     * isLoading 플래그로 중복 요청을 막음
+     */
+    private void loadPage() {
+        if (isLoading || !hasMore) return;
+        isLoading = true;
+
+        String keyword = etSearch.getText() == null ? "" : etSearch.getText().toString();
+
+        switch (currentTab) {
+            case "FEED":    loadFeedPage(keyword);    break;
+            case "TIP":     loadTipPage(keyword);     break;
+            case "PROFILE": loadProfilePage(keyword); break;
+            case "FRIEND":  loadFriendPage(keyword);  break;
         }
     }
 
     /*
-     * 피드 검색 API를 호출하고 기존 FeedAdapter로 결과를 표시하는 함수임
+     * 피드 페이지를 로드하고 기존 목록에 append하는 함수임
      */
-    private void requestFeedSearch(String keyword) {
-        searchRepository.searchFeeds(keyword, new SearchRepository.FeedSearchCallback() {
+    private void loadFeedPage(String keyword) {
+        searchRepository.searchFeeds(keyword, currentPage, PAGE_SIZE, new SearchRepository.FeedSearchCallback() {
             @Override
             public void onSuccess(List<FeedResponse> feedResponses) {
-                if (!isAdded()) {
-                    return;
+                if (!isAdded()) return;
+
+                List<FeedItem> newItems = convertFeedResponsesToItems(feedResponses);
+                int insertStart = feedItemList.size();
+                feedItemList.addAll(newItems);
+
+                if (feedAdapter == null) {
+                    /*
+                     * 첫 페이지: 새 어댑터 생성 후 RecyclerView에 연결함
+                     */
+                    feedAdapter = new FeedAdapter(feedItemList);
+                    rvSearch.setAdapter(feedAdapter);
+                } else {
+                    feedAdapter.notifyItemRangeInserted(insertStart, newItems.size());
                 }
 
-                List<FeedItem> feedItems = convertFeedResponsesToItems(feedResponses);
-                FeedAdapter feedAdapter = new FeedAdapter(feedItems);
-                rvSearch.setAdapter(feedAdapter);
+                hasMore   = newItems.size() >= PAGE_SIZE;
+                isLoading = false;
             }
 
             @Override
@@ -334,42 +465,38 @@ public class SearchFragment extends Fragment {
     }
 
     /*
-     * 팁 검색 API를 호출하고 기존 TipAdapter로 결과를 표시하는 함수임
+     * 팁 페이지를 로드하고 기존 목록에 append하는 함수임
      */
-    private void requestTipSearch(String keyword) {
-        searchRepository.searchTips(keyword, currentTipCategory, new SearchRepository.TipSearchCallback() {
+    private void loadTipPage(String keyword) {
+        searchRepository.searchTips(keyword, currentTipCategory, currentPage, PAGE_SIZE, new SearchRepository.TipSearchCallback() {
             @Override
             public void onSuccess(List<TipResponse> tipResponses) {
-                if (!isAdded()) {
-                    return;
-                }
+                if (!isAdded()) return;
 
-                ArrayList<TipItem> tipItems = convertTipResponsesToItems(tipResponses);
+                ArrayList<TipItem> newItems = convertTipResponsesToItems(tipResponses);
+                int insertStart = tipItemList.size();
+                tipItemList.addAll(newItems);
 
-                Map<Long, Boolean> likedStateMap = new HashMap<>();
-                Map<Long, Boolean> bookmarkedStateMap = new HashMap<>();
-                Map<Long, Integer> likeCountMap = new HashMap<>();
-
+                /*
+                 * 좋아요/북마크/likeCount 맵에도 새 항목을 추가함
+                 */
                 for (TipResponse response : tipResponses) {
                     Long tipId = response.getTipId();
-
-                    if (tipId == null) {
-                        continue;
-                    }
-
-                    likedStateMap.put(tipId, response.isLiked());
-                    bookmarkedStateMap.put(tipId, response.isBookmarked());
-                    likeCountMap.put(tipId, response.getLikeCount());
+                    if (tipId == null) continue;
+                    tipLikedMap.put(tipId, response.isLiked());
+                    tipBookmarkedMap.put(tipId, response.isBookmarked());
+                    tipLikeCountMap.put(tipId, response.getLikeCount());
                 }
 
-                TipAdapter tipAdapter = new TipAdapter(
-                        tipItems,
-                        likedStateMap,
-                        bookmarkedStateMap,
-                        likeCountMap
-                );
+                if (tipAdapter == null) {
+                    tipAdapter = new TipAdapter(tipItemList, tipLikedMap, tipBookmarkedMap, tipLikeCountMap);
+                    rvSearch.setAdapter(tipAdapter);
+                } else {
+                    tipAdapter.notifyItemRangeInserted(insertStart, newItems.size());
+                }
 
-                rvSearch.setAdapter(tipAdapter);
+                hasMore   = newItems.size() >= PAGE_SIZE;
+                isLoading = false;
             }
 
             @Override
@@ -380,66 +507,98 @@ public class SearchFragment extends Fragment {
     }
 
     /*
-     * 프로필 검색 API를 호출하고 SearchUserAdapter로 결과를 표시하는 함수임
+     * 프로필 페이지를 로드하고 기존 목록에 append하는 함수임
+     * keyword 없으면 배지 기준 top 프로필, 있으면 keyword 검색
      */
-    private void requestProfileSearch(String keyword) {
-        searchRepository.searchProfiles(keyword, new SearchRepository.UserSearchCallback() {
+    private void loadProfilePage(String keyword) {
+        SearchRepository.UserSearchCallback callback = new SearchRepository.UserSearchCallback() {
             @Override
             public void onSuccess(List<SearchUserResponse> userResponses) {
-                if (!isAdded()) {
-                    return;
+                if (!isAdded()) return;
+
+                int insertStart = userItemList.size();
+                userItemList.addAll(userResponses);
+
+                if (userAdapter == null) {
+                    userAdapter = new SearchUserAdapter(userItemList, "PROFILE");
+                    rvSearch.setAdapter(userAdapter);
+                } else {
+                    userAdapter.notifyItemRangeInserted(insertStart, userResponses.size());
                 }
 
-                SearchUserAdapter adapter = new SearchUserAdapter(userResponses, "PROFILE");
-                rvSearch.setAdapter(adapter);
+                hasMore   = userResponses.size() >= PAGE_SIZE;
+                isLoading = false;
             }
 
             @Override
             public void onFailure(String message) {
                 showError(message);
             }
-        });
+        };
+
+        if (keyword.isEmpty()) {
+            searchRepository.getTopProfiles(currentPage, PAGE_SIZE, callback);
+        } else {
+            searchRepository.searchProfiles(keyword, currentPage, PAGE_SIZE, callback);
+        }
     }
 
     /*
-     * 친구 검색 API를 호출하고 SearchUserAdapter로 결과를 표시하는 함수임
+     * 친구 목록을 로드하는 함수임
+     * 친구 탭은 페이지네이션 없이 전체 목록을 한 번에 불러옴
      */
-    private void requestFriendSearch(String keyword) {
-        searchRepository.searchFriends(keyword, new SearchRepository.UserSearchCallback() {
+    private void loadFriendPage(String keyword) {
+        SearchRepository.UserSearchCallback callback = new SearchRepository.UserSearchCallback() {
             @Override
             public void onSuccess(List<SearchUserResponse> userResponses) {
-                if (!isAdded()) {
-                    return;
-                }
+                if (!isAdded()) return;
 
-                SearchUserAdapter adapter = new SearchUserAdapter(userResponses, "FRIEND");
-                rvSearch.setAdapter(adapter);
+                userItemList.clear();
+                userItemList.addAll(userResponses);
+
+                userAdapter = new SearchUserAdapter(userItemList, "FRIEND");
+                rvSearch.setAdapter(userAdapter);
+
+                /*
+                 * 친구 탭은 한 번에 전체 로드하므로 hasMore를 false로 설정함
+                 */
+                hasMore   = false;
+                isLoading = false;
             }
 
             @Override
             public void onFailure(String message) {
                 showError(message);
             }
-        });
+        };
+
+        if (keyword.isEmpty()) {
+            searchRepository.getMyFriends(callback);
+        } else {
+            searchRepository.searchFriends(keyword, callback);
+        }
     }
 
+    // ──────────────────────────────────────────────────
+    // 데이터 변환 헬퍼
+    // ──────────────────────────────────────────────────
+
     /*
-     * FeedResponse 목록을 FeedAdapter가 사용하는 FeedItem 목록으로 변환하는 함수임
+     * FeedResponse 목록을 FeedItem 목록으로 변환하는 함수임
      */
     private List<FeedItem> convertFeedResponsesToItems(List<FeedResponse> responses) {
         List<FeedItem> items = new ArrayList<>();
-
-        if (responses == null) {
-            return items;
-        }
+        if (responses == null) return items;
 
         for (FeedResponse response : responses) {
-            items.add(new FeedItem(
+            FeedItem feedItem = new FeedItem(
                     response.getFeedId(),
                     response.getWriterId(),
                     getSafeText(response.getProfileImageUrl(), ""),
                     getSafeText(response.getNickname(), "알 수 없음"),
-                    getSafeText(response.getCreatedAt(), "방금 전"),
+                    response.isBadgeOwned(),
+                    response.getBadgeType(),
+                    formatTime(response.getCreatedAt()),
                     getSafeText(response.getTitle(), ""),
                     getSafeText(response.getContent(), ""),
                     response.getTaggedCount(),
@@ -450,25 +609,27 @@ public class SearchFragment extends Fragment {
                     getSafeText(response.getPace(), "-"),
                     response.isMapVisible(),
                     getSafeText(response.getRouteMapImageUri(), ""),
-                    response.getImageUrls() == null ? new ArrayList<>() : response.getImageUrls()
-            ));
+                    response.getImageUrls() == null ? new ArrayList<>() : response.getImageUrls(),
+                    response.isLiked(),
+                    response.isBookmarked(),
+                    response.isCommented(),
+                    response.isTagged()
+            );
+            feedItem.setMine(response.isMine());
+            items.add(feedItem);
         }
-
         return items;
     }
 
     /*
-     * TipResponse 목록을 TipAdapter가 사용하는 TipItem 목록으로 변환하는 함수임
+     * TipResponse 목록을 TipItem 목록으로 변환하는 함수임
      */
     private ArrayList<TipItem> convertTipResponsesToItems(List<TipResponse> responses) {
         ArrayList<TipItem> items = new ArrayList<>();
-
-        if (responses == null) {
-            return items;
-        }
+        if (responses == null) return items;
 
         for (TipResponse response : responses) {
-            items.add(new TipItem(
+            TipItem tipItem = new TipItem(
                     response.getTipId(),
                     response.getWriterId(),
                     getSafeText(response.getNickname(), "알 수 없음"),
@@ -477,44 +638,54 @@ public class SearchFragment extends Fragment {
                     getSafeText(response.getTitle(), ""),
                     getSafeText(response.getContent(), ""),
                     response.isBadgeOwned(),
+                    response.getBadgeType(),
                     response.isGpsVisible(),
                     response.getImageUrls() == null ? new ArrayList<>() : response.getImageUrls(),
                     getSafeText(response.getRouteMapImageUrl(), ""),
                     response.getLikeCount(),
                     response.getCommentCount(),
-                    getSafeText(response.getCreatedAt(), "방금 전")
-            ));
+                    formatTime(response.getCreatedAt())
+            );
+            tipItem.setCommented(response.isCommented());
+            tipItem.setMine(response.isMine());
+            items.add(tipItem);
         }
-
         return items;
     }
 
+    // ──────────────────────────────────────────────────
+    // 유틸
+    // ──────────────────────────────────────────────────
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        /*
+         * Fragment가 종료될 때 대기 중인 디바운스 콜백을 제거해 메모리 누수를 방지함
+         */
+        if (debounceRunnable != null) {
+            debounceHandler.removeCallbacks(debounceRunnable);
+        }
+    }
+
     /*
-     * 오류 메시지를 Toast로 표시하고 RecyclerView를 비우는 함수임
+     * 오류 메시지를 Toast로 표시하고 로딩 플래그를 해제하는 함수임
      */
     private void showError(String message) {
-        if (!isAdded()) {
-            return;
-        }
-
-        rvSearch.setAdapter(null);
+        if (!isAdded()) return;
+        isLoading = false;
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
     }
 
-    /*
-     * null 또는 빈 문자열일 때 기본값을 반환하는 함수임
-     */
     private String getSafeText(String value, String defaultValue) {
-        if (value == null || value.trim().isEmpty()) {
-            return defaultValue;
-        }
-
+        if (value == null || value.trim().isEmpty()) return defaultValue;
         return value;
     }
 
-    /*
-     * dp 값을 px 값으로 변환하는 함수임
-     */
+    private String formatTime(String isoTime) {
+        return com.neostride.app.feature.community.common.util.TimeFormatter.format(isoTime);
+    }
+
     private int dp(int value) {
         return (int) (value * requireContext().getResources().getDisplayMetrics().density + 0.5f);
     }

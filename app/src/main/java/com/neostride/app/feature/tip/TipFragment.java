@@ -141,6 +141,14 @@ public class TipFragment extends Fragment {
             });
         }
 
+        // "마이페이지 배지 확인" 버튼 → 배지 화면으로 직접 이동
+        View btnGoMy = view.findViewById(R.id.btn_go_my);
+        if (btnGoMy != null) {
+            btnGoMy.setOnClickListener(v ->
+                    startActivity(new Intent(requireContext(),
+                            com.neostride.app.feature.badge.BadgeActivity.class)));
+        }
+
         // 기본 카테고리를 전체로 선택함
         selectCategory(btnAll, "전체");
 
@@ -241,7 +249,7 @@ public class TipFragment extends Fragment {
      * 서버 응답 DTO를 화면 표시용 TipItem으로 변환하는 함수임
      */
     private TipItem convertToTipItem(TipResponse serverTip) {
-        return new TipItem(
+        TipItem item = new TipItem(
                 serverTip.getTipId(),
                 serverTip.getWriterId(),
                 serverTip.getNickname(),
@@ -250,13 +258,24 @@ public class TipFragment extends Fragment {
                 serverTip.getTitle(),
                 serverTip.getContent(),
                 serverTip.isBadgeOwned(),
+                serverTip.getBadgeType(),
                 serverTip.isGpsVisible(),
                 serverTip.getImageUrls(),
                 serverTip.getRouteMapImageUrl(),
                 serverTip.getLikeCount(),
                 serverTip.getCommentCount(),
-                serverTip.getCreatedAt()
+                formatTime(serverTip.getCreatedAt())
         );
+        item.setCommented(serverTip.isCommented());
+        item.setMine(serverTip.isMine());
+        return item;
+    }
+
+    /*
+     * ISO 시간 문자열을 화면 표시용으로 변환 (오늘 내: 상대 시간, 이전: 절대 날짜)
+     */
+    private String formatTime(String isoTime) {
+        return com.neostride.app.feature.community.common.util.TimeFormatter.format(isoTime);
     }
 
     /*

@@ -13,16 +13,20 @@
     <!-- 상단 프로필 영역 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingHorizontal="4dp"
-        android:paddingBottom="6dp">
+        android:paddingTop="4dp"
+        android:paddingBottom="10dp">
 
         <ImageView
             android:id="@+id/iv_feed_profile"
             android:layout_width="36dp"
             android:layout_height="36dp"
+            android:adjustViewBounds="false"
+            android:background="@null"
+            android:scaleType="centerCrop"
             android:src="@drawable/ic_profile" />
 
         <LinearLayout
@@ -58,16 +62,16 @@
             android:id="@+id/tv_feed_time"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp"
             android:textColor="#9A9A9A"
             android:textSize="12sp"
             android:textStyle="bold"
-            tools:text="7분 전" />
+            tools:text="2026.05.16" />
 
         <ImageView
             android:id="@+id/iv_feed_bookmark"
             android:layout_width="25dp"
             android:layout_height="25dp"
-            android:layout_marginStart="12dp"
             android:src="@drawable/ic_bookmark"
             app:tint="#FFFFFF" />
 
@@ -85,7 +89,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#B8FF06" />
+        android:background="#CCFF00" />
 
     <!-- 본문 영역 -->
     <LinearLayout
@@ -223,7 +227,7 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginTop="8dp"
-        android:background="#B8FF06" />
+        android:background="#CCFF00" />
 
     <!-- 러닝 기록 + 지도 영역 -->
     <LinearLayout

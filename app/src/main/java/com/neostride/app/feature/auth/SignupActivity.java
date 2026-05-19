@@ -160,19 +160,16 @@ public class SignupActivity extends AppCompatActivity {
 
             Log.d("SIGNUP", "회원가입 요청 email=" + email + " name=" + name);
 
-            // TODO: 백엔드에서 multipart 회원가입 구현 후 아래 주석 해제
-            // MultipartBody.Part photoPart = buildPhotoPart();
-            // if (photoPart != null) {
-            //     RequestBody rbEmail    = RequestBody.create(MediaType.parse("text/plain"), email);
-            //     RequestBody rbName     = RequestBody.create(MediaType.parse("text/plain"), name);
-            //     RequestBody rbPassword = RequestBody.create(MediaType.parse("text/plain"), password);
-            //     authRepository.signupWithPhoto(rbEmail, rbName, rbPassword, photoPart, signupCallback());
-            // } else {
-            //     authRepository.signup(new SignupRequest(email, name, password), signupCallback());
-            // }
-
-            // 현재는 JSON 방식으로만 가입 (이미지는 가입 후 계정 설정에서 변경)
-            authRepository.signup(new SignupRequest(email, name, password), signupCallback());
+            // 이미지가 선택된 경우 multipart, 없으면 JSON 방식으로 가입
+            MultipartBody.Part photoPart = buildPhotoPart();
+            if (photoPart != null) {
+                RequestBody rbEmail    = RequestBody.create(MediaType.parse("text/plain"), email);
+                RequestBody rbName     = RequestBody.create(MediaType.parse("text/plain"), name);
+                RequestBody rbPassword = RequestBody.create(MediaType.parse("text/plain"), password);
+                authRepository.signupWithPhoto(rbEmail, rbName, rbPassword, photoPart, signupCallback());
+            } else {
+                authRepository.signup(new SignupRequest(email, name, password), signupCallback());
+            }
         });
     }
 

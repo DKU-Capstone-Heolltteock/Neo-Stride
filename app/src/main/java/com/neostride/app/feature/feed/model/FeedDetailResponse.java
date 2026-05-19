@@ -22,6 +22,12 @@ public class FeedDetailResponse {
     // 작성자 닉네임임
     private String nickname;
 
+    // 작성자 뱃지 보유 여부
+    private boolean badgeOwned;
+
+    // 작성자 뱃지 등급 (bronze/silver/gold/diamond 등)
+    private String badgeType;
+
     // 피드 생성 시간임
     private String createdAt;
 
@@ -88,6 +94,14 @@ public class FeedDetailResponse {
 
     public String getNickname() {
         return nickname;
+    }
+
+    public boolean isBadgeOwned() {
+        return badgeOwned;
+    }
+
+    public String getBadgeType() {
+        return badgeType;
     }
 
     public String getCreatedAt() {

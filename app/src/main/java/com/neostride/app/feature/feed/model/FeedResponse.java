@@ -23,6 +23,12 @@ public class FeedResponse {
     // 작성자 닉네임임
     private String nickname;
 
+    // 작성자가 뱃지를 보유했는지 여부임 (true면 닉네임 옆에 뱃지 아이콘 표시)
+    private boolean badgeOwned;
+
+    // 뱃지 등급 (gold/silver/diamond 등) — 보유 시 사용
+    private String badgeType;
+
     // 피드 생성 시간임
     private String createdAt;
 
@@ -61,6 +67,21 @@ public class FeedResponse {
     // 피드에 첨부된 이미지 URL 목록임
     private List<String> imageUrls;
 
+    // 현재 로그인 사용자의 인터랙션 상태 — 미니뷰 카드 하이라이트용
+    private boolean liked;
+    private boolean bookmarked;
+    private boolean commented;
+    private boolean tagged;
+
+    // 현재 로그인 사용자가 작성자인지 — 본인 글 여부 (수정/삭제 메뉴 분기용)
+    private boolean mine;
+
+    public boolean isLiked() { return liked; }
+    public boolean isBookmarked() { return bookmarked; }
+    public boolean isCommented() { return commented; }
+    public boolean isTagged() { return tagged; }
+    public boolean isMine() { return mine; }
+
     public Long getFeedId() {
         return feedId;
     }
@@ -91,6 +112,22 @@ public class FeedResponse {
 
     public void setNickname(String nickname) {
         this.nickname = nickname;
+    }
+
+    public boolean isBadgeOwned() {
+        return badgeOwned;
+    }
+
+    public void setBadgeOwned(boolean badgeOwned) {
+        this.badgeOwned = badgeOwned;
+    }
+
+    public String getBadgeType() {
+        return badgeType;
+    }
+
+    public void setBadgeType(String badgeType) {
+        this.badgeType = badgeType;
     }
 
     public String getCreatedAt() {

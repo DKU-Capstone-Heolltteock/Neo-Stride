@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginHorizontal="14dp"
-    android:layout_marginTop="14dp"
+    android:layout_marginTop="12dp"
     android:background="@drawable/bg_feed_card_bordered"
     android:orientation="vertical"
     android:padding="8dp">
@@ -13,16 +13,20 @@
     <!-- 상단 프로필 영역 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingHorizontal="4dp"
-        android:paddingBottom="6dp">
+        android:paddingTop="4dp"
+        android:paddingBottom="10dp">
 
         <ImageView
             android:id="@+id/iv_tip_profile"
             android:layout_width="36dp"
             android:layout_height="36dp"
+            android:adjustViewBounds="false"
+            android:background="@null"
+            android:scaleType="centerCrop"
             android:src="@drawable/ic_profile" />
 
         <TextView
@@ -43,29 +47,27 @@
             android:layout_width="20dp"
             android:layout_height="20dp"
             android:layout_marginStart="6dp"
-            android:src="@drawable/ic_badge"
-            android:tint="#C8902E" />
-
-        <TextView
-            android:id="@+id/tv_tip_time"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:text="· 방금 전"
-            android:textColor="#9A9A9A"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            android:src="@drawable/ic_badge" />
 
         <Space
             android:layout_width="0dp"
             android:layout_height="1dp"
             android:layout_weight="1" />
 
+        <TextView
+            android:id="@+id/tv_tip_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="10dp"
+            android:textColor="#9A9A9A"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            tools:text="2026.05.16" />
+
         <ImageView
             android:id="@+id/iv_tip_bookmark"
             android:layout_width="25dp"
             android:layout_height="25dp"
-            android:layout_marginStart="8dp"
             android:src="@drawable/ic_bookmark"
             app:tint="#FFFFFF" />
 
@@ -84,7 +86,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#B8FF06" />
+        android:background="#CCFF00" />
 
     <!-- 본문 영역 -->
     <LinearLayout

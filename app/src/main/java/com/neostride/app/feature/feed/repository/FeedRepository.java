@@ -1,6 +1,9 @@
 package com.neostride.app.feature.feed.repository;
 
 import android.content.Context;
+import android.database.Cursor;
+import android.net.Uri;
+import android.provider.OpenableColumns;
 
 import com.neostride.app.common.network.ApiClient;
 //import com.neostride.app.common.network.MockApiClient;
@@ -15,9 +18,18 @@ import com.neostride.app.feature.feed.model.FeedBookmarkResponse;
 import com.neostride.app.feature.feed.model.FeedCommentRequest;
 import com.neostride.app.feature.feed.model.FeedCommentResponse;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -68,7 +80,7 @@ public class FeedRepository {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onError("피드 목록 조회 실패: " + response.code());
+                    callback.onError("오류 코드 " + response.code());
                 }
             }
 
@@ -77,7 +89,7 @@ public class FeedRepository {
                     Call<List<FeedResponse>> call,
                     Throwable t
             ) {
-                callback.onError("서버 연결 실패: " + t.getMessage());
+                callback.onError("서버에 연결할 수 없습니다");
             }
         });
     }
@@ -102,7 +114,7 @@ public class FeedRepository {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onError("피드 상세 조회 실패: " + response.code());
+                    callback.onError("오류 코드 " + response.code());
                 }
             }
 
@@ -111,7 +123,7 @@ public class FeedRepository {
                     Call<FeedDetailResponse> call,
                     Throwable t
             ) {
-                callback.onError("서버 연결 실패: " + t.getMessage());
+                callback.onError("서버에 연결할 수 없습니다");
             }
         });
     }
@@ -139,7 +151,54 @@ public class FeedRepository {
 
             @Override
             public void onFailure(Call<FeedLikeResponse> call, Throwable t) {
-                callback.onError("피드 좋아요 요청 실패: " + t.getMessage());
+                callback.onError("서버에 연결할 수 없습니다");
+            }
+        });
+    }
+
+    /*
+     * 피드 수정 API를 호출하는 함수임 (PUT /api/community/feeds/{feedId})
+     */
+    public void updateFeed(
+            Long feedId,
+            com.neostride.app.feature.feed.model.FeedUploadRequest request,
+            RepositoryCallback<com.neostride.app.feature.feed.model.FeedResponse> callback
+    ) {
+        feedApi.updateFeed(feedId, request).enqueue(new Callback<com.neostride.app.feature.feed.model.FeedResponse>() {
+            @Override
+            public void onResponse(Call<com.neostride.app.feature.feed.model.FeedResponse> call,
+                                   Response<com.neostride.app.feature.feed.model.FeedResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError("오류 코드 " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<com.neostride.app.feature.feed.model.FeedResponse> call, Throwable t) {
+                callback.onError("서버에 연결할 수 없습니다");
+            }
+        });
+    }
+
+    /*
+     * 피드 삭제 API를 호출하는 함수임
+     */
+    public void deleteFeed(Long feedId, RepositoryCallback<Boolean> callback) {
+        feedApi.deleteFeed(feedId).enqueue(new Callback<okhttp3.ResponseBody>() {
+            @Override
+            public void onResponse(Call<okhttp3.ResponseBody> call, Response<okhttp3.ResponseBody> response) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(true);
+                } else {
+                    callback.onError("오류 코드 " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<okhttp3.ResponseBody> call, Throwable t) {
+                callback.onError("서버에 연결할 수 없습니다");
             }
         });
     }
@@ -167,7 +226,7 @@ public class FeedRepository {
 
             @Override
             public void onFailure(Call<FeedBookmarkResponse> call, Throwable t) {
-                callback.onError("피드 북마크 요청 실패: " + t.getMessage());
+                callback.onError("서버에 연결할 수 없습니다");
             }
         });
     }
@@ -196,7 +255,51 @@ public class FeedRepository {
 
             @Override
             public void onFailure(Call<FeedCommentResponse> call, Throwable t) {
-                callback.onError("피드 댓글 작성 요청 실패: " + t.getMessage());
+                callback.onError("서버에 연결할 수 없습니다");
+            }
+        });
+    }
+
+    /*
+     * 피드 댓글 수정 API 호출
+     */
+    public void updateFeedComment(
+            Long feedId,
+            Long commentId,
+            FeedCommentRequest request,
+            RepositoryCallback<FeedCommentResponse> callback
+    ) {
+        feedApi.updateFeedComment(feedId, commentId, request).enqueue(new Callback<FeedCommentResponse>() {
+            @Override
+            public void onResponse(Call<FeedCommentResponse> call, Response<FeedCommentResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    callback.onSuccess(response.body());
+                } else {
+                    callback.onError("오류 코드 " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<FeedCommentResponse> call, Throwable t) {
+                callback.onError("서버에 연결할 수 없습니다");
+            }
+        });
+    }
+
+    /*
+     * 피드 댓글 삭제 API 호출
+     */
+    public void deleteFeedComment(Long feedId, Long commentId, RepositoryCallback<Boolean> callback) {
+        feedApi.deleteFeedComment(feedId, commentId).enqueue(new Callback<okhttp3.ResponseBody>() {
+            @Override
+            public void onResponse(Call<okhttp3.ResponseBody> call, Response<okhttp3.ResponseBody> response) {
+                if (response.isSuccessful()) callback.onSuccess(true);
+                else callback.onError("오류 코드 " + response.code());
+            }
+
+            @Override
+            public void onFailure(Call<okhttp3.ResponseBody> call, Throwable t) {
+                callback.onError("서버에 연결할 수 없습니다");
             }
         });
     }
@@ -204,14 +307,58 @@ public class FeedRepository {
 
     /*
      * 피드 업로드를 처리하는 함수임
-     * 현재 업로드 기능은 미완성 상태임
-     * 사진 업로드는 추후 multipart 방식으로 수정될 수 있음
+     * 텍스트 필드는 @PartMap 으로, 이미지(경로 지도 + 피드 사진)는 MultipartBody.Part 리스트로 전송함
+     * 마이페이지 프로필 이미지 업로드와 동일한 multipart/form-data 방식임
      */
     public void uploadFeed(
             FeedUploadRequest request,
             RepositoryCallback<FeedResponse> callback
     ) {
-        feedApi.uploadFeed(request).enqueue(new Callback<FeedResponse>() {
+        // ── 텍스트 필드 ────────────────────────────────────────────────────────
+        Map<String, RequestBody> fields = new HashMap<>();
+        fields.put("title",       toPlainBody(request.getTitle()));
+        fields.put("content",     toPlainBody(request.getContent()));
+        fields.put("privacy",     toPlainBody(request.getPrivacy()));
+        fields.put("mapVisible",  toPlainBody(String.valueOf(request.isMapVisible())));
+        fields.put("distance",    toPlainBody(String.valueOf(request.getDistance())));
+        fields.put("runningTime", toPlainBody(request.getRunningTime()));
+        fields.put("pace",        toPlainBody(request.getPace()));
+        fields.put("tagCount",    toPlainBody(String.valueOf(request.getTagCount())));
+
+        // taggedUserIds → JSON 배열 문자열로 직렬화
+        if (request.getTaggedUserIds() != null && !request.getTaggedUserIds().isEmpty()) {
+            StringBuilder sb = new StringBuilder("[");
+            for (int i = 0; i < request.getTaggedUserIds().size(); i++) {
+                if (i > 0) sb.append(",");
+                sb.append(request.getTaggedUserIds().get(i));
+            }
+            sb.append("]");
+            fields.put("taggedUserIds", toPlainBody(sb.toString()));
+        }
+
+        // ── 이미지 파트 ────────────────────────────────────────────────────────
+        List<MultipartBody.Part> imageParts = new ArrayList<>();
+
+        // 경로 지도 이미지 (file:// URI — 캐시 디렉터리에 저장된 PNG)
+        if (request.isMapVisible()
+                && request.getRouteMapImageUri() != null
+                && !request.getRouteMapImageUri().trim().isEmpty()) {
+            MultipartBody.Part routeMapPart =
+                    uriToMultipartPart(context, request.getRouteMapImageUri(), "routeMapImage");
+            if (routeMapPart != null) imageParts.add(routeMapPart);
+        }
+
+        // 피드 사진 (content:// URI — 갤러리에서 선택)
+        if (request.getImageUrls() != null) {
+            for (String uriString : request.getImageUrls()) {
+                if (uriString == null || uriString.trim().isEmpty()) continue;
+                MultipartBody.Part part = uriToMultipartPart(context, uriString, "images");
+                if (part != null) imageParts.add(part);
+            }
+        }
+
+        // ── API 호출 ────────────────────────────────────────────────────────────
+        feedApi.uploadFeed(fields, imageParts).enqueue(new Callback<FeedResponse>() {
             @Override
             public void onResponse(
                     Call<FeedResponse> call,
@@ -220,7 +367,7 @@ public class FeedRepository {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onError("피드 업로드 실패: " + response.code());
+                    callback.onError("오류 코드 " + response.code());
                 }
             }
 
@@ -229,9 +376,107 @@ public class FeedRepository {
                     Call<FeedResponse> call,
                     Throwable t
             ) {
-                callback.onError("서버 연결 실패: " + t.getMessage());
+                callback.onError("서버에 연결할 수 없습니다");
             }
         });
+    }
+
+    // ── 헬퍼 메서드 ─────────────────────────────────────────────────────────────
+
+    /*
+     * 문자열을 text/plain RequestBody 로 변환함
+     */
+    private static RequestBody toPlainBody(String value) {
+        return RequestBody.create(
+                value != null ? value : "",
+                MediaType.parse("text/plain")
+        );
+    }
+
+    /*
+     * 로컬 URI (file:// 또는 content://) 를 MultipartBody.Part 로 변환함
+     * http:// 등 원격 URI 는 null 을 반환함
+     */
+    private static MultipartBody.Part uriToMultipartPart(
+            Context context, String uriString, String partName) {
+        try {
+            Uri uri = Uri.parse(uriString);
+            String scheme = uri.getScheme();
+            byte[] bytes;
+            String filename;
+
+            if ("file".equals(scheme)) {
+                // file:// — 캐시 디렉터리에 저장된 경로 지도 PNG
+                File file = new File(uri.getPath());
+                filename = file.getName();
+                FileInputStream fis = new FileInputStream(file);
+                bytes = readAllBytes(fis);
+                fis.close();
+            } else if ("content".equals(scheme)) {
+                // content:// — 갤러리에서 선택한 사진
+                filename = queryDisplayName(context, uri);
+                InputStream is = context.getContentResolver().openInputStream(uri);
+                if (is == null) return null;
+                bytes = readAllBytes(is);
+                is.close();
+            } else {
+                // http:// 등 원격 URI 는 지원하지 않음
+                android.util.Log.w("FeedRepository",
+                        "uriToMultipartPart: unsupported scheme — " + uriString);
+                return null;
+            }
+
+            RequestBody body = RequestBody.create(
+                    bytes,
+                    MediaType.parse(guessMimeType(filename))
+            );
+            return MultipartBody.Part.createFormData(partName, filename, body);
+
+        } catch (Exception e) {
+            android.util.Log.e("FeedRepository",
+                    "uriToMultipartPart failed: " + uriString, e);
+            return null;
+        }
+    }
+
+    /*
+     * InputStream 을 byte 배열로 읽어 반환함
+     */
+    private static byte[] readAllBytes(InputStream is) throws java.io.IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] chunk = new byte[8192];
+        int n;
+        while ((n = is.read(chunk)) != -1) {
+            buffer.write(chunk, 0, n);
+        }
+        return buffer.toByteArray();
+    }
+
+    /*
+     * content:// URI 에서 파일명을 조회함
+     */
+    private static String queryDisplayName(Context context, Uri uri) {
+        String result = "image.jpg";
+        Cursor cursor = context.getContentResolver()
+                .query(uri, null, null, null, null);
+        if (cursor != null && cursor.moveToFirst()) {
+            int idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+            if (idx >= 0) result = cursor.getString(idx);
+            cursor.close();
+        }
+        return result;
+    }
+
+    /*
+     * 파일명 확장자를 기반으로 MIME 타입을 추측함
+     */
+    private static String guessMimeType(String filename) {
+        if (filename == null) return "image/jpeg";
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".png"))  return "image/png";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".gif"))  return "image/gif";
+        return "image/jpeg";
     }
 
     /*
@@ -255,7 +500,7 @@ public class FeedRepository {
                 if (response.isSuccessful() && response.body() != null) {
                     callback.onSuccess(response.body());
                 } else {
-                    callback.onError("친구 목록 조회 실패: " + response.code());
+                    callback.onError("오류 코드 " + response.code());
                 }
             }
 
@@ -264,7 +509,7 @@ public class FeedRepository {
                     Call<List<TagUser>> call,
                     Throwable t
             ) {
-                callback.onError("서버 연결 실패: " + t.getMessage());
+                callback.onError("서버에 연결할 수 없습니다");
             }
         });
     }

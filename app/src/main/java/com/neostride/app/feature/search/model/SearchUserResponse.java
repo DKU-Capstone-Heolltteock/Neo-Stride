@@ -1,5 +1,7 @@
 package com.neostride.app.feature.search.model;
 
+import com.google.gson.annotations.SerializedName;
+
 /*
  * 프로필/친구 검색 결과 DTO 클래스임
  * 피드/팁은 기존 FeedResponse, TipResponse를 쓰고
@@ -7,42 +9,33 @@ package com.neostride.app.feature.search.model;
  */
 public class SearchUserResponse {
 
-    /*
-     * 사용자 ID임
-     * RunnerPageActivity 이동 시 user_id로 전달함
-     */
+    @SerializedName("user_id")
     private Long userId;
 
-    /*
-     * 사용자 닉네임임
-     */
+    @SerializedName("nickname")
     private String nickname;
 
-    /*
-     * 프로필 이미지 URL임
-     */
+    @SerializedName("profile_image_url")
     private String profileImageUrl;
 
-    /*
-     * 상태 메시지 또는 소개 문구임
-     */
+    @SerializedName("status_message")
     private String statusMessage;
 
-    /*
-     * 친구 수임
-     */
+    @SerializedName("friend_count")
     private int friendCount;
 
     /*
-     * 배지 등급임
-     * GOLD, SILVER, BRONZE, NONE 등으로 사용함
+     * 배지 등급임 (bronze/silver/gold/platinum/diamond/master/challenger/none)
      */
+    @SerializedName("badge_tier")
     private String badgeTier;
 
     /*
-     * 친구 여부임
+     * 나와의 친구 관계 상태임
+     * none / sent / received / friends
      */
-    private boolean friend;
+    @SerializedName("status")
+    private String status;
 
     public Long getUserId() {
         return userId;
@@ -68,7 +61,18 @@ public class SearchUserResponse {
         return badgeTier;
     }
 
+    public String getStatus() {
+        return status;
+    }
+
     public boolean isFriend() {
-        return friend;
+        return "friends".equals(status);
+    }
+
+    /*
+     * 친구 액션 완료 후 로컬 상태를 갱신할 때 사용함
+     */
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

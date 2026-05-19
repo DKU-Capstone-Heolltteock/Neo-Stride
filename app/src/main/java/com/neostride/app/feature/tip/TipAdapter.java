@@ -11,7 +11,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.PopupMenu;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -115,6 +117,15 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         holder.tvLikeCount.setText(String.valueOf(getCurrentLikeCount(item)));
         holder.tvCommentCount.setText(String.valueOf(item.getCommentCount()));
 
+        // 댓글 하이라이트 — 내가 댓글 단 글이면 형광 초록 (마이페이지 패턴)
+        int commentColor = item.isCommented()
+                ? Color.parseColor("#B8FF06")
+                : Color.parseColor("#FFFFFF");
+        if (holder.ivComment != null) {
+            holder.ivComment.setImageTintList(android.content.res.ColorStateList.valueOf(commentColor));
+        }
+        holder.tvCommentCount.setTextColor(commentColor);
+
         // 작성 시간이 있으면 표시하고, 없으면 기본값으로 표시함
         if (item.getCreatedAt() != null && !item.getCreatedAt().trim().isEmpty()) {
             holder.tvTime.setText(item.getCreatedAt());
@@ -122,8 +133,17 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
             holder.tvTime.setText("방금 전");
         }
 
-        // 배지 표시 여부를 설정함
-        holder.ivBadge.setVisibility(item.isBadgeOwner() ? View.VISIBLE : View.GONE);
+        // 배지 표시 + 등급별 색상 적용 (NONE이면 숨김)
+        if (holder.ivBadge != null) {
+            com.neostride.app.feature.badge.model.BadgeTier tier =
+                    com.neostride.app.feature.badge.model.BadgeTier.fromString(item.getBadgeType());
+            if (!item.isBadgeOwner() || tier.isNone()) {
+                holder.ivBadge.setVisibility(View.GONE);
+            } else {
+                holder.ivBadge.setVisibility(View.VISIBLE);
+                holder.ivBadge.setColorFilter(tier.getColor());
+            }
+        }
 
         // GPS 아이콘 표시 여부를 설정함
         holder.ivGps.setVisibility(item.isGpsVisible() ? View.VISIBLE : View.GONE);
@@ -213,17 +233,39 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         });
 
         /*
-         * 북마크 클릭 시 목록에서도 북마크 API를 호출함
-         * 목서버 Map 상태가 바뀌므로 상세 화면과 상태를 공유할 수 있음
+         * 북마크 클릭 — 클릭 즉시 아이콘만 직접 갱신 (notifyItemChanged 없음 = 번쩍거림 방지)
+         * 서버 호출은 백그라운드로 보내고, 응답에서는 UI 건드리지 않음 (마이페이지 패턴과 동일)
          */
         holder.ivBookmark.setOnClickListener(v -> {
-            int currentPosition = holder.getBindingAdapterPosition();
+            Long tipId = getSafeTipId(item);
+            boolean wasBookmarked = Boolean.TRUE.equals(bookmarkedStateMap.get(tipId));
+            boolean newBookmarked = !wasBookmarked;
 
-            if (currentPosition == RecyclerView.NO_POSITION) {
-                return;
-            }
+            // 즉시 로컬 상태 + 아이콘 토글
+            bookmarkedStateMap.put(tipId, newBookmarked);
+            holder.ivBookmark.setImageResource(
+                    newBookmarked ? R.drawable.ic_bookmark_filled : R.drawable.ic_bookmark
+            );
+            holder.ivBookmark.setImageTintList(
+                    ColorStateList.valueOf(newBookmarked ? POINT_COLOR : WHITE_COLOR)
+            );
 
-            toggleBookmarkFromList(item, currentPosition);
+            // 서버 호출 — 실패 시에만 사용자에게 안내
+            tipRepository.toggleTipBookmark(tipId, new TipRepository.TipBookmarkCallback() {
+                @Override
+                public void onSuccess(TipBookmarkResponse response) {
+                    // 성공이면 별도 처리 없음 (이미 UI는 토글됨)
+                }
+
+                @Override
+                public void onFailure(String message) {
+                    Toast.makeText(
+                            context,
+                            "북마크 처리 실패: " + message,
+                            Toast.LENGTH_SHORT
+                    ).show();
+                }
+            });
         });
 
         /*
@@ -248,6 +290,7 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         if (profileImageUrl != null && !profileImageUrl.trim().isEmpty()) {
             Glide.with(context)
                     .load(profileImageUrl)
+                    .circleCrop()
                     .placeholder(R.drawable.ic_profile)
                     .error(R.drawable.ic_profile)
                     .into(holder.ivProfile);
@@ -284,10 +327,11 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
             if (firstImageUrl != null) {
                 holder.cardTipPhoto.setVisibility(View.VISIBLE);
 
+                holder.ivTipImage.setBackgroundColor(android.graphics.Color.BLACK);
                 Glide.with(context)
                         .load(firstImageUrl)
-                        .placeholder(R.drawable.ic_image)
-                        .error(R.drawable.ic_image)
+                        .placeholder(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK))
+                        .error(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK))
                         .centerCrop()
                         .into(holder.ivTipImage);
 
@@ -301,10 +345,11 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
 
             holder.cardTipPhoto.setVisibility(View.VISIBLE);
 
+            holder.ivTipImage.setBackgroundColor(android.graphics.Color.BLACK);
             Glide.with(context)
                     .load(item.getRouteMapImageUrl())
-                    .placeholder(R.drawable.ic_image)
-                    .error(R.drawable.ic_image)
+                    .placeholder(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK))
+                    .error(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK))
                     .centerCrop()
                     .into(holder.ivTipImage);
 
@@ -453,48 +498,125 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
     }
 
     /*
-     * 점3개 메뉴를 표시하는 함수임
+     * 점3개 메뉴 — 서버의 mine 필드로 분기
      */
     private void showMoreMenu(View anchorView, TipItem item) {
-        PopupMenu popupMenu = new PopupMenu(context, anchorView);
+        if (item.isMine()) {
+            int positionAtClick = tipList.indexOf(item);
+            showOwnerMorePopup(anchorView,
+                    () -> launchTipEdit(item),
+                    () -> confirmAndDeleteTip(item, positionAtClick));
+        } else {
+            Long writerId = item.getWriterId();
+            showReportBlockPopup(anchorView, () -> {
+                if (writerId != null) confirmAndBlockUser(writerId.intValue(), "작성자");
+            });
+        }
+    }
 
-        popupMenu.getMenu().add("수정");
-        popupMenu.getMenu().add("삭제");
+    /*
+     * 팁 수정 — TipUploadActivity edit 모드로 실행
+     */
+    private void launchTipEdit(TipItem item) {
+        if (item.getTipId() == null) return;
+        Intent intent = new Intent(context, TipUploadActivity.class);
+        intent.putExtra("mode", "edit");
+        intent.putExtra("tipId", item.getTipId().longValue());
+        context.startActivity(intent);
+    }
 
-        popupMenu.setOnMenuItemClickListener(menuItem -> {
-            String menuTitle = menuItem.getTitle().toString();
+    /*
+     * 팁 삭제 — 확인 다이얼로그 → API → 목록에서 제거
+     */
+    private void confirmAndDeleteTip(TipItem item, int position) {
+        if (item.getTipId() == null) return;
+        com.neostride.app.feature.community.common.util.DangerConfirmDialog.show(
+                context,
+                "팁 삭제",
+                "정말 이 팁을 삭제하시겠습니까?",
+                "삭제",
+                () -> tipRepository.deleteTip(item.getTipId(), new TipRepository.TipDeleteCallback() {
+                    @Override
+                    public void onSuccess() {
+                        Toast.makeText(context, "팁을 삭제했습니다", Toast.LENGTH_SHORT).show();
+                        if (position >= 0 && position < tipList.size()) {
+                            tipList.remove(position);
+                            notifyItemRemoved(position);
+                        }
+                    }
 
-            if (menuTitle.equals("수정")) {
-                Toast.makeText(context, "팁 수정 기능 연결 예정", Toast.LENGTH_SHORT).show();
+                    @Override
+                    public void onFailure(String message) {
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
+                    }
+                })
+        );
+    }
 
-                /*
-                 * 추후 수정 화면 연결 시 사용하면 됨
-                 *
-                 * Intent intent = new Intent(context, TipUploadActivity.class);
-                 * intent.putExtra("mode", "edit");
-                 * intent.putExtra("tipId", item.getTipId());
-                 * context.startActivity(intent);
-                 */
+    /*
+     * 작성자 차단 — 러너페이지와 동일 스타일 다이얼로그
+     */
+    private void confirmAndBlockUser(int targetUserId, String label) {
+        com.neostride.app.feature.community.common.util.DangerConfirmDialog.show(
+                context,
+                "차단하기",
+                "상대방의 팁과 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 이 " + label + "을 차단하시겠습니까?",
+                "차단",
+                () -> {
+                    com.neostride.app.feature.friend.repository.FriendRepository friendRepo =
+                            new com.neostride.app.feature.friend.repository.FriendRepository(
+                                    com.neostride.app.common.network.ApiClient.getInstance()
+                                            .create(com.neostride.app.feature.friend.api.FriendApi.class));
+                    com.neostride.app.feature.friend.model.FriendRequest req =
+                            new com.neostride.app.feature.friend.model.FriendRequest(targetUserId, "block");
+                    friendRepo.updateStatus(req, success ->
+                            Toast.makeText(context,
+                                    success ? label + "을 차단했습니다." : "차단에 실패했습니다.",
+                                    Toast.LENGTH_SHORT).show());
+                }
+        );
+    }
 
-                return true;
-            }
+    /*
+     * 본인 글 — 수정/삭제 드롭다운 (흰색, Runnable 콜백)
+     */
+    private void showOwnerMorePopup(View anchor, Runnable onEdit, Runnable onDelete) {
+        View menuView = LayoutInflater.from(context).inflate(R.layout.layout_owner_more_options, null);
+        int width = (int) (160 * context.getResources().getDisplayMetrics().density);
+        PopupWindow popup = new PopupWindow(menuView, width, LinearLayout.LayoutParams.WRAP_CONTENT, true);
+        popup.setOutsideTouchable(true);
+        popup.setElevation(25);
+        popup.showAsDropDown(anchor, -width + anchor.getWidth(), 8);
 
-            if (menuTitle.equals("삭제")) {
-                Toast.makeText(context, "팁 삭제 기능 연결 예정", Toast.LENGTH_SHORT).show();
-
-                /*
-                 * 추후 삭제 API 연결 시 사용하면 됨
-                 *
-                 * DELETE /api/community/tips/{tipId}
-                 */
-
-                return true;
-            }
-
-            return false;
+        menuView.findViewById(R.id.menu_edit).setOnClickListener(v -> {
+            popup.dismiss();
+            if (onEdit != null) onEdit.run();
         });
+        menuView.findViewById(R.id.menu_delete).setOnClickListener(v -> {
+            popup.dismiss();
+            if (onDelete != null) onDelete.run();
+        });
+    }
 
-        popupMenu.show();
+    /*
+     * 남의 글 — 신고/차단 드롭다운 (신고는 토스트 유지)
+     */
+    private void showReportBlockPopup(View anchor, Runnable onBlock) {
+        View menuView = LayoutInflater.from(context).inflate(R.layout.layout_runner_more_options, null);
+        int width = (int) (160 * context.getResources().getDisplayMetrics().density);
+        PopupWindow popup = new PopupWindow(menuView, width, LinearLayout.LayoutParams.WRAP_CONTENT, true);
+        popup.setOutsideTouchable(true);
+        popup.setElevation(25);
+        popup.showAsDropDown(anchor, -width + anchor.getWidth(), 8);
+
+        menuView.findViewById(R.id.menu_block).setOnClickListener(v -> {
+            popup.dismiss();
+            if (onBlock != null) onBlock.run();
+        });
+        menuView.findViewById(R.id.menu_report).setOnClickListener(v -> {
+            popup.dismiss();
+            Toast.makeText(context, "신고 기능 연결 예정", Toast.LENGTH_SHORT).show();
+        });
     }
 
     //** 팁 목록 카테고리 알림판 스타일을 적용하는 함수임

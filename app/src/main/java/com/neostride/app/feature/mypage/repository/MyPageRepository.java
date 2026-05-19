@@ -4,6 +4,7 @@ import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.feature.mypage.api.MyPageService;
 import com.neostride.app.feature.mypage.model.CommunityContentResponse;
 import com.neostride.app.feature.mypage.model.UserProfileResponse;
+import com.neostride.app.feature.tip.model.TipResponse;
 
 import java.util.List;
 
@@ -34,6 +35,11 @@ public class MyPageRepository {
     // 내가 쓴 피드 목록을 조회한다.
     public void getMyFeeds(Callback<List<CommunityContentResponse>> callback) {
         apiService.getMyFeeds().enqueue(callback);
+    }
+
+    // 내가 쓴 팁 목록을 조회한다.
+    public void getMyTips(Callback<List<TipResponse>> callback) {
+        apiService.getMyTips().enqueue(callback);
     }
 
     // 나를 태그한 피드 목록을 조회한다.

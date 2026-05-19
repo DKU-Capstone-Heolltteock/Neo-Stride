@@ -49,7 +49,9 @@ import com.neostride.app.feature.badge.repository.BadgeRepository;
 import com.neostride.app.feature.mypage.model.CommunityContentResponse;
 import com.neostride.app.feature.mypage.model.UserProfileResponse;
 import com.neostride.app.feature.mypage.repository.MyPageRepository;
+import com.neostride.app.feature.tip.model.TipResponse;
 
+import java.util.ArrayList;
 import java.util.List;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -71,6 +73,9 @@ public class MyPageActivity extends AppCompatActivity {
     private RecyclerView rvMyFeeds;
     private TextView tvUsername, tvFriends, tvStatusMessage, tvEmptyState;
     private ImageView ivProfile, ivBadge;
+
+    // ── 필터 상태 ──
+    private String currentPostFilter = "all"; // "all" | "feed" | "tip"
 
     // ── 레포지터리 ──
     private MyPageRepository repository;
@@ -268,7 +273,9 @@ public class MyPageActivity extends AppCompatActivity {
             }
         });
 
-        loadFeeds("me");
+        // 첫 탭(내가 쓴 글) 기본값: 전체 필터
+        currentPostFilter = "all";
+        loadMyPostsAll();
     }
 
     // ─── 내 피드만 조회하여 RecyclerView에 표시 (레거시 메서드) ───
@@ -316,11 +323,12 @@ public class MyPageActivity extends AppCompatActivity {
         String friendCount = (data.friendCount != null) ? String.valueOf(data.friendCount) : "Nul";
         tvFriends.setText("친구 " + friendCount);
 
-        // 탭 레이아웃 (게시글 수)
+        // 탭 레이아웃 (내가 쓴 글 — 피드 + 팁 합산 카운트)
         TabLayout.Tab postTab = tabLayout.getTabAt(0);
         if (postTab != null) {
-            String count = (data.postCount != null) ? String.valueOf(data.postCount) : "Nul";
-            postTab.setText("내가 쓴 피드 " + count);
+            int feedCount = (data.postCount != null) ? data.postCount : 0;
+            int tipCount  = (data.tipCount  != null) ? data.tipCount  : 0;
+            postTab.setText("내가 쓴 글 " + (feedCount + tipCount));
         }
 
         // 탭 레이아웃 (태그된 수)
@@ -408,13 +416,13 @@ public class MyPageActivity extends AppCompatActivity {
                     updateActivityTabTitle("내 활동");
                     isMenuItemSelected = false;
                     lastRealTabPosition = position;
-                    loadFeeds("me"); // 내가 쓴 피드 불러오기
+                    applyFilter(currentPostFilter);
                 }
                 else if (position == 1) {
                     updateActivityTabTitle("내 활동");
                     isMenuItemSelected = false;
                     lastRealTabPosition = position;
-                    loadFeeds("tagged"); // 나를 태그한 피드 불러오기
+                    loadFeeds("tagged");
                 }
                 else if (position == 2) {
                     showActivityMenu();
@@ -622,6 +630,142 @@ public class MyPageActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
                 Log.e("MyPage", "프로필 이미지 업로드 네트워크 오류: " + t.getMessage());
+            }
+        });
+    }
+
+    // ─── 현재 필터값에 따라 데이터 로드 ───
+    private void applyFilter(String filter) {
+        switch (filter) {
+            case "feed": loadMyFeeds(); break;
+            case "tip":  loadMyTips();  break;
+            default:     loadMyPostsAll(); break;
+        }
+    }
+
+    // ─── "전체" 필터: 피드 + 팁을 병렬로 조회하여 MyPostsAdapter에 바인딩 ───
+    private void loadMyPostsAll() {
+        rvMyFeeds.setAdapter(null);
+        if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+
+        final List<MyPostsAdapter.PostItem> combined = new ArrayList<>();
+        final int[] pending = {2}; // 두 API 완료 대기
+
+        Runnable onBothDone = () -> runOnUiThread(() -> {
+            if (combined.isEmpty()) {
+                if (tvEmptyState != null) {
+                    tvEmptyState.setText("아직 작성한 게시글이 없어요\n피드나 팁을 작성해보세요");
+                    tvEmptyState.setVisibility(View.VISIBLE);
+                }
+            } else {
+                rvMyFeeds.setAdapter(new MyPostsAdapter(this, combined, currentPostFilter, this::onFilterClick));
+            }
+        });
+
+        repository.getMyFeeds(new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (CommunityContentResponse f : response.body())
+                        combined.add(new MyPostsAdapter.PostItem(f));
+                }
+                if (--pending[0] == 0) onBothDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                Log.e("MyPage", "내 피드 로딩 실패: " + t.getMessage());
+                if (--pending[0] == 0) onBothDone.run();
+            }
+        });
+
+        repository.getMyTips(new Callback<List<TipResponse>>() {
+            @Override
+            public void onResponse(Call<List<TipResponse>> call, Response<List<TipResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (TipResponse t : response.body())
+                        combined.add(new MyPostsAdapter.PostItem(t));
+                }
+                if (--pending[0] == 0) onBothDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<TipResponse>> call, Throwable t) {
+                Log.e("MyPage", "내 팁 로딩 실패: " + t.getMessage());
+                if (--pending[0] == 0) onBothDone.run();
+            }
+        });
+    }
+
+    // ─── 필터 버튼 클릭 콜백 (헤더 ViewHolder → Activity) ───
+    private void onFilterClick(String filter) {
+        currentPostFilter = filter;
+        applyFilter(filter);
+    }
+
+    // ─── "피드" 필터: 내 피드만 조회하여 MyPostsAdapter에 바인딩 ───
+    private void loadMyFeeds() {
+        rvMyFeeds.setAdapter(null);
+        if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+
+        repository.getMyFeeds(new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+                    List<MyPostsAdapter.PostItem> items = new ArrayList<>();
+                    for (CommunityContentResponse f : response.body())
+                        items.add(new MyPostsAdapter.PostItem(f));
+                    rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick));
+                    if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+                } else {
+                    // 빈 목록이어도 헤더(필터 버튼)는 보여야 하므로 빈 어댑터로 설정
+                    rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, new ArrayList<>(), currentPostFilter, MyPageActivity.this::onFilterClick));
+                    if (tvEmptyState != null) {
+                        tvEmptyState.setText("아직 작성한 피드가 없어요\n첫 번째 러닝 기록을 공유해보세요");
+                        tvEmptyState.setVisibility(View.VISIBLE);
+                    }
+                }
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                Log.e("MyPage", "내 피드 로딩 실패: " + t.getMessage());
+                rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, new ArrayList<>(), currentPostFilter, MyPageActivity.this::onFilterClick));
+                if (tvEmptyState != null) {
+                    tvEmptyState.setText("아직 작성한 피드가 없어요\n첫 번째 러닝 기록을 공유해보세요");
+                    tvEmptyState.setVisibility(View.VISIBLE);
+                }
+            }
+        });
+    }
+
+    // ─── "팁" 필터: 내 팁만 조회하여 MyPostsAdapter에 바인딩 ───
+    private void loadMyTips() {
+        rvMyFeeds.setAdapter(null);
+        if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+
+        repository.getMyTips(new Callback<List<TipResponse>>() {
+            @Override
+            public void onResponse(Call<List<TipResponse>> call, Response<List<TipResponse>> response) {
+                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+                    List<MyPostsAdapter.PostItem> items = new ArrayList<>();
+                    for (TipResponse t : response.body())
+                        items.add(new MyPostsAdapter.PostItem(t));
+                    rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick));
+                    if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+                } else {
+                    rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, new ArrayList<>(), currentPostFilter, MyPageActivity.this::onFilterClick));
+                    if (tvEmptyState != null) {
+                        tvEmptyState.setText("아직 작성한 팁이 없어요\n러닝 노하우를 나눠보세요");
+                        tvEmptyState.setVisibility(View.VISIBLE);
+                    }
+                }
+            }
+            @Override
+            public void onFailure(Call<List<TipResponse>> call, Throwable t) {
+                Log.e("MyPage", "내 팁 로딩 실패: " + t.getMessage());
+                rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, new ArrayList<>(), currentPostFilter, MyPageActivity.this::onFilterClick));
+                if (tvEmptyState != null) {
+                    tvEmptyState.setText("아직 작성한 팁이 없어요\n러닝 노하우를 나눠보세요");
+                    tvEmptyState.setVisibility(View.VISIBLE);
+                }
             }
         });
     }

@@ -36,6 +36,19 @@ public class TipItem {
     // 작성자가 배지를 보유했는지 여부임
     private boolean badgeOwner;
 
+    // 작성자 배지 등급 (bronze/silver/gold/...) — 배지 아이콘 색상에 사용
+    private String badgeType;
+
+    // 현재 사용자가 이 팁에 댓글을 작성했는지 — 댓글 아이콘 하이라이트용
+    private boolean commented;
+    public boolean isCommented() { return commented; }
+    public void setCommented(boolean commented) { this.commented = commented; }
+
+    // 본인 글 여부 — ··· 메뉴 분기용
+    private boolean mine;
+    public boolean isMine() { return mine; }
+    public void setMine(boolean mine) { this.mine = mine; }
+
     // GPS 기록 공개 여부임
     private boolean gpsVisible;
 
@@ -103,6 +116,7 @@ public class TipItem {
             String title,
             String content,
             boolean badgeOwner,
+            String badgeType,
             boolean gpsVisible,
             List<String> imageUrls,
             String routeMapImageUrl,
@@ -118,6 +132,7 @@ public class TipItem {
         this.title = title;
         this.content = content;
         this.badgeOwner = badgeOwner;
+        this.badgeType = badgeType;
         this.gpsVisible = gpsVisible;
         this.imageUris = new ArrayList<>();
         this.imageUrls = imageUrls;
@@ -126,6 +141,8 @@ public class TipItem {
         this.commentCount = commentCount;
         this.createdAt = createdAt;
     }
+
+    public String getBadgeType() { return badgeType; }
 
     public Long getTipId() {
         return tipId;

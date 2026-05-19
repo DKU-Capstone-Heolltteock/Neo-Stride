@@ -24,6 +24,12 @@ public class TipCommentResponse {
     // 댓글 작성 시간임
     private String createdAt;
 
+    // 댓글 작성자 배지 보유 여부임
+    private boolean badgeOwned;
+
+    // 댓글 작성자 배지 등급임 (bronze/silver/gold/platinum/diamond/master/challenger)
+    private String badgeType;
+
     // 현재 로그인한 사용자가 작성한 댓글인지 여부임
     private boolean mine;
 
@@ -49,6 +55,14 @@ public class TipCommentResponse {
 
     public String getCreatedAt() {
         return createdAt;
+    }
+
+    public boolean isBadgeOwned() {
+        return badgeOwned;
+    }
+
+    public String getBadgeType() {
+        return badgeType;
     }
 
     public boolean isMine() {
