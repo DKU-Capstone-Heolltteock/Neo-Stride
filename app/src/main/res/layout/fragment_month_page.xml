@@ -96,7 +96,7 @@
                         android:layout_height="180dp"
                         android:background="#121212">
 
-                        <com.neostride.app.feature.record.AiLineChartView
+                        <com.neostride.app.feature.main.record.AiLineChartView
                             android:id="@+id/ai_line_chart"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"

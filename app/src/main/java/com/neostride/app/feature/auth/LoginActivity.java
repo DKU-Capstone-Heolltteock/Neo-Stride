@@ -19,7 +19,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.neostride.app.R;
-import com.neostride.app.activity.MainActivity;
+import com.neostride.app.feature.main.MainActivity;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.auth.model.LoginRequest;
 import com.neostride.app.feature.auth.model.LoginResponse;

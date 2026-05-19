@@ -191,6 +191,19 @@
             android:paddingBottom="80dp"
             app:layout_constraintTop_toBottomOf="@+id/tab_layout" />
 
+        <!-- 빈 목록 안내 메시지 -->
+        <TextView
+            android:id="@+id/tv_empty_state"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="40dp"
+            android:gravity="center"
+            android:text=""
+            android:textColor="#888888"
+            android:textSize="14sp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@+id/tab_layout" />
+
         <!-- 차단된 사용자 안내 메시지 (기본 hidden) -->
         <TextView
             android:id="@+id/tv_blocked_message"

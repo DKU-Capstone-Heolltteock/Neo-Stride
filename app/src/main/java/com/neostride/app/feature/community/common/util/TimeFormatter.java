@@ -6,11 +6,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 
-/*
- * ISO 8601 시간 문자열을 화면 표시용으로 변환하는 유틸 클래스임
- * 오늘 내 시간은 상대 표시(방금 전, N분 전, N시간 전),
- * 오늘 이전 날짜는 절대 날짜(yyyy.MM.dd) 로 반환함
- */
 public final class TimeFormatter {
 
     private TimeFormatter() { /* no instances */ }
@@ -24,9 +19,7 @@ public final class TimeFormatter {
                     isoTime, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
             ZonedDateTime createdKst = created.atZone(ZoneId.of("Asia/Seoul"));
             ZonedDateTime nowKst = ZonedDateTime.now(ZoneId.of("Asia/Seoul"));
-
             long minutes = ChronoUnit.MINUTES.between(createdKst, nowKst);
-
             if (minutes < 1) {
                 return "방금 전";
             } else if (minutes < 60) {

@@ -20,8 +20,8 @@ import com.neostride.app.feature.badge.api.BadgeService;
 import com.neostride.app.feature.badge.model.BadgeDetailResponse;
 import com.neostride.app.feature.badge.model.BadgeTier;
 import com.neostride.app.feature.badge.repository.BadgeRepository;
-import com.neostride.app.feature.running.model.RunningRecordResponse;
-import com.neostride.app.feature.running.repository.RunningRepository;
+import com.neostride.app.feature.main.running.model.RunningRecordResponse;
+import com.neostride.app.feature.main.running.repository.RunningRepository;
 
 import java.util.List;
 

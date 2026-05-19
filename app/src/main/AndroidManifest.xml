@@ -29,19 +29,19 @@
 
         <!-- 팁 상세 액티비티 -->
         <activity
-            android:name=".feature.tip.TipDetailActivity"
+            android:name=".feature.community.tip.TipDetailActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
         <!-- 피드 상세 액티비티 -->
         <activity
-            android:name=".feature.feed.FeedDetailActivity"
+            android:name=".feature.community.feed.FeedDetailActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
 
         <!-- 팁 업로드 시 기록 선택 액티비티 -->
         <activity
-            android:name=".feature.tip.TipRecordSelectActivity"
+            android:name=".feature.community.tip.TipRecordSelectActivity"
             android:exported="false" />
 
         <!-- 인증 관련 액티비티 -->
@@ -103,28 +103,33 @@
 
         <!-- 메인 액티비티 -->
         <activity
-            android:name=".activity.MainActivity"
+            android:name=".feature.main.MainActivity"
             android:exported="false" />
 
         <!-- 커뮤니티 액티비티 -->
         <activity
-            android:name=".activity.CommunityActivity"
+            android:name=".feature.community.CommunityActivity"
             android:exported="false" />
 
         <!-- 팁 업로드 액티비티 -->
         <activity
-            android:name=".feature.tip.TipUploadActivity"
+            android:name=".feature.community.tip.TipUploadActivity"
             android:exported="false"
             android:theme="@style/Theme.NeoStride.TipUploadDialog" />
 
         <!-- 패치노트 상세 액티비티 -->
         <activity
-            android:name=".feature.event.PatchNoteDetailActivity"
+            android:name=".feature.community.event.PatchNoteDetailActivity"
             android:exported="false" />
 
         <!-- 마이페이지 액티비티 -->
         <activity
-            android:name=".feature.mypage.MyPageActivity"
+            android:name=".feature.community.mypage.MyPageActivity"
+            android:exported="false" />
+
+        <!-- 알림 액티비티 -->
+        <activity
+            android:name=".feature.notification.NotificationActivity"
             android:exported="false" />
 
         <!-- 뱃지 액티비티 -->
@@ -134,12 +139,12 @@
 
         <!-- 친구 액티비티 -->
         <activity
-            android:name=".feature.friend.FriendActivity"
+            android:name=".feature.community.friend.FriendActivity"
             android:exported="false" />
 
         <!-- 러너페이지 액티비티 -->
         <activity
-            android:name=".feature.runnerpage.RunnerPageActivity"
+            android:name=".feature.community.runnerpage.RunnerPageActivity"
             android:exported="false" />
 
         <!-- 계정 액티비티 -->
@@ -149,12 +154,12 @@
 
         <!-- 러너 친구 목록 액티비티 -->
         <activity
-            android:name=".feature.friend.RunnerFriendListActivity"
+            android:name=".feature.community.friend.RunnerFriendListActivity"
             android:exported="false" />
 
         <!-- GPS 포그라운드 서비스: 화면 꺼져도 기록 유지 -->
         <service
-            android:name=".feature.running.LocationTrackingService"
+            android:name=".feature.main.running.LocationTrackingService"
             android:exported="false"
             android:foregroundServiceType="location" />
 
