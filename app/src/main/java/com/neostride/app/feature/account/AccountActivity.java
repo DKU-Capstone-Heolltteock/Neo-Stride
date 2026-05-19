@@ -64,7 +64,7 @@ public class AccountActivity extends AppCompatActivity {
                 if (result.getResultCode() == RESULT_OK && result.getData() != null) {
                     Bitmap bitmap = (Bitmap) result.getData().getExtras().get("data");
                     if (bitmap != null) {
-                        ivProfile.setImageBitmap(bitmap);
+                        Glide.with(AccountActivity.this).load(bitmap).circleCrop().into(ivProfile);
                         // TODO: 백엔드 연결 시 multipart 업로드
                     }
                 }
@@ -99,6 +99,8 @@ public class AccountActivity extends AppCompatActivity {
         setContentView(R.layout.activity_account);
 
         accountApi = ApiClient.getInstance().create(AccountApi.class);
+        //목서버 연결용
+        //accountApi = MockApiClient.getInstance().create(AccountApi.class);
 
         initViews();
         fetchAccountInfo();

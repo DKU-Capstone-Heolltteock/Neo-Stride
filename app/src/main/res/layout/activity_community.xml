@@ -15,16 +15,34 @@
         android:layout_marginTop="40dp"
         android:paddingHorizontal="20dp">
 
-        <ImageView
-            android:id="@+id/btn_notification"
+        <FrameLayout
             android:layout_width="50dp"
             android:layout_height="50dp"
-            android:layout_alignParentStart="true"
-            android:src="@drawable/ic_notification"
-            app:tint="#FFD400"
-            android:clickable="true"
-            android:focusable="true"
-            android:padding="8dp" />
+            android:layout_alignParentStart="true">
+
+            <ImageView
+                android:id="@+id/btn_notification"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/ic_notification"
+                app:tint="#FFD400"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="8dp" />
+
+            <!-- 미확인 알림 빨간 점 -->
+            <View
+                android:id="@+id/badge_notification"
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="6dp"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_plan_dot"
+                android:backgroundTint="#FF3B30"
+                android:visibility="gone" />
+
+        </FrameLayout>
 
         <ImageView
             android:id="@+id/btn_mypage"
@@ -42,8 +60,7 @@
         android:id="@+id/community_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@+id/layout_top_bar"
-        android:layout_above="@+id/bottom_layout" />
+        android:layout_below="@+id/layout_top_bar" />
 
     <LinearLayout
         android:id="@+id/bottom_layout"

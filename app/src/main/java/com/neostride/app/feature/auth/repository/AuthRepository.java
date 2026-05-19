@@ -10,6 +10,8 @@ import com.neostride.app.feature.auth.model.SignupRequest;
 import com.neostride.app.feature.auth.model.SignupResponse;
 
 // Retrofit 관련 라이브러리
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Retrofit;
@@ -53,11 +55,17 @@ public class AuthRepository {
     }
 
     // ===========================
-    // 회원가입 API 호출 함수
+    // 회원가입 API 호출 함수 (이미지 없음)
     // ===========================
     public void signup(SignupRequest request, Callback<SignupResponse> callback) {
-
-        // 회원가입 API 호출
         authApi.signup(request).enqueue(callback);
+    }
+
+    // ===========================
+    // 회원가입 API 호출 함수 (프로필 이미지 포함)
+    // ===========================
+    public void signupWithPhoto(RequestBody email, RequestBody name, RequestBody password,
+                                MultipartBody.Part profilePhoto, Callback<SignupResponse> callback) {
+        authApi.signupWithPhoto(email, name, password, profilePhoto).enqueue(callback);
     }
 }

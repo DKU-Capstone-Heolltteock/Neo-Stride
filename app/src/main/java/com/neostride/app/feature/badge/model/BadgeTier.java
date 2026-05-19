@@ -49,6 +49,9 @@ public enum BadgeTier {
      * @return 등급 소문자 문자열 (예: "gold", "none")
      */
     public static String getTierNameByRecord(double inputKm, int inputPaceSec) {
+        // 1km 미만 기록은 배지 판정 대상 아님
+        if (inputKm < 1.0) return "none";
+
         double[] dists = {1.0, 3.0, 5.0, 10.0, 20.0, 40.0};
 
         // 액티비티에 있던 원본 데이터들
