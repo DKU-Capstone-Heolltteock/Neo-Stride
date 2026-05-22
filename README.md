@@ -1,8 +1,60 @@
-# Neo-Stride
-# 포스터
+#  Neo-Stride
 
-# 시연 영상
-https://www.youtube.com/watch?v=TCDipv4jC1k
+> AI와 성장하고 배지로 증명하라. 함께 달리는 러닝 커뮤니티
+> 단국대학교 소프트웨어학과
 
-# 결과 보고서 
-[Neo-Stride_프로젝트결과보고서.pdf](https://github.com/user-attachments/files/28126773/Neo-Stride_.pdf)
+---
+
+##  팀원
+
+| 학번 | 이름 |
+|------|------|
+| 32203004 | 윤현(팀장) |
+| 32183897 | 장영재 |
+| 32210078 | 강웅천 |
+
+
+---
+
+##  프로젝트 소개
+
+Neo-Stride는 GPS 기반 러닝 기록, OpenAI GPT-4o-mini를 활용한 맞춤형 AI 코칭 플랜, 커뮤니티 피드·팁 게시판·친구 팔로우 등 소셜 기능을 결합한 Android 러닝 플랫폼입니다.
+
+---
+
+##  기술 스택
+
+| 구분 | 기술 |
+|------|------|
+| Android | Kotlin · MVVM · Retrofit2 · Google Maps SDK |
+| Backend | Spring Boot 4.0.6 · Java 21 · 순수 JDBC · JWT + PBKDF2 |
+| Database | MySQL 8.x |
+| AI | OpenAI API (gpt-4o-mini) |
+| Infra | On-Premise (DDNS)[팀장님 주소 활용] → AWS EC2 + RDS 전환 예정 |
+
+---
+
+##  저장소
+
+| 구분 | 링크 |
+|------|------|
+|  Android (Frontend) | [Neo-Stride](https://github.com/DKU-Capstone-Heolltteock/Neo-Stride) |
+|  Spring Boot (Backend) | [Neo-Stride-BE](https://github.com/DKU-Capstone-Heolltteock/Neo-Stride-BE) |
+
+---
+
+##  시연 영상
+
+[![시연 영상](https://img.youtube.com/vi/TCDipv4jC1k/0.jpg)](https://www.youtube.com/watch?v=TCDipv4jC1k)
+
+---
+
+##  결과 보고서
+
+[Neo-Stride 프로젝트 결과 보고서 (PDF)](https://github.com/user-attachments/files/28126773/Neo-Stride_.pdf)
+
+---
+
+##  포스터
+
+추후 업로드 예정
