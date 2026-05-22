@@ -30,15 +30,13 @@ import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.auth.LoginActivity;
 import com.neostride.app.feature.community.CommunityActivity;
-import com.neostride.app.feature.main.coaching.CoachingFragment;
 import com.neostride.app.feature.community.mypage.MyPageActivity;
+import com.neostride.app.feature.main.coaching.CoachingFragment;
+import com.neostride.app.feature.main.record.RecordFragment;
+import com.neostride.app.feature.main.running.RunningFragment;
 import com.neostride.app.feature.notification.NotificationActivity;
 import com.neostride.app.feature.notification.model.NotificationResponse;
 import com.neostride.app.feature.notification.repository.NotificationRepository;
-import com.neostride.app.feature.main.record.RecordFragment;
-import com.neostride.app.feature.main.running.RunningFragment;
-
-import com.neostride.app.feature.main.running.WearDataReceiver;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -48,12 +46,10 @@ public class MainActivity extends AppCompatActivity {
     private ImageView btnNotification, btnProfile;
     private View badgeNotification;
 
-    private WearDataReceiver wearDataReceiver;
-
-    // 알림 권한 요청 런처 (Android 13+)
+    // 알림 권한 요청 런처임
     private final ActivityResultLauncher<String> notificationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-                // 알림 권한 처리 완료
+                // 알림 권한 허용/거부 후 별도 처리는 현재 하지 않음
             });
 
     @Override
@@ -62,10 +58,14 @@ public class MainActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
+        /*
+         * ApiClient에 앱 Context를 초기화함
+         * 일반 API 호출에서 토큰 접근 등에 사용됨
+         */
         ApiClient.init(this);
 
         initViews();
-        requestInitialPermissions(); // 앱 최초 실행 시 권한 일괄 요청
+        requestInitialPermissions();
 
         if (savedInstanceState == null) {
             String moveTo = getIntent().getStringExtra("move_to");
@@ -92,17 +92,16 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        checkUnreadNotifications();
-        wearDataReceiver = new WearDataReceiver(this);
-        wearDataReceiver.register();
-    }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if (wearDataReceiver != null) {
-            wearDataReceiver.unregister();
-        }
+        /*
+         * 기존에는 여기서 WearDataReceiver를 등록했음
+         *
+         * 하지만 WearDataReceiver와 WearListenerService가 동시에 있으면
+         * 워치 데이터 수신 시 서버 저장이 중복될 수 있음
+         *
+         * 따라서 워치 러닝 결과 수신은 Manifest에 등록된 WearListenerService만 담당하게 함
+         */
+        checkUnreadNotifications();
     }
 
     private void initViews() {
@@ -121,8 +120,8 @@ public class MainActivity extends AppCompatActivity {
         tvCoaching = findViewById(R.id.tv_coaching);
         tvCommunity = findViewById(R.id.tv_community);
 
-        btnNotification   = findViewById(R.id.btn_notification);
-        btnProfile        = findViewById(R.id.btn_profile);
+        btnNotification = findViewById(R.id.btn_notification);
+        btnProfile = findViewById(R.id.btn_profile);
         badgeNotification = findViewById(R.id.badge_notification);
     }
 
@@ -150,6 +149,7 @@ public class MainActivity extends AppCompatActivity {
         if (btnNotification != null) {
             btnNotification.setOnClickListener(v -> {
                 startActivity(new Intent(MainActivity.this, NotificationActivity.class));
+
                 if (badgeNotification != null) {
                     badgeNotification.setVisibility(View.GONE);
                 }
@@ -165,6 +165,7 @@ public class MainActivity extends AppCompatActivity {
         View menuView = LayoutInflater.from(this).inflate(R.layout.layout_profile_menu, null);
 
         int width = (int) (220 * getResources().getDisplayMetrics().density);
+
         final PopupWindow popupWindow = new PopupWindow(
                 menuView,
                 width,
@@ -188,14 +189,11 @@ public class MainActivity extends AppCompatActivity {
             showLogoutConfirmDialog();
         });
 
-        // XML에서 마이페이지 레이아웃 아이디(menu_mypage)를 찾습니다.
         LinearLayout menuMyPage = menuView.findViewById(R.id.menu_mypage);
-
-        // 클릭 시 실행될 동작을 설정합니다.
         menuMyPage.setOnClickListener(v -> {
-            popupWindow.dismiss(); // 팝업을 먼저 닫고
+            popupWindow.dismiss();
             Intent intent = new Intent(MainActivity.this, MyPageActivity.class);
-            startActivity(intent); // 화면 이동
+            startActivity(intent);
         });
     }
 
@@ -203,14 +201,13 @@ public class MainActivity extends AppCompatActivity {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
-        // 루트 레이아웃
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
+
         int p = dp(24);
         root.setPadding(p, p, p, dp(20));
         root.setBackgroundResource(R.drawable.bg_popup_red_border);
 
-        // 제목
         TextView tvTitle = new TextView(this);
         tvTitle.setText("로그아웃");
         tvTitle.setTextColor(0xFFFF3B30);
@@ -218,36 +215,41 @@ public class MainActivity extends AppCompatActivity {
         tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
         root.addView(tvTitle);
 
-        // 안내 문구
         TextView tvMsg = new TextView(this);
         tvMsg.setText("정말 로그아웃 하시겠습니까?");
         tvMsg.setTextColor(0xFF888888);
         tvMsg.setTextSize(15);
+
         LinearLayout.LayoutParams msgP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
         msgP.topMargin = dp(16);
         tvMsg.setLayoutParams(msgP);
         root.addView(tvMsg);
 
-        // 구분선
         View divider = new View(this);
         divider.setBackgroundColor(0xFF333333);
+
         LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(1));
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(1)
+        );
         divP.topMargin = dp(20);
         divider.setLayoutParams(divP);
         root.addView(divider);
 
-        // 버튼 영역
         LinearLayout btnRow = new LinearLayout(this);
         btnRow.setOrientation(LinearLayout.HORIZONTAL);
         btnRow.setGravity(Gravity.END);
+
         LinearLayout.LayoutParams brP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
         brP.topMargin = dp(16);
         btnRow.setLayoutParams(brP);
 
-        // 취소 버튼
         TextView btnCancel = new TextView(this);
         btnCancel.setText("취소");
         btnCancel.setTextColor(0xFF888888);
@@ -255,7 +257,6 @@ public class MainActivity extends AppCompatActivity {
         btnCancel.setOnClickListener(v -> dialog.dismiss());
         btnRow.addView(btnCancel);
 
-        // 확인 버튼
         TextView btnConfirm = new TextView(this);
         btnConfirm.setText("로그아웃");
         btnConfirm.setTextColor(Color.BLACK);
@@ -268,14 +269,18 @@ public class MainActivity extends AppCompatActivity {
         btnConfirm.setBackground(confirmBg);
 
         LinearLayout.LayoutParams confirmP = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
         confirmP.setMarginStart(dp(8));
         btnConfirm.setLayoutParams(confirmP);
 
         btnConfirm.setOnClickListener(v -> {
             dialog.dismiss();
+
             TokenManager.clearTokens(MainActivity.this);
             ApiClient.resetInstance();
+
             Intent intent = new Intent(MainActivity.this, LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
@@ -285,6 +290,7 @@ public class MainActivity extends AppCompatActivity {
         root.addView(btnRow);
 
         dialog.setContentView(root);
+
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
@@ -293,16 +299,19 @@ public class MainActivity extends AppCompatActivity {
                     LinearLayout.LayoutParams.WRAP_CONTENT
             );
         }
+
         dialog.show();
     }
 
     private int dp(int value) {
-        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
+        return (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                value,
+                getResources().getDisplayMetrics()
+        );
     }
 
-    // 앱 실행 시 필요한 권한 일괄 요청
     private void requestInitialPermissions() {
-        // 알림 권한 (Android 13+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.POST_NOTIFICATIONS)
                     != PackageManager.PERMISSION_GRANTED) {
@@ -320,12 +329,14 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onSuccess(java.util.List<NotificationResponse> data) {
                         boolean hasUnread = false;
+
                         for (NotificationResponse n : data) {
                             if (!n.isRead()) {
                                 hasUnread = true;
                                 break;
                             }
                         }
+
                         if (badgeNotification != null) {
                             badgeNotification.setVisibility(hasUnread ? View.VISIBLE : View.GONE);
                         }
@@ -337,11 +348,13 @@ public class MainActivity extends AppCompatActivity {
                             badgeNotification.setVisibility(View.GONE);
                         }
                     }
-                });
+                }
+        );
     }
 
     private void replaceFragment(Fragment fragment) {
-        getSupportFragmentManager().beginTransaction()
+        getSupportFragmentManager()
+                .beginTransaction()
                 .replace(R.id.fragment_container, fragment)
                 .commit();
     }
@@ -355,13 +368,13 @@ public class MainActivity extends AppCompatActivity {
         setTabColor(ivCoaching, tvCoaching, defaultColor);
         setTabColor(ivCommunity, tvCommunity, defaultColor);
 
-        if (selectedTab.equals("running")) {
+        if ("running".equals(selectedTab)) {
             setTabColor(ivRunning, tvRunning, activeColor);
-        } else if (selectedTab.equals("record")) {
+        } else if ("record".equals(selectedTab)) {
             setTabColor(ivRecord, tvRecord, activeColor);
-        } else if (selectedTab.equals("coaching")) {
+        } else if ("coaching".equals(selectedTab)) {
             setTabColor(ivCoaching, tvCoaching, activeColor);
-        } else if (selectedTab.equals("community")) {
+        } else if ("community".equals(selectedTab)) {
             setTabColor(ivCommunity, tvCommunity, activeColor);
         }
     }

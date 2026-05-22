@@ -60,7 +60,23 @@ public class RunningRepository {
                     if (listener != null) listener.onSuccess(response.body());
                 } else {
                     String msg = "저장 실패: " + response.code();
-                    Log.e(TAG, msg);
+
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+
+                            Log.e(TAG, "저장 실패 code: " + response.code());
+                            Log.e(TAG, "저장 실패 errorBody: " + errorBody);
+
+                            msg += " / " + errorBody;
+                        } else {
+                            Log.e(TAG, "저장 실패 code: " + response.code());
+                            Log.e(TAG, "저장 실패 errorBody 없음");
+                        }
+                    } catch (Exception e) {
+                        Log.e(TAG, "errorBody 읽기 실패: " + e.getMessage());
+                    }
+
                     if (listener != null) listener.onError(msg);
                 }
             }
