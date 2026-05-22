@@ -32,7 +32,12 @@ public class WearDataSender {
                 traceArray.put(obj);
             }
 
-            PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(PATH_RUNNING_RESULT);
+            long runId = System.currentTimeMillis();
+
+            PutDataMapRequest putDataMapRequest =
+                    PutDataMapRequest.create(PATH_RUNNING_RESULT + "/" + runId);
+
+            putDataMapRequest.getDataMap().putLong("run_id", runId);
             putDataMapRequest.getDataMap().putFloat("distance_km", distanceKm);
             putDataMapRequest.getDataMap().putInt("duration_sec", durationSec);
             putDataMapRequest.getDataMap().putInt("pace_sec_per_km", paceSecPerKm);

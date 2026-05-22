@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import android.net.Uri;
+import com.google.android.gms.wearable.Wearable;
 
 /*
  * 워치에서 전송한 러닝 결과를 폰 앱에서 수신하는 서비스임
@@ -68,7 +70,7 @@ public class WearListenerService extends WearableListenerService {
             String path = event.getDataItem().getUri().getPath();
             Log.d(TAG, "수신된 DataItem path = " + path);
 
-            if (!PATH_RUNNING_RESULT.equals(path)) {
+            if (path == null || !path.startsWith(PATH_RUNNING_RESULT)) {
                 continue;
             }
 
@@ -79,6 +81,7 @@ public class WearListenerService extends WearableListenerService {
             int paceSecPerKm = dataMap.getInt("pace_sec_per_km", 0);
             String gpsTracesJson = dataMap.getString("gps_traces", "[]");
             long timestamp = dataMap.getLong("timestamp", System.currentTimeMillis());
+            long runId = dataMap.getLong("run_id", 0L);
 
             Log.d(TAG, "워치 데이터 수신 성공");
             Log.d(TAG, "distanceKm = " + distanceKm);
@@ -86,7 +89,7 @@ public class WearListenerService extends WearableListenerService {
             Log.d(TAG, "paceSecPerKm = " + paceSecPerKm);
             Log.d(TAG, "gpsTracesJson = " + gpsTracesJson);
             Log.d(TAG, "timestamp = " + timestamp);
-
+            Log.d(TAG, "runId = " + runId);
             List<GpsTraceRequest> gpsTraces = parseGpsTraces(gpsTracesJson);
 
             /*
@@ -113,7 +116,7 @@ public class WearListenerService extends WearableListenerService {
                     gpsTraces,
                     null
             );
-            saveWatchRunningRecord(request);
+            saveWatchRunningRecord(request, event.getDataItem().getUri());
         }
     }
 
@@ -173,18 +176,36 @@ public class WearListenerService extends WearableListenerService {
     /*
      * 워치 러닝 기록을 서버에 저장하는 함수임
      */
-    private void saveWatchRunningRecord(RunningRecordRequest request) {
+    private void saveWatchRunningRecord(RunningRecordRequest request, Uri dataItemUri) {
         RunningRepository runningRepository = new RunningRepository();
 
         runningRepository.saveRunningRecord(request, new RunningRepository.OnResultListener<RunningRecordResponse>() {
             @Override
             public void onSuccess(RunningRecordResponse data) {
                 Log.d(TAG, "워치 러닝 기록 서버 저장 성공!");
+
+                /*
+                 * 서버 저장이 성공한 워치 DataItem을 삭제함
+                 * 같은 워치 기록이 나중에 다시 동기화되어 중복 저장되는 것을 방지함
+                 */
+                Wearable.getDataClient(WearListenerService.this)
+                        .deleteDataItems(dataItemUri)
+                        .addOnSuccessListener(count ->
+                                Log.d(TAG, "처리 완료 DataItem 삭제 성공, count = " + count)
+                        )
+                        .addOnFailureListener(e ->
+                                Log.e(TAG, "처리 완료 DataItem 삭제 실패: " + e.getMessage())
+                        );
             }
 
             @Override
             public void onError(String message) {
                 Log.e(TAG, "워치 러닝 기록 서버 저장 실패: " + message);
+
+                /*
+                 * 서버 저장 실패 시에는 DataItem을 삭제하지 않음
+                 * 네트워크/토큰 문제가 해결되면 나중에 다시 처리될 수 있도록 남겨둠
+                 */
             }
         });
     }
