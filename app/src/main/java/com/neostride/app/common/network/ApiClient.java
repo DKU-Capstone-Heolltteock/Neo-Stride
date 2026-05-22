@@ -143,7 +143,7 @@ public class ApiClient {
                     })
                     // 가짜 우체국(Mockserver)
                     // 이 위치에 두면 URL 로그는 찍히되, 실제 네트워크 에러가 나기 전에 데이터를 꽂아줍니다.
-                    .addInterceptor(new Mockserver())
+                    //.addInterceptor(new Mockserver())
                     .addInterceptor(logging)
                     .connectTimeout(15, TimeUnit.SECONDS)
                     .readTimeout(15, TimeUnit.SECONDS)
