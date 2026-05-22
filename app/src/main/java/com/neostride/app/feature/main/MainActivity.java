@@ -38,6 +38,8 @@ import com.neostride.app.feature.notification.repository.NotificationRepository;
 import com.neostride.app.feature.main.record.RecordFragment;
 import com.neostride.app.feature.main.running.RunningFragment;
 
+import com.neostride.app.feature.main.running.WearDataReceiver;
+
 public class MainActivity extends AppCompatActivity {
 
     private LinearLayout tabRunning, tabRecord, tabCoaching, tabCommunity;
@@ -45,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvRunning, tvRecord, tvCoaching, tvCommunity;
     private ImageView btnNotification, btnProfile;
     private View badgeNotification;
+
+    private WearDataReceiver wearDataReceiver;
 
     // 알림 권한 요청 런처 (Android 13+)
     private final ActivityResultLauncher<String> notificationPermissionLauncher =
@@ -89,6 +93,16 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         checkUnreadNotifications();
+        wearDataReceiver = new WearDataReceiver(this);
+        wearDataReceiver.register();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (wearDataReceiver != null) {
+            wearDataReceiver.unregister();
+        }
     }
 
     private void initViews() {

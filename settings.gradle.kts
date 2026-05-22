@@ -24,4 +24,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "Neo-Stride"
 include(":app")
+include(":wear")
  
