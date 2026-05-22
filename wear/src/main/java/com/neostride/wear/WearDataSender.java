@@ -12,22 +12,17 @@ import org.json.JSONObject;
 
 import java.util.List;
 
-import com.google.android.gms.wearable.DataMap;
-import com.google.android.gms.wearable.PutDataRequest;
-
 public class WearDataSender {
 
     private static final String TAG = "WearDataSender";
     private static final String PATH_RUNNING_RESULT = "/running_result";
 
-    // 러닝 완료 데이터를 폰으로 전송
     public static void sendRunningResult(Context context,
                                          float distanceKm,
                                          int durationSec,
                                          int paceSecPerKm,
                                          List<double[]> gpsPoints) {
         try {
-            // GPS 좌표 JSON 변환
             JSONArray traceArray = new JSONArray();
             for (double[] point : gpsPoints) {
                 JSONObject obj = new JSONObject();
@@ -37,15 +32,14 @@ public class WearDataSender {
                 traceArray.put(obj);
             }
 
-            DataMap dataMap = new DataMap();
-            dataMap.putFloat("distance_km", distanceKm);
-            dataMap.putInt("duration_sec", durationSec);
-            dataMap.putInt("pace_sec_per_km", paceSecPerKm);
-            dataMap.putString("gps_traces", traceArray.toString());
-            dataMap.putLong("timestamp", System.currentTimeMillis());
+            PutDataMapRequest putDataMapRequest = PutDataMapRequest.create(PATH_RUNNING_RESULT);
+            putDataMapRequest.getDataMap().putFloat("distance_km", distanceKm);
+            putDataMapRequest.getDataMap().putInt("duration_sec", durationSec);
+            putDataMapRequest.getDataMap().putInt("pace_sec_per_km", paceSecPerKm);
+            putDataMapRequest.getDataMap().putString("gps_traces", traceArray.toString());
+            putDataMapRequest.getDataMap().putLong("timestamp", System.currentTimeMillis());
 
-            PutDataRequest request = PutDataRequest.create(PATH_RUNNING_RESULT);
-            request.setData(dataMap.toByteArray());
+            PutDataRequest request = putDataMapRequest.asPutDataRequest().setUrgent();
 
             Wearable.getDataClient(context).putDataItem(request)
                     .addOnSuccessListener(dataItem ->
