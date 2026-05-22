@@ -17,7 +17,7 @@
 
 ##  프로젝트 소개
 
-Neo-Stride는 GPS 기반 러닝 기록, OpenAI GPT-4o-mini를 활용한 맞춤형 AI 코칭 플랜, 커뮤니티 피드·팁 게시판·친구 팔로우 등 소셜 기능을 결합한 Android 러닝 플랫폼입니다.
+Neo-Stride는 GPS 기반 러닝 기록, OpenAI GPT-4o-mini를 활용한 맞춤형 AI 코칭 플랜, 커뮤니티 피드·팁 게시판·친구 등 소셜 기능을 결합한 Android 러닝 플랫폼입니다.
 
 ---
 
