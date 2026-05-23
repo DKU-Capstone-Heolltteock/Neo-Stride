@@ -55,6 +55,24 @@ public interface TipApi {
     Call<List<TipResponse>> getTips();
 
     /*
+     * 내가 북마크한 팁 목록 조회 API임
+     */
+    @GET("api/community/tips/bookmarks")
+    Call<List<TipResponse>> getBookmarkedTips();
+
+    /*
+     * 내가 좋아요한 팁 목록 조회 API임
+     */
+    @GET("api/community/tips/likes")
+    Call<List<TipResponse>> getLikedTips();
+
+    /*
+     * 내가 댓글 단 팁 목록 조회 API임
+     */
+    @GET("api/community/tips/comments")
+    Call<List<TipResponse>> getCommentedTips();
+
+    /*
      * 팁 상세 조회 API임
      * GET /api/community/tips/{tipId} 요청을 서버로 전송함
      */

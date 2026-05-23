@@ -21,12 +21,14 @@ import com.neostride.app.R;
 import com.neostride.app.feature.community.common.util.TimeFormatter;
 import com.neostride.app.feature.badge.model.BadgeTier;
 import com.neostride.app.feature.community.common.util.DangerConfirmDialog;
+import com.neostride.app.feature.community.feed.model.FeedLikeResponse;
 import com.neostride.app.feature.community.feed.repository.FeedRepository;
 import com.neostride.app.feature.community.friend.api.FriendApi;
 import com.neostride.app.feature.community.friend.model.FriendRequest;
 import com.neostride.app.feature.community.friend.repository.FriendRepository;
 import com.neostride.app.feature.community.mypage.repository.MyPageRepository;
 import com.neostride.app.feature.community.tip.model.TipBookmarkResponse;
+import com.neostride.app.feature.community.tip.model.TipLikeResponse;
 import com.neostride.app.feature.community.tip.repository.TipRepository;
 import com.neostride.app.feature.community.feed.FeedDetailActivity;
 import com.neostride.app.feature.community.mypage.model.CommunityContentResponse;
@@ -59,6 +61,11 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onPostDeleted(int type);
     }
 
+    // 북마크 해제로 아이템이 제거될 때 Activity에 알리는 콜백
+    public interface OnBookmarkRemovedListener {
+        void onBookmarkRemoved();
+    }
+
     // ── 통합 아이템 래퍼 ───────────────────────────────────────────────────
     public static class PostItem {
         public final int type;
@@ -82,9 +89,12 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private final List<PostItem> items;
     private final String currentFilter;
     private final OnFilterClickListener filterListener;
-    private final boolean isOwner; // true=내 글(수정/삭제), false=타인 글(신고/차단)
-    private Runnable onBlockAction; // isOwner=false 일 때 차단 버튼 콜백
-    private OnPostDeletedListener onPostDeletedListener; // 삭제 완료 콜백
+    private final boolean isOwner;    // true=내 글(수정/삭제), false=타인 글(신고/차단)
+    private final boolean hideHeader; // true=활동탭 모드(헤더 없음, 아이템별 본인 글 감지)
+    private Runnable onBlockAction;   // isOwner=false 일 때 차단 버튼 콜백
+    private OnPostDeletedListener onPostDeletedListener;     // 삭제 완료 콜백
+    private boolean removeOnUnbookmark = false;              // 북마크 해제 시 목록에서 즉시 제거
+    private OnBookmarkRemovedListener bookmarkRemovedListener;
 
     public void setOnBlockAction(Runnable onBlockAction) {
         this.onBlockAction = onBlockAction;
@@ -94,6 +104,15 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         this.onPostDeletedListener = listener;
     }
 
+    public void setRemoveOnUnbookmark(boolean remove) {
+        this.removeOnUnbookmark = remove;
+    }
+
+    public void setOnBookmarkRemovedListener(OnBookmarkRemovedListener listener) {
+        this.bookmarkRemovedListener = listener;
+    }
+
+    // 내가 쓴 글 탭용 생성자 (헤더 있음, isOwner 일괄 설정)
     public MyPostsAdapter(Context context, List<PostItem> items, String currentFilter, OnFilterClickListener filterListener) {
         this(context, items, currentFilter, filterListener, true);
     }
@@ -104,16 +123,29 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         this.currentFilter  = currentFilter;
         this.filterListener = filterListener;
         this.isOwner        = isOwner;
+        this.hideHeader     = false;
+    }
+
+    // 활동 탭용 생성자 (헤더 없음, 아이템별 본인 글 감지)
+    public MyPostsAdapter(Context context, List<PostItem> items) {
+        this.context        = context;
+        this.items          = items;
+        this.hideHeader     = true;
+        this.currentFilter  = "all";
+        this.filterListener = null;
+        this.isOwner        = false;
     }
 
     @Override
     public int getItemViewType(int position) {
+        if (hideHeader) return items.get(position).type;
         if (position == 0) return TYPE_HEADER;
         return items.get(position - 1).type;
     }
 
     @Override
     public int getItemCount() {
+        if (hideHeader) return items != null ? items.size() : 0;
         return (items != null ? items.size() : 0) + 1; // +1 for header
     }
 
@@ -135,11 +167,11 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
-        if (position == 0) {
+        if (!hideHeader && position == 0) {
             bindHeader((HeaderViewHolder) holder);
             return;
         }
-        PostItem item = items.get(position - 1);
+        PostItem item = hideHeader ? items.get(position) : items.get(position - 1);
         if (item.type == TYPE_FEED) {
             bindFeed((FeedViewHolder) holder, item.feed);
         } else {
@@ -207,10 +239,20 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (h.ivBookmark != null) {
             updateFeedBookmarkIcon(h.ivBookmark, item.isBookmarked);
             h.ivBookmark.setOnClickListener(v -> {
-                if (h.getBindingAdapterPosition() == RecyclerView.NO_POSITION) return;
+                int clickPos = h.getBindingAdapterPosition();
+                if (clickPos == RecyclerView.NO_POSITION) return;
                 boolean newState = !item.isBookmarked;
                 item.isBookmarked = newState;
                 updateFeedBookmarkIcon(h.ivBookmark, newState);
+                // 북마크 목록 탭에서 해제 시 → 즉시 제거 + Activity 카운트 갱신 알림
+                if (removeOnUnbookmark && !newState) {
+                    int idx = hideHeader ? clickPos : clickPos - 1;
+                    if (idx >= 0 && idx < items.size()) {
+                        items.remove(idx);
+                        notifyItemRemoved(clickPos);
+                        if (bookmarkRemovedListener != null) bookmarkRemovedListener.onBookmarkRemoved();
+                    }
+                }
                 // 백그라운드 서버 동기화 (실패해도 로컬 상태 유지)
                 new MyPageRepository()
                     .toggleBookmark(item.contentId, newState, new retrofit2.Callback<Void>() {
@@ -277,6 +319,33 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (h.tvCommentCount != null) h.tvCommentCount.setTextColor(commentColor);
         if (h.ivComment != null)      h.ivComment.setColorFilter(commentColor);
 
+        // 좋아요 클릭 — 즉시 토글 + 카운트 업데이트, 서버 동기화 백그라운드
+        View.OnClickListener feedLikeClick = v -> {
+            boolean newLiked = !item.isLiked;
+            int newCount = Math.max(0, item.likeCount + (newLiked ? 1 : -1));
+            item.isLiked = newLiked;
+            item.likeCount = newCount;
+            int c = newLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
+            if (h.ivLike != null)      h.ivLike.setColorFilter(c);
+            if (h.tvLikeCount != null) { h.tvLikeCount.setTextColor(c); h.tvLikeCount.setText(String.valueOf(newCount)); }
+            new FeedRepository(context).toggleFeedLike((long) item.contentId,
+                new FeedRepository.RepositoryCallback<FeedLikeResponse>() {
+                    @Override public void onSuccess(FeedLikeResponse data) {
+                        // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
+                        item.isLiked = data.isLiked();
+                    }
+                    @Override public void onError(String msg) {
+                        item.isLiked = !newLiked;
+                        item.likeCount = Math.max(0, item.likeCount + (newLiked ? -1 : 1));
+                        int fc = item.isLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
+                        if (h.ivLike != null)      h.ivLike.setColorFilter(fc);
+                        if (h.tvLikeCount != null) { h.tvLikeCount.setTextColor(fc); h.tvLikeCount.setText(String.valueOf(item.likeCount)); }
+                    }
+                });
+        };
+        if (h.ivLike != null)      h.ivLike.setOnClickListener(feedLikeClick);
+        if (h.tvLikeCount != null) h.tvLikeCount.setOnClickListener(feedLikeClick);
+
         if (h.layoutTag != null) {
             android.graphics.drawable.GradientDrawable tagBg = new android.graphics.drawable.GradientDrawable();
             tagBg.setCornerRadius(h.itemView.getResources().getDisplayMetrics().density * 10);
@@ -297,7 +366,11 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         // ── ··· 더보기 버튼 ──
         if (h.tvMore != null) {
             h.tvMore.setVisibility(View.VISIBLE);
-            if (isOwner) {
+            // 활동탭(hideHeader=true)에서는 아이템별 본인 글 감지, 내가 쓴 글 탭에서는 isOwner 일괄 적용
+            boolean itemMine = hideHeader
+                    ? (item.userId == com.neostride.app.common.network.TokenManager.getUserId(context))
+                    : isOwner;
+            if (itemMine) {
                 h.tvMore.setOnClickListener(v ->
                     showOwnerMorePopup(h.tvMore,
                         () -> {
@@ -310,7 +383,11 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     )
                 );
             } else {
-                h.tvMore.setOnClickListener(v -> showReportBlockPopup(h.tvMore, onBlockAction));
+                h.tvMore.setOnClickListener(v ->
+                    showReportBlockPopup(h.tvMore,
+                        hideHeader
+                            ? () -> confirmAndBlockUser(item.userId, "작성자")
+                            : onBlockAction));
             }
         }
     }
@@ -345,10 +422,20 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (h.ivBookmark != null) {
             updateTipBookmarkIcon(h.ivBookmark, item.isBookmarked());
             h.ivBookmark.setOnClickListener(v -> {
-                if (h.getBindingAdapterPosition() == RecyclerView.NO_POSITION) return;
+                int clickPos = h.getBindingAdapterPosition();
+                if (clickPos == RecyclerView.NO_POSITION) return;
                 boolean newState = !item.isBookmarked();
                 item.setBookmarked(newState);
                 updateTipBookmarkIcon(h.ivBookmark, newState);
+                // 북마크 목록 탭에서 해제 시 → 즉시 제거 + Activity 카운트 갱신 알림
+                if (removeOnUnbookmark && !newState) {
+                    int idx = hideHeader ? clickPos : clickPos - 1;
+                    if (idx >= 0 && idx < items.size()) {
+                        items.remove(idx);
+                        notifyItemRemoved(clickPos);
+                        if (bookmarkRemovedListener != null) bookmarkRemovedListener.onBookmarkRemoved();
+                    }
+                }
                 // 백그라운드 서버 동기화
                 if (item.getTipId() != null) {
                     new TipRepository()
@@ -401,6 +488,34 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (h.ivLike != null)      h.ivLike.setColorFilter(likeColor);
         if (h.tvLikeCount != null) h.tvLikeCount.setTextColor(likeColor);
 
+        // 좋아요 클릭 — 즉시 토글 + 카운트 업데이트, 서버 동기화 백그라운드
+        View.OnClickListener tipLikeClick = v -> {
+            if (item.getTipId() == null) return;
+            boolean newLiked = !item.isLiked();
+            int newCount = Math.max(0, item.getLikeCount() + (newLiked ? 1 : -1));
+            item.setLiked(newLiked);
+            item.setLikeCount(newCount);
+            int c = newLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
+            if (h.ivLike != null)      h.ivLike.setColorFilter(c);
+            if (h.tvLikeCount != null) { h.tvLikeCount.setTextColor(c); h.tvLikeCount.setText(String.valueOf(newCount)); }
+            new TipRepository().toggleTipLike(item.getTipId(),
+                new TipRepository.TipLikeCallback() {
+                    @Override public void onSuccess(TipLikeResponse data) {
+                        // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
+                        item.setLiked(data.isLiked());
+                    }
+                    @Override public void onFailure(String msg) {
+                        item.setLiked(!newLiked);
+                        item.setLikeCount(Math.max(0, item.getLikeCount() + (newLiked ? -1 : 1)));
+                        int fc = item.isLiked() ? Color.parseColor("#B8FF06") : Color.WHITE;
+                        if (h.ivLike != null)      h.ivLike.setColorFilter(fc);
+                        if (h.tvLikeCount != null) { h.tvLikeCount.setTextColor(fc); h.tvLikeCount.setText(String.valueOf(item.getLikeCount())); }
+                    }
+                });
+        };
+        if (h.ivLike != null)      h.ivLike.setOnClickListener(tipLikeClick);
+        if (h.tvLikeCount != null) h.tvLikeCount.setOnClickListener(tipLikeClick);
+
         // ── 카드 전체 클릭 → 팁 상세 ──
         if (item.getTipId() != null) {
             h.itemView.setOnClickListener(v -> {
@@ -416,7 +531,12 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         // ── ··· 더보기 버튼 ──
         if (h.tvMore != null) {
             h.tvMore.setVisibility(View.VISIBLE);
-            if (isOwner) {
+            // 활동탭(hideHeader=true)에서는 아이템별 본인 글 감지
+            boolean itemMine = hideHeader
+                    ? (item.getWriterId() != null
+                        && item.getWriterId() == com.neostride.app.common.network.TokenManager.getUserId(context))
+                    : isOwner;
+            if (itemMine) {
                 h.tvMore.setOnClickListener(v ->
                     showOwnerMorePopup(h.tvMore,
                         () -> {
@@ -430,7 +550,11 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                     )
                 );
             } else {
-                h.tvMore.setOnClickListener(v -> showReportBlockPopup(h.tvMore, onBlockAction));
+                h.tvMore.setOnClickListener(v ->
+                    showReportBlockPopup(h.tvMore,
+                        hideHeader && item.getWriterId() != null
+                            ? () -> confirmAndBlockUser(item.getWriterId().intValue(), "작성자")
+                            : onBlockAction));
             }
         }
     }
@@ -499,7 +623,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                             PostItem pi = items.get(i);
                             if (pi.type == TYPE_FEED && pi.feed != null && pi.feed.contentId == feedId) {
                                 items.remove(i);
-                                notifyItemRemoved(i + 1); // +1 for header
+                                notifyItemRemoved(hideHeader ? i : i + 1);
                                 if (onPostDeletedListener != null)
                                     onPostDeletedListener.onPostDeleted(TYPE_FEED);
                                 break;
@@ -527,7 +651,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                             PostItem pi = items.get(i);
                             if (pi.type == TYPE_TIP && pi.tip != null && tipId.equals(pi.tip.getTipId())) {
                                 items.remove(i);
-                                notifyItemRemoved(i + 1); // +1 for header
+                                notifyItemRemoved(hideHeader ? i : i + 1);
                                 if (onPostDeletedListener != null)
                                     onPostDeletedListener.onPostDeleted(TYPE_TIP);
                                 break;

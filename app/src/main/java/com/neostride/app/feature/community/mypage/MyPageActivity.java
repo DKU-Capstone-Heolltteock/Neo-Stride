@@ -44,6 +44,7 @@ import com.neostride.app.feature.community.mypage.model.CommunityContentResponse
 import com.neostride.app.feature.community.mypage.model.UserProfileResponse;
 import com.neostride.app.feature.community.mypage.repository.MyPageRepository;
 import com.neostride.app.feature.community.tip.model.TipResponse;
+import com.neostride.app.feature.community.tip.repository.TipRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -143,66 +144,138 @@ public class MyPageActivity extends AppCompatActivity {
         setupTabLayout();
     }
 
-    // ─── 피드 타입(me/tagged/comments/likes/bookmarks)에 맞는 API를 호출하여 RecyclerView에 표시 ───
+    // ─── 피드 타입(tagged/comments/likes/bookmarks)에 맞는 API를 호출하여 RecyclerView에 표시 ───
     private void loadFeeds(String type) {
         rvMyFeeds.setAdapter(null);
         if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
 
-        // 탭별 빈 상태 안내 문구
-        final String emptyMsg;
-        switch (type) {
-            case "tagged":    emptyMsg = "아직 나를 태그한 피드가 없어요\n함께 달린 친구에게 태그를 요청해보세요"; break;
-            case "comments":  emptyMsg = "댓글을 단 피드가 없어요\n다른 러너의 피드에 응원 한마디 남겨보세요"; break;
-            case "likes":     emptyMsg = "아직 좋아요한 피드가 없어요\n마음에 드는 피드에 좋아요를 눌러보세요"; break;
-            case "bookmarks": emptyMsg = "아직 북마크한 피드가 없어요\n나중에 다시 보고 싶은 피드를 저장해보세요"; break;
-            default:          emptyMsg = "아직 작성한 피드가 없어요\n첫 번째 러닝 기록을 공유해보세요"; break;
-        }
-
-        Callback<List<CommunityContentResponse>> callback = new Callback<List<CommunityContentResponse>>() {
-            @Override
-            public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
-                    MyFeedAdapter adapter = new MyFeedAdapter(response.body());
-                    adapter.setOnProfileClickListener((userId, nickname) -> {
-                        int myId = TokenManager.getUserId(MyPageActivity.this);
-                        if (userId == myId) return; // 본인이면 무시
-                        Intent intent = new Intent(MyPageActivity.this, RunnerPageActivity.class);
-                        intent.putExtra("user_id", userId);
-                        intent.putExtra("nickname", nickname);
-                        startActivity(intent);
-                    });
-                    // 북마크 탭: 해제 시 목록에서 즉시 제거 + 카운트 갱신
-                    if ("bookmarks".equals(type)) {
-                        adapter.setRemoveOnUnbookmark(true);
-                        adapter.setOnBookmarkRemovedListener(MyPageActivity.this::onBookmarkRemovedFromList);
+        // "tagged"는 팁 미지원 → 기존 피드 전용 어댑터 유지
+        if ("tagged".equals(type)) {
+            final String emptyMsg = "아직 나를 태그한 피드가 없어요\n함께 달린 친구에게 태그를 요청해보세요";
+            repository.getTaggedFeeds(new Callback<List<CommunityContentResponse>>() {
+                @Override
+                public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
+                    if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
+                        MyFeedAdapter adapter = new MyFeedAdapter(response.body());
+                        adapter.setOnProfileClickListener((userId, nickname) -> {
+                            int myId = TokenManager.getUserId(MyPageActivity.this);
+                            if (userId == myId) return;
+                            Intent intent = new Intent(MyPageActivity.this, RunnerPageActivity.class);
+                            intent.putExtra("user_id", userId);
+                            intent.putExtra("nickname", nickname);
+                            startActivity(intent);
+                        });
+                        rvMyFeeds.setAdapter(adapter);
+                        if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+                    } else {
+                        if (tvEmptyState != null) {
+                            tvEmptyState.setText(emptyMsg);
+                            tvEmptyState.setVisibility(View.VISIBLE);
+                        }
                     }
-                    rvMyFeeds.setAdapter(adapter);
-                    if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
-                } else {
-                    // 빈 목록 또는 오류 → 안내 문구 표시
+                }
+                @Override
+                public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                    Log.e("API_ERROR", "tagged 로드 실패: " + t.getMessage());
                     if (tvEmptyState != null) {
                         tvEmptyState.setText(emptyMsg);
                         tvEmptyState.setVisibility(View.VISIBLE);
                     }
                 }
-            }
-            @Override
-            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
-                Log.e("API_ERROR", type + " 로드 실패: " + t.getMessage());
+            });
+            return;
+        }
+
+        // "comments" / "likes" / "bookmarks": 피드 + 팁 병렬 조회 후 통합 표시
+        loadFeedsAndTips(type);
+    }
+
+    // ─── 활동 탭(댓글/좋아요/북마크): 피드와 팁을 병렬 조회하여 MyPostsAdapter로 통합 표시 ───
+    private void loadFeedsAndTips(String type) {
+        final String emptyMsg;
+        switch (type) {
+            case "comments":  emptyMsg = "댓글을 단 게시글이 없어요\n다른 러너의 피드나 팁에 응원 한마디 남겨보세요"; break;
+            case "likes":     emptyMsg = "아직 좋아요한 게시글이 없어요\n마음에 드는 피드나 팁에 좋아요를 눌러보세요"; break;
+            case "bookmarks": emptyMsg = "아직 북마크한 게시글이 없어요\n나중에 다시 보고 싶은 피드나 팁을 저장해보세요"; break;
+            default:          emptyMsg = "게시글이 없어요"; break;
+        }
+
+        final List<MyPostsAdapter.PostItem> combined = new ArrayList<>();
+        final int[] pending = {2};
+
+        Runnable onAllDone = () -> runOnUiThread(() -> {
+            if (combined.isEmpty()) {
                 if (tvEmptyState != null) {
                     tvEmptyState.setText(emptyMsg);
                     tvEmptyState.setVisibility(View.VISIBLE);
                 }
+            } else {
+                // 북마크 탭: 서버가 is_bookmarked를 반환 못하는 경우를 보완 → 피드 전체 true 강제
+                if ("bookmarks".equals(type)) {
+                    for (MyPostsAdapter.PostItem pi : combined) {
+                        if (pi.type == MyPostsAdapter.TYPE_FEED && pi.feed != null)
+                            pi.feed.isBookmarked = true;
+                        // 팁은 bookmarked 필드를 직접 반환하므로 그대로 사용
+                    }
+                }
+                MyPostsAdapter adapter = new MyPostsAdapter(MyPageActivity.this, combined);
+                if ("bookmarks".equals(type)) {
+                    adapter.setRemoveOnUnbookmark(true);
+                    adapter.setOnBookmarkRemovedListener(MyPageActivity.this::onBookmarkRemovedFromList);
+                }
+                rvMyFeeds.setAdapter(adapter);
+                if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+            }
+        });
+
+        // API 1: 피드 목록
+        Callback<List<CommunityContentResponse>> feedCallback = new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (CommunityContentResponse f : response.body())
+                        combined.add(new MyPostsAdapter.PostItem(f));
+                }
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                Log.e("MyPage", type + " 피드 로딩 실패: " + t.getMessage());
+                if (--pending[0] == 0) onAllDone.run();
             }
         };
 
-        // 타입에 따라 리포지토리 함수 선택
+        // API 2: 팁 목록
+        TipRepository tipRepo = new TipRepository();
+        Callback<List<TipResponse>> tipCallback = new Callback<List<TipResponse>>() {
+            @Override
+            public void onResponse(Call<List<TipResponse>> call, Response<List<TipResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (TipResponse t : response.body())
+                        combined.add(new MyPostsAdapter.PostItem(t));
+                }
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<TipResponse>> call, Throwable t) {
+                Log.e("MyPage", type + " 팁 로딩 실패: " + t.getMessage());
+                if (--pending[0] == 0) onAllDone.run();
+            }
+        };
+
         switch (type) {
-            case "me":        repository.getMyFeeds(callback); break;
-            case "tagged":    repository.getTaggedFeeds(callback); break;
-            case "comments":  repository.getCommentedFeeds(callback); break;
-            case "likes":     repository.getLikedFeeds(callback); break;
-            case "bookmarks": repository.getBookmarkedFeeds(callback); break;
+            case "comments":
+                repository.getCommentedFeeds(feedCallback);
+                tipRepo.getCommentedTips(tipCallback);
+                break;
+            case "likes":
+                repository.getLikedFeeds(feedCallback);
+                tipRepo.getLikedTips(tipCallback);
+                break;
+            case "bookmarks":
+                repository.getBookmarkedFeeds(feedCallback);
+                tipRepo.getBookmarkedTips(tipCallback);
+                break;
         }
     }
 
@@ -646,15 +719,22 @@ public class MyPageActivity extends AppCompatActivity {
         }
     }
 
-    // ─── "전체" 필터: 피드 + 팁을 병렬로 조회하여 MyPostsAdapter에 바인딩 ───
+    // ─── "전체" 필터: 피드 + 팁 + 북마크 목록을 병렬 조회 후 MyPostsAdapter에 바인딩 ───
     private void loadMyPostsAll() {
         rvMyFeeds.setAdapter(null);
         if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
 
         final List<MyPostsAdapter.PostItem> combined = new ArrayList<>();
-        final int[] pending = {2}; // 두 API 완료 대기
+        final java.util.Set<Long> bookmarkedFeedIds = new java.util.HashSet<>();
+        final int[] pending = {3}; // 피드 + 팁 + 북마크 목록 3개 API 완료 대기
 
-        Runnable onBothDone = () -> runOnUiThread(() -> {
+        Runnable onAllDone = () -> runOnUiThread(() -> {
+            // contentQuery가 is_bookmarked를 반환하지 않으므로 북마크 목록과 교차 설정
+            for (MyPostsAdapter.PostItem pi : combined) {
+                if (pi.type == MyPostsAdapter.TYPE_FEED && pi.feed != null) {
+                    pi.feed.isBookmarked = bookmarkedFeedIds.contains((long) pi.feed.contentId);
+                }
+            }
             if (combined.isEmpty()) {
                 if (tvEmptyState != null) {
                     tvEmptyState.setText("아직 작성한 게시글이 없어요\n피드나 팁을 작성해보세요");
@@ -667,6 +747,7 @@ public class MyPageActivity extends AppCompatActivity {
             }
         });
 
+        // API 1: 내 피드
         repository.getMyFeeds(new Callback<List<CommunityContentResponse>>() {
             @Override
             public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
@@ -674,15 +755,16 @@ public class MyPageActivity extends AppCompatActivity {
                     for (CommunityContentResponse f : response.body())
                         combined.add(new MyPostsAdapter.PostItem(f));
                 }
-                if (--pending[0] == 0) onBothDone.run();
+                if (--pending[0] == 0) onAllDone.run();
             }
             @Override
             public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
                 Log.e("MyPage", "내 피드 로딩 실패: " + t.getMessage());
-                if (--pending[0] == 0) onBothDone.run();
+                if (--pending[0] == 0) onAllDone.run();
             }
         });
 
+        // API 2: 내 팁
         repository.getMyTips(new Callback<List<TipResponse>>() {
             @Override
             public void onResponse(Call<List<TipResponse>> call, Response<List<TipResponse>> response) {
@@ -690,12 +772,29 @@ public class MyPageActivity extends AppCompatActivity {
                     for (TipResponse t : response.body())
                         combined.add(new MyPostsAdapter.PostItem(t));
                 }
-                if (--pending[0] == 0) onBothDone.run();
+                if (--pending[0] == 0) onAllDone.run();
             }
             @Override
             public void onFailure(Call<List<TipResponse>> call, Throwable t) {
                 Log.e("MyPage", "내 팁 로딩 실패: " + t.getMessage());
-                if (--pending[0] == 0) onBothDone.run();
+                if (--pending[0] == 0) onAllDone.run();
+            }
+        });
+
+        // API 3: 북마크된 피드 목록 (contentId 수집용)
+        repository.getBookmarkedFeeds(new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (CommunityContentResponse f : response.body())
+                        bookmarkedFeedIds.add((long) f.contentId);
+                }
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                Log.e("MyPage", "북마크 목록 로딩 실패: " + t.getMessage());
+                if (--pending[0] == 0) onAllDone.run();
             }
         });
     }
@@ -706,39 +805,68 @@ public class MyPageActivity extends AppCompatActivity {
         applyFilter(filter);
     }
 
-    // ─── "피드" 필터: 내 피드만 조회하여 MyPostsAdapter에 바인딩 ───
+    // ─── "피드" 필터: 내 피드 + 북마크 목록을 병렬 조회 후 isBookmarked 교차 설정하여 MyPostsAdapter에 바인딩 ───
     private void loadMyFeeds() {
         rvMyFeeds.setAdapter(null);
         if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
 
-        repository.getMyFeeds(new Callback<List<CommunityContentResponse>>() {
-            @Override
-            public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
-                if (response.isSuccessful() && response.body() != null && !response.body().isEmpty()) {
-                    List<MyPostsAdapter.PostItem> items = new ArrayList<>();
-                    for (CommunityContentResponse f : response.body())
-                        items.add(new MyPostsAdapter.PostItem(f));
-                    MyPostsAdapter adapter = new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick);
-                    adapter.setOnPostDeletedListener(MyPageActivity.this::decrementPostTabCount);
-                    rvMyFeeds.setAdapter(adapter);
-                    if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
-                } else {
-                    // 빈 목록이어도 헤더(필터 버튼)는 보여야 하므로 빈 어댑터로 설정
-                    rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, new ArrayList<>(), currentPostFilter, MyPageActivity.this::onFilterClick));
-                    if (tvEmptyState != null) {
-                        tvEmptyState.setText("아직 작성한 피드가 없어요\n첫 번째 러닝 기록을 공유해보세요");
-                        tvEmptyState.setVisibility(View.VISIBLE);
-                    }
-                }
+        final List<CommunityContentResponse> feedList = new ArrayList<>();
+        final java.util.Set<Long> bookmarkedFeedIds = new java.util.HashSet<>();
+        final int[] pending = {2}; // 피드 + 북마크 목록 2개 API 완료 대기
+
+        Runnable onAllDone = () -> runOnUiThread(() -> {
+            // contentQuery가 is_bookmarked를 반환하지 않으므로 북마크 목록과 교차 설정
+            for (CommunityContentResponse f : feedList) {
+                f.isBookmarked = bookmarkedFeedIds.contains((long) f.contentId);
             }
-            @Override
-            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
-                Log.e("MyPage", "내 피드 로딩 실패: " + t.getMessage());
+            if (feedList.isEmpty()) {
+                // 빈 목록이어도 헤더(필터 버튼)는 보여야 하므로 빈 어댑터로 설정
                 rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, new ArrayList<>(), currentPostFilter, MyPageActivity.this::onFilterClick));
                 if (tvEmptyState != null) {
                     tvEmptyState.setText("아직 작성한 피드가 없어요\n첫 번째 러닝 기록을 공유해보세요");
                     tvEmptyState.setVisibility(View.VISIBLE);
                 }
+            } else {
+                List<MyPostsAdapter.PostItem> items = new ArrayList<>();
+                for (CommunityContentResponse f : feedList)
+                    items.add(new MyPostsAdapter.PostItem(f));
+                MyPostsAdapter adapter = new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick);
+                adapter.setOnPostDeletedListener(MyPageActivity.this::decrementPostTabCount);
+                rvMyFeeds.setAdapter(adapter);
+                if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
+            }
+        });
+
+        // API 1: 내 피드
+        repository.getMyFeeds(new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    feedList.addAll(response.body());
+                }
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                Log.e("MyPage", "내 피드 로딩 실패: " + t.getMessage());
+                if (--pending[0] == 0) onAllDone.run();
+            }
+        });
+
+        // API 2: 북마크된 피드 목록 (contentId 수집용, is_bookmarked 교차 설정)
+        repository.getBookmarkedFeeds(new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call, Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (CommunityContentResponse f : response.body())
+                        bookmarkedFeedIds.add((long) f.contentId);
+                }
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                Log.e("MyPage", "북마크 목록 로딩 실패: " + t.getMessage());
+                if (--pending[0] == 0) onAllDone.run();
             }
         });
     }

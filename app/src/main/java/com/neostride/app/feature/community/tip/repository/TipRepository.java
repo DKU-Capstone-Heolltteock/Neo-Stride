@@ -263,6 +263,27 @@ public class TipRepository {
     }
 
     /*
+     * 내가 북마크한 팁 목록 조회 함수임
+     */
+    public void getBookmarkedTips(Callback<List<TipResponse>> callback) {
+        tipApi.getBookmarkedTips().enqueue(callback);
+    }
+
+    /*
+     * 내가 좋아요한 팁 목록 조회 함수임
+     */
+    public void getLikedTips(Callback<List<TipResponse>> callback) {
+        tipApi.getLikedTips().enqueue(callback);
+    }
+
+    /*
+     * 내가 댓글 단 팁 목록 조회 함수임
+     */
+    public void getCommentedTips(Callback<List<TipResponse>> callback) {
+        tipApi.getCommentedTips().enqueue(callback);
+    }
+
+    /*
      * 팁 상세 조회 함수임
      * tipId를 기준으로 서버에서 팁 상세 정보를 가져옴
      */

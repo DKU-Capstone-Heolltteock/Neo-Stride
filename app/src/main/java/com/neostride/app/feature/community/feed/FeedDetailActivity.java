@@ -969,35 +969,35 @@ public class FeedDetailActivity extends AppCompatActivity {
             return;
         }
 
+        // 즉시 로컬 상태 + UI 업데이트
+        boolean prevLiked = isLiked;
+        int prevCount = likeCount;
+        int prevDisplayCount = displayLikeCount;
+        isLiked = !isLiked;
+        likeCount = Math.max(0, likeCount + (isLiked ? 1 : -1));
+        displayLikeCount = likeCount;
+        tvLikeCount.setText("좋아요 " + displayLikeCount);
+        setLikeColor(isLiked);
+
+        // 서버 동기화 — 성공 시 UI는 낙관적 업데이트 유지, 실패 시만 롤백
         feedRepository.toggleFeedLike(
                 feedId,
                 new FeedRepository.RepositoryCallback<FeedLikeResponse>() {
                     @Override
                     public void onSuccess(FeedLikeResponse data) {
-                        if (data == null) {
-                            Toast.makeText(
-                                    FeedDetailActivity.this,
-                                    "좋아요 응답이 비어 있습니다",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-                            return;
-                        }
-
-                        isLiked = data.isLiked();
-                        likeCount = data.getLikeCount();
-                        displayLikeCount = data.getLikeCount();
-
-                        tvLikeCount.setText("좋아요 " + displayLikeCount);
-                        setLikeColor(isLiked);
+                        // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
+                        if (data != null) isLiked = data.isLiked();
                     }
 
                     @Override
                     public void onError(String message) {
-                        Toast.makeText(
-                                FeedDetailActivity.this,
-                                message,
-                                Toast.LENGTH_SHORT
-                        ).show();
+                        // 롤백
+                        isLiked = prevLiked;
+                        likeCount = prevCount;
+                        displayLikeCount = prevDisplayCount;
+                        tvLikeCount.setText("좋아요 " + displayLikeCount);
+                        setLikeColor(isLiked);
+                        Toast.makeText(FeedDetailActivity.this, message, Toast.LENGTH_SHORT).show();
                     }
                 }
         );
