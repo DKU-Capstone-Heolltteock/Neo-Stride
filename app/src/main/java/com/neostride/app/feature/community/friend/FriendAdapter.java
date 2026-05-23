@@ -12,6 +12,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.neostride.app.R;
+import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.badge.model.BadgeTier;
 import com.neostride.app.feature.community.friend.model.FriendResponse;
 import java.util.ArrayList;
@@ -98,7 +99,23 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
             holder.ivBadge.setColorFilter(tier.getColor());
         }
 
-        // 3. 현재 탭 상태에 따라 우측 버튼 설정
+        // 3. 본인인 경우 "본인" 버튼으로 표시하고 클릭 불가 처리
+        int myId = TokenManager.getUserId(holder.itemView.getContext());
+        if (item.userId == myId) {
+            holder.btnAction.setText("본인");
+            holder.btnAction.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
+            GradientDrawable selfBg = new GradientDrawable();
+            selfBg.setCornerRadius(holder.itemView.getResources().getDisplayMetrics().density * 20);
+            selfBg.setColor(Color.parseColor("#444444"));
+            holder.btnAction.setBackground(selfBg);
+            holder.btnAction.setTextColor(Color.parseColor("#AAAAAA"));
+            holder.btnAction.setEnabled(false);
+            holder.btnAction.setOnClickListener(null);
+            holder.itemView.setOnClickListener(null);
+            return;
+        }
+
+        // 4. 현재 탭 상태에 따라 우측 버튼 설정
         // "per_item" 모드: 각 아이템의 item.status를 사용 (남의 친구 목록 화면 등에서 사용)
         String resolvedStatus = "per_item".equals(currentStatus)
                 ? (item.status != null ? item.status : "none")
@@ -221,12 +238,12 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
                 break;
         }
 
-        // 4. 아이템 전체 클릭 → 러너 페이지
+        // 5. 아이템 전체 클릭 → 러너 페이지
         holder.itemView.setOnClickListener(v -> {
             if (itemClickListener != null) itemClickListener.onItemClick(item.userId, item.nickname);
         });
 
-        // 5. 버튼 클릭 리스너 (버튼은 별도 처리, 이벤트 전파 차단)
+        // 6. 버튼 클릭 리스너 (버튼은 별도 처리, 이벤트 전파 차단)
         holder.btnAction.setOnClickListener(v -> {
             if (actionListener == null) return;
             switch (resolvedStatus) {

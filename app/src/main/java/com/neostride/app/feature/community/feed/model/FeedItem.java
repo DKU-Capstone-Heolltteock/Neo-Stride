@@ -48,7 +48,9 @@ public class FeedItem {
     public boolean isMine() { return mine; }
 
     public void setLiked(boolean liked) { this.liked = liked; }
+    public void setLikeCount(int likeCount) { this.likeCount = likeCount; }
     public void setBookmarked(boolean bookmarked) { this.bookmarked = bookmarked; }
+    public void setCommented(boolean commented) { this.commented = commented; }
     public void setMine(boolean mine) { this.mine = mine; }
 
     public FeedItem(

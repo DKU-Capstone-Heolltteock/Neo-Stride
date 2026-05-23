@@ -106,6 +106,14 @@ public class TipResponse {
         this.bookmarked = bookmarked;
     }
 
+    public void setLiked(boolean liked) {
+        this.liked = liked;
+    }
+
+    public void setLikeCount(int likeCount) {
+        this.likeCount = likeCount;
+    }
+
     public boolean isCommented() {
         return commented;
     }

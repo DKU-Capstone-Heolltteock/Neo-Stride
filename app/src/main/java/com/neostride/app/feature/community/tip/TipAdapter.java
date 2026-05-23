@@ -216,23 +216,13 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
          * 목서버 Map 상태가 바뀌므로 상세 화면과 상태를 공유할 수 있음
          */
         holder.ivLike.setOnClickListener(v -> {
-            int currentPosition = holder.getBindingAdapterPosition();
-
-            if (currentPosition == RecyclerView.NO_POSITION) {
-                return;
-            }
-
-            toggleLikeFromList(item, currentPosition);
+            if (holder.getBindingAdapterPosition() == RecyclerView.NO_POSITION) return;
+            toggleLikeFromList(item, holder);
         });
 
         holder.tvLikeCount.setOnClickListener(v -> {
-            int currentPosition = holder.getBindingAdapterPosition();
-
-            if (currentPosition == RecyclerView.NO_POSITION) {
-                return;
-            }
-
-            toggleLikeFromList(item, currentPosition);
+            if (holder.getBindingAdapterPosition() == RecyclerView.NO_POSITION) return;
+            toggleLikeFromList(item, holder);
         });
 
         /*
@@ -443,29 +433,44 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
 
     /*
      * 팁 목록에서 좋아요 버튼을 눌렀을 때 호출되는 함수임
-     * 서버/목서버 API 호출 후 응답값으로 좋아요 상태와 개수를 갱신함
+     * 즉시 UI를 업데이트하고 백그라운드에서 서버 동기화함
      */
-    private void toggleLikeFromList(TipItem item, int position) {
+    private void toggleLikeFromList(TipItem item, TipViewHolder holder) {
         Long tipId = getSafeTipId(item);
 
+        boolean wasLiked = Boolean.TRUE.equals(likedStateMap.get(tipId));
+        boolean newLiked = !wasLiked;
+        int oldCount = getCurrentLikeCount(item);
+        int newCount = Math.max(0, oldCount + (newLiked ? 1 : -1));
+
+        // 즉시 로컬 상태 + ViewHolder 업데이트 (notifyItemChanged 없음 = 번쩍거림 방지)
+        likedStateMap.put(tipId, newLiked);
+        likeCountMap.put(tipId, newCount);
+        int newColor = newLiked ? POINT_COLOR : WHITE_COLOR;
+        holder.ivLike.setImageTintList(ColorStateList.valueOf(newColor));
+        holder.tvLikeCount.setTextColor(newColor);
+        holder.tvLikeCount.setText(String.valueOf(newCount));
+
+        // 서버 동기화 — 응답값으로 최종 확정
         tipRepository.toggleTipLike(
                 tipId,
                 new TipRepository.TipLikeCallback() {
                     @Override
                     public void onSuccess(TipLikeResponse response) {
+                        // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
                         likedStateMap.put(tipId, response.isLiked());
-                        likeCountMap.put(tipId, response.getLikeCount());
-
-                        notifyItemChanged(position);
                     }
 
                     @Override
                     public void onFailure(String message) {
-                        Toast.makeText(
-                                context,
-                                "좋아요 처리 실패: " + message,
-                                Toast.LENGTH_SHORT
-                        ).show();
+                        // 롤백
+                        likedStateMap.put(tipId, wasLiked);
+                        likeCountMap.put(tipId, oldCount);
+                        int c = wasLiked ? POINT_COLOR : WHITE_COLOR;
+                        holder.ivLike.setImageTintList(ColorStateList.valueOf(c));
+                        holder.tvLikeCount.setTextColor(c);
+                        holder.tvLikeCount.setText(String.valueOf(oldCount));
+                        Toast.makeText(context, "좋아요 처리 실패: " + message, Toast.LENGTH_SHORT).show();
                     }
                 }
         );

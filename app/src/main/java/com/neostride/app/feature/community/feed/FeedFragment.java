@@ -20,9 +20,17 @@ import com.neostride.app.feature.community.common.util.TimeFormatter;
 import com.neostride.app.feature.community.feed.model.FeedItem;
 import com.neostride.app.feature.community.feed.model.FeedResponse;
 import com.neostride.app.feature.community.feed.repository.FeedRepository;
+import com.neostride.app.feature.community.mypage.model.CommunityContentResponse;
+import com.neostride.app.feature.community.mypage.repository.MyPageRepository;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 /*
  * 커뮤니티 피드 화면 Fragment임
@@ -134,24 +142,103 @@ public class FeedFragment extends Fragment {
 
     /*
      * 피드 목록을 조회하는 함수임
+     * 피드 API가 is_bookmarked를 정확히 반환하지 않는 문제를 보완하기 위해
+     * 북마크 목록을 병렬로 조회하여 bookmarked 상태를 교차 설정함
      */
     private void loadFeedList() {
+        // 4-API 병렬: 전체 피드 + 북마크 + 좋아요 + 댓글
+        // 목록 API가 isBookmarked/isLiked/isCommented를 per-user로 정확히 안 내려줄 수 있어 교차 확인함
+        final List<FeedResponse>[] feedResponseHolder = new List[]{null};
+        final Set<Long> bookmarkedIds = new HashSet<>();
+        final Set<Long> likedIds = new HashSet<>();
+        final Set<Long> commentedIds = new HashSet<>();
+        final int[] pending = {4};
+        final String[] errorMsg = {null};
+
+        Runnable onAllDone = () -> {
+            if (!isAdded()) return;
+            if (errorMsg[0] != null && feedResponseHolder[0] == null) {
+                Toast.makeText(requireContext(), errorMsg[0], Toast.LENGTH_SHORT).show();
+                return;
+            }
+            List<FeedResponse> data = feedResponseHolder[0] != null
+                    ? feedResponseHolder[0] : new ArrayList<>();
+            feedItemList.clear();
+            for (FeedResponse feedResponse : data) {
+                FeedItem item = convertResponseToFeedItem(feedResponse);
+                Long feedId = feedResponse.getFeedId();
+                if (feedId != null) {
+                    // 교차 확인: 목록 API값 OR 별도 목록에 있으면 true
+                    if (bookmarkedIds.contains(feedId)) item.setBookmarked(true);
+                    if (likedIds.contains(feedId))      item.setLiked(true);
+                    if (commentedIds.contains(feedId))  item.setCommented(true);
+                }
+                feedItemList.add(item);
+            }
+            feedAdapter.notifyDataSetChanged();
+        };
+
+        // API 1: 피드 목록
         feedRepository.getFeedList(new FeedRepository.RepositoryCallback<List<FeedResponse>>() {
             @Override
             public void onSuccess(List<FeedResponse> data) {
-                if (!isAdded()) return;
-
-                feedItemList.clear();
-                for (FeedResponse feedResponse : data) {
-                    feedItemList.add(convertResponseToFeedItem(feedResponse));
-                }
-                feedAdapter.notifyDataSetChanged();
+                feedResponseHolder[0] = data;
+                if (--pending[0] == 0) onAllDone.run();
             }
-
             @Override
             public void onError(String message) {
-                if (!isAdded()) return;
-                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+                errorMsg[0] = message;
+                if (--pending[0] == 0) onAllDone.run();
+            }
+        });
+
+        MyPageRepository myPageRepo = new MyPageRepository();
+
+        // API 2: 내가 북마크한 피드 목록 (isBookmarked 교차 확인용)
+        myPageRepo.getBookmarkedFeeds(new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call,
+                                   Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null)
+                    for (CommunityContentResponse f : response.body())
+                        bookmarkedIds.add((long) f.contentId);
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                if (--pending[0] == 0) onAllDone.run();
+            }
+        });
+
+        // API 3: 내가 좋아요한 피드 목록 (isLiked 교차 확인용)
+        myPageRepo.getLikedFeeds(new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call,
+                                   Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null)
+                    for (CommunityContentResponse f : response.body())
+                        likedIds.add((long) f.contentId);
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                if (--pending[0] == 0) onAllDone.run();
+            }
+        });
+
+        // API 4: 내가 댓글 단 피드 목록 (isCommented 교차 확인용)
+        myPageRepo.getCommentedFeeds(new Callback<List<CommunityContentResponse>>() {
+            @Override
+            public void onResponse(Call<List<CommunityContentResponse>> call,
+                                   Response<List<CommunityContentResponse>> response) {
+                if (response.isSuccessful() && response.body() != null)
+                    for (CommunityContentResponse f : response.body())
+                        commentedIds.add((long) f.contentId);
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
+                if (--pending[0] == 0) onAllDone.run();
             }
         });
     }
