@@ -23,7 +23,6 @@ public class WearLocationService extends Service {
     public static final String EXTRA_LONGITUDE = "longitude";
     public static final String EXTRA_TIME = "time";
     public static final String EXTRA_PERMISSION_DENIED = "permission_denied";
-    public static final String EXTRA_ACCURACY = "accuracy";
 
     private static final String CHANNEL_ID = "wear_running_channel";
     private LocationManager locationManager;
@@ -31,14 +30,11 @@ public class WearLocationService extends Service {
     private final LocationListener locationListener = new LocationListener() {
         @Override
         public void onLocationChanged(Location location) {
-            float acc = location.hasAccuracy() ? location.getAccuracy() : -1f;
-
             Intent intent = new Intent(ACTION_LOCATION_UPDATE);
             intent.setPackage(getPackageName());
             intent.putExtra(EXTRA_LATITUDE, location.getLatitude());
             intent.putExtra(EXTRA_LONGITUDE, location.getLongitude());
             intent.putExtra(EXTRA_TIME, System.currentTimeMillis());
-            intent.putExtra(EXTRA_ACCURACY, acc);
             sendBroadcast(intent);
         }
 
