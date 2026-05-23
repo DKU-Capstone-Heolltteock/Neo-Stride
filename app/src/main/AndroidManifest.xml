@@ -168,6 +168,19 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="${MAPS_API_KEY}" />
 
+        <!-- Wear OS 데이터 수신 서비스 -->
+        <service
+            android:name=".feature.main.running.WearListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/running_result" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

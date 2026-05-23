@@ -96,4 +96,7 @@ dependencies {
     // Glide (이미지 로딩)
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
+
+    //워치
+    implementation("com.google.android.gms:play-services-wearable:18.1.0")
 }
