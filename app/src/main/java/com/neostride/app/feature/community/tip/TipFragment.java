@@ -22,6 +22,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.neostride.app.R;
+import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.feature.badge.api.BadgeService;
+import com.neostride.app.feature.badge.repository.BadgeRepository;
 import com.neostride.app.feature.community.common.util.TimeFormatter;
 import com.neostride.app.feature.community.tip.model.TipItem;
 import com.neostride.app.feature.community.tip.model.TipResponse;
@@ -29,8 +32,10 @@ import com.neostride.app.feature.community.tip.repository.TipRepository;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /*
  * 팁 목록 화면 Fragment 클래스임
@@ -133,12 +138,25 @@ public class TipFragment extends Fragment {
         btnCourse.setOnClickListener(v -> selectCategory(btnCourse, "코스"));
         btnGear.setOnClickListener(v -> selectCategory(btnGear, "장비"));
 
-        // 글쓰기 버튼 클릭 시 팁 업로드 화면으로 이동함
+        // 글쓰기 버튼 클릭 시 배지 등급 확인 후 팁 업로드 화면으로 이동함
         View btnWriteTip = view.findViewById(R.id.btn_write_tip);
         if (btnWriteTip != null) {
             btnWriteTip.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), TipUploadActivity.class);
-                tipUploadLauncher.launch(intent);
+                BadgeService badgeService = ApiClient.getInstance().create(BadgeService.class);
+                BadgeRepository badgeRepository = new BadgeRepository(badgeService);
+                badgeRepository.fetchBadgeDetail(badgeResponse -> {
+                    requireActivity().runOnUiThread(() -> {
+                        String tier = badgeResponse != null ? badgeResponse.tier : "none";
+                        if (tier == null || tier.equalsIgnoreCase("none")) {
+                            Toast.makeText(requireContext(),
+                                    "팁 게시판은 브론즈 이상 배지 보유자만 작성할 수 있습니다.",
+                                    Toast.LENGTH_SHORT).show();
+                        } else {
+                            Intent intent = new Intent(requireContext(), TipUploadActivity.class);
+                            tipUploadLauncher.launch(intent);
+                        }
+                    });
+                });
             });
         }
 
@@ -193,55 +211,89 @@ public class TipFragment extends Fragment {
      * 피드 목록과 동일하게 List<TipResponse> 형태로 응답을 받음
      */
     private void loadTipList() {
-        tipRepository.getTips(new TipRepository.TipListCallback() {
-            @Override
-            public void onSuccess(List<TipResponse> response) {
-                Log.d(TAG, "loadTipList success");
+        // 3-API 병렬: 전체 팁 목록 + 내가 좋아요한 팁 + 내가 댓글 단 팁
+        // 목록 API가 isLiked/isCommented를 per-user로 정확히 안 내려줄 수 있어 교차 확인함
+        final List<TipResponse>[] tipsHolder = new List[]{null};
+        final Set<Long> likedIds = new HashSet<>();
+        final Set<Long> commentedIds = new HashSet<>();
+        final int[] pending = {3};
 
-                tipList.clear();
+        Runnable onAllDone = () -> {
+            if (!isAdded()) return;
+            tipList.clear();
+            likedStateMap.clear();
+            bookmarkedStateMap.clear();
+            likeCountMap.clear();
 
-                /*
-                 * 서버/목서버에서 다시 목록을 불러오므로
-                 * 상태 Map도 서버 응답 기준으로 다시 정리함
-                 */
-                likedStateMap.clear();
-                bookmarkedStateMap.clear();
-                likeCountMap.clear();
+            if (tipsHolder[0] != null) {
+                for (TipResponse serverTip : tipsHolder[0]) {
+                    TipItem item = convertToTipItem(serverTip);
+                    tipList.add(item);
 
-                if (response != null) {
-                    for (TipResponse serverTip : response) {
-                        TipItem item = convertToTipItem(serverTip);
-                        tipList.add(item);
+                    Long tipId = serverTip.getTipId();
+                    if (tipId != null) {
+                        // isLiked: 목록 API값 OR liked 목록 교차 확인
+                        boolean liked = serverTip.isLiked() || likedIds.contains(tipId);
+                        likedStateMap.put(tipId, liked);
+                        bookmarkedStateMap.put(tipId, serverTip.isBookmarked());
+                        likeCountMap.put(tipId, serverTip.getLikeCount());
 
-                        Long tipId = serverTip.getTipId();
-
-                        if (tipId != null) {
-                            likedStateMap.put(tipId, serverTip.isLiked());
-                            bookmarkedStateMap.put(tipId, serverTip.isBookmarked());
-                            likeCountMap.put(tipId, serverTip.getLikeCount());
+                        // isCommented: 목록 API값 OR commented 목록 교차 확인
+                        if (commentedIds.contains(tipId)) {
+                            item.setCommented(true);
                         }
                     }
                 }
-
-                applyFilter();
             }
+            applyFilter();
+        };
 
+        // API 1: 팁 전체 목록
+        tipRepository.getTips(new TipRepository.TipListCallback() {
+            @Override
+            public void onSuccess(List<TipResponse> response) {
+                tipsHolder[0] = response;
+                if (--pending[0] == 0) onAllDone.run();
+            }
             @Override
             public void onFailure(String message) {
                 Log.e(TAG, "loadTipList failure = " + message);
+                if (isAdded()) Toast.makeText(requireContext(), "팁 목록을 불러오지 못했습니다: " + message, Toast.LENGTH_SHORT).show();
+                if (--pending[0] == 0) onAllDone.run();
+            }
+        });
 
-                Toast.makeText(
-                        requireContext(),
-                        "팁 목록을 불러오지 못했습니다: " + message,
-                        Toast.LENGTH_SHORT
-                ).show();
+        // API 2: 내가 좋아요한 팁 목록 (isLiked 교차 확인용)
+        tipRepository.getLikedTips(new retrofit2.Callback<List<TipResponse>>() {
+            @Override
+            public void onResponse(retrofit2.Call<List<TipResponse>> call, retrofit2.Response<List<TipResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (TipResponse t : response.body()) {
+                        if (t.getTipId() != null) likedIds.add(t.getTipId());
+                    }
+                }
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(retrofit2.Call<List<TipResponse>> call, Throwable t) {
+                if (--pending[0] == 0) onAllDone.run();
+            }
+        });
 
-                tipList.clear();
-                likedStateMap.clear();
-                bookmarkedStateMap.clear();
-                likeCountMap.clear();
-
-                applyFilter();
+        // API 3: 내가 댓글 단 팁 목록 (isCommented 교차 확인용)
+        tipRepository.getCommentedTips(new retrofit2.Callback<List<TipResponse>>() {
+            @Override
+            public void onResponse(retrofit2.Call<List<TipResponse>> call, retrofit2.Response<List<TipResponse>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (TipResponse t : response.body()) {
+                        if (t.getTipId() != null) commentedIds.add(t.getTipId());
+                    }
+                }
+                if (--pending[0] == 0) onAllDone.run();
+            }
+            @Override
+            public void onFailure(retrofit2.Call<List<TipResponse>> call, Throwable t) {
+                if (--pending[0] == 0) onAllDone.run();
             }
         });
     }

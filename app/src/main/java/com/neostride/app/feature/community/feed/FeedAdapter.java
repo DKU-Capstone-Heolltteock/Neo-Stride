@@ -25,6 +25,7 @@ import com.neostride.app.feature.community.friend.api.FriendApi;
 import com.neostride.app.feature.community.friend.model.FriendRequest;
 import com.neostride.app.feature.community.friend.repository.FriendRepository;
 import com.neostride.app.feature.community.feed.model.FeedItem;
+import com.neostride.app.feature.community.feed.model.FeedLikeResponse;
 import com.neostride.app.feature.community.feed.repository.FeedRepository;
 import com.neostride.app.feature.community.mypage.MyPageActivity;
 import com.neostride.app.common.network.TokenManager;
@@ -160,15 +161,40 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         holder.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
         holder.tvLikeCount.setTextColor(likeColor);
 
-        // 좋아요 클릭 — 즉시 토글, 다른 뷰 재바인딩 없음
+        // 좋아요 클릭 — 즉시 토글 + 카운트 업데이트, 서버 동기화 백그라운드
         holder.ivLike.setClickable(true);
         holder.ivLike.setEnabled(true);
         holder.ivLike.setOnClickListener(v -> {
             boolean newLiked = !item.isLiked();
+            int newCount = Math.max(0, item.getLikeCount() + (newLiked ? 1 : -1));
+            // 즉시 로컬 모델 + UI 업데이트
             item.setLiked(newLiked);
+            item.setLikeCount(newCount);
             int newColor = newLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
             holder.ivLike.setImageTintList(ColorStateList.valueOf(newColor));
             holder.tvLikeCount.setTextColor(newColor);
+            holder.tvLikeCount.setText(String.valueOf(newCount));
+            // 서버 동기화 — 응답값으로 최종 확정
+            if (feedId != null) {
+                new FeedRepository(context).toggleFeedLike(feedId,
+                    new FeedRepository.RepositoryCallback<FeedLikeResponse>() {
+                        @Override
+                        public void onSuccess(FeedLikeResponse data) {
+                            // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
+                            item.setLiked(data.isLiked());
+                        }
+                        @Override
+                        public void onError(String msg) {
+                            // 롤백
+                            item.setLiked(!newLiked);
+                            item.setLikeCount(item.getLikeCount() + (newLiked ? -1 : 1));
+                            int c = item.isLiked() ? Color.parseColor("#B8FF06") : Color.WHITE;
+                            holder.ivLike.setImageTintList(ColorStateList.valueOf(c));
+                            holder.tvLikeCount.setTextColor(c);
+                            holder.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
+                        }
+                    });
+            }
         });
 
         // 댓글 하이라이트 — item.isCommented() 기반
@@ -220,6 +246,16 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
             holder.ivBookmark.setImageTintList(ColorStateList.valueOf(
                     newBookmarked ? Color.parseColor("#B8FF06") : Color.WHITE
             ));
+
+            // 서버 동기화 — 북마크 상태를 서버에 저장해야 MyPage 등에서도 반영됨
+            if (item.getFeedId() != null) {
+                new com.neostride.app.feature.community.mypage.repository.MyPageRepository()
+                    .toggleBookmark(item.getFeedId().intValue(), newBookmarked,
+                        new retrofit2.Callback<Void>() {
+                            @Override public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> response) {}
+                            @Override public void onFailure(retrofit2.Call<Void> call, Throwable t) {}
+                        });
+            }
         });
 
         // 중단 또는 하단 클릭 시 피드 상세 화면으로 이동함

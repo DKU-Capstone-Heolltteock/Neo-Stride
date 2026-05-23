@@ -869,27 +869,38 @@ public class TipDetailActivity extends AppCompatActivity {
 
     /*
      * 좋아요 상태를 변경하는 함수임
-     * 서버 API 호출 후 응답값으로 UI를 갱신함
+     * 즉시 UI를 업데이트하고 백그라운드에서 서버 동기화함
      */
     private void toggleLike() {
         if (tipId == null) {
             return;
         }
 
+        // 즉시 로컬 상태 + UI 업데이트
+        boolean prevLiked = isLiked;
+        int prevCount = likeCount;
+        isLiked = !isLiked;
+        likeCount = Math.max(0, likeCount + (isLiked ? 1 : -1));
+        tvLikeCount.setText("좋아요 " + likeCount);
+        setLikeColor(isLiked);
+
+        // 서버 동기화 — 성공 시 UI는 낙관적 업데이트 유지, 실패 시만 롤백
         tipRepository.toggleTipLike(
                 tipId,
                 new TipRepository.TipLikeCallback() {
                     @Override
                     public void onSuccess(TipLikeResponse response) {
+                        // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
                         isLiked = response.isLiked();
-                        likeCount = response.getLikeCount();
-
-                        tvLikeCount.setText("좋아요 " + likeCount);
-                        setLikeColor(isLiked);
                     }
 
                     @Override
                     public void onFailure(String message) {
+                        // 롤백
+                        isLiked = prevLiked;
+                        likeCount = prevCount;
+                        tvLikeCount.setText("좋아요 " + likeCount);
+                        setLikeColor(isLiked);
                         Toast.makeText(
                                 TipDetailActivity.this,
                                 "좋아요 처리 실패: " + message,

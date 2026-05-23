@@ -22,6 +22,7 @@ import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.badge.model.BadgeTier;
 import com.neostride.app.feature.community.common.util.DangerConfirmDialog;
 import com.neostride.app.feature.community.common.util.TimeFormatter;
+import com.neostride.app.feature.community.feed.model.FeedLikeResponse;
 import com.neostride.app.feature.community.feed.repository.FeedRepository;
 import com.neostride.app.feature.community.friend.api.FriendApi;
 import com.neostride.app.feature.community.friend.model.FriendRequest;
@@ -46,8 +47,23 @@ public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder
         void onProfileClick(int userId, String nickname);
     }
 
+    // 북마크 해제로 아이템이 제거될 때 Activity에 알리는 콜백
+    public interface OnBookmarkRemovedListener {
+        void onBookmarkRemoved();
+    }
+
     private List<CommunityContentResponse> feedList;
     private OnProfileClickListener profileClickListener;
+    private boolean removeOnUnbookmark = false;       // true = 북마크 해제 시 목록에서 즉시 제거
+    private OnBookmarkRemovedListener bookmarkRemovedListener;
+
+    public void setRemoveOnUnbookmark(boolean remove) {
+        this.removeOnUnbookmark = remove;
+    }
+
+    public void setOnBookmarkRemovedListener(OnBookmarkRemovedListener listener) {
+        this.bookmarkRemovedListener = listener;
+    }
 
     public MyFeedAdapter(List<CommunityContentResponse> list) {
         this.feedList = list;
@@ -115,6 +131,9 @@ public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder
 
         // 5. 북마크 클릭 리스너
         holder.ivBookmark.setOnClickListener(v -> {
+            int clickPos = holder.getBindingAdapterPosition();
+            if (clickPos == RecyclerView.NO_POSITION) return;
+
             item.isBookmarked = !item.isBookmarked;
             if (item.isBookmarked) {
                 holder.ivBookmark.setImageResource(R.drawable.ic_bookmark_filled);
@@ -122,6 +141,13 @@ public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder
             } else {
                 holder.ivBookmark.setImageResource(R.drawable.ic_bookmark);
                 holder.ivBookmark.setColorFilter(Color.WHITE);
+            }
+
+            // 북마크 목록 탭에서 해제 시 → 아이템 즉시 제거 + Activity 카운트 갱신 알림
+            if (removeOnUnbookmark && !item.isBookmarked) {
+                feedList.remove(clickPos);
+                notifyItemRemoved(clickPos);
+                if (bookmarkRemovedListener != null) bookmarkRemovedListener.onBookmarkRemoved();
             }
 
             MyPageRepository repository = new MyPageRepository();
@@ -207,6 +233,43 @@ public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder
         int likeColor = item.isLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
         if (holder.tvLikeCount != null) holder.tvLikeCount.setTextColor(likeColor);
         if (holder.ivFeedLike != null) holder.ivFeedLike.setColorFilter(likeColor);
+
+        // 좋아요 클릭 — 즉시 토글 + 카운트 업데이트, 서버 동기화 백그라운드
+        android.view.View.OnClickListener likeClick = v -> {
+            boolean newLiked = !item.isLiked;
+            int newCount = Math.max(0, item.likeCount + (newLiked ? 1 : -1));
+            item.isLiked = newLiked;
+            item.likeCount = newCount;
+            int c = newLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
+            if (holder.ivFeedLike != null) holder.ivFeedLike.setColorFilter(c);
+            if (holder.tvLikeCount != null) {
+                holder.tvLikeCount.setTextColor(c);
+                holder.tvLikeCount.setText(String.valueOf(newCount));
+            }
+            new FeedRepository(ctx)
+                .toggleFeedLike((long) item.contentId,
+                    new FeedRepository.RepositoryCallback<FeedLikeResponse>() {
+                        @Override
+                        public void onSuccess(FeedLikeResponse data) {
+                            // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
+                            item.isLiked = data.isLiked();
+                        }
+                        @Override
+                        public void onError(String msg) {
+                            // 롤백
+                            item.isLiked = !newLiked;
+                            item.likeCount = Math.max(0, item.likeCount + (newLiked ? -1 : 1));
+                            int fc = item.isLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
+                            if (holder.ivFeedLike != null) holder.ivFeedLike.setColorFilter(fc);
+                            if (holder.tvLikeCount != null) {
+                                holder.tvLikeCount.setTextColor(fc);
+                                holder.tvLikeCount.setText(String.valueOf(item.likeCount));
+                            }
+                        }
+                    });
+        };
+        if (holder.ivFeedLike != null) holder.ivFeedLike.setOnClickListener(likeClick);
+        if (holder.tvLikeCount != null) holder.tvLikeCount.setOnClickListener(likeClick);
 
         // 댓글 하이라이트
         if (holder.tvCommentCount != null) holder.tvCommentCount.setText(String.valueOf(item.commentCount));
