@@ -220,6 +220,16 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
             holder.ivBookmark.setImageTintList(ColorStateList.valueOf(
                     newBookmarked ? Color.parseColor("#B8FF06") : Color.WHITE
             ));
+
+            // 서버 동기화 — 북마크 상태를 서버에 저장해야 MyPage 등에서도 반영됨
+            if (item.getFeedId() != null) {
+                new com.neostride.app.feature.community.mypage.repository.MyPageRepository()
+                    .toggleBookmark(item.getFeedId().intValue(), newBookmarked,
+                        new retrofit2.Callback<Void>() {
+                            @Override public void onResponse(retrofit2.Call<Void> call, retrofit2.Response<Void> response) {}
+                            @Override public void onFailure(retrofit2.Call<Void> call, Throwable t) {}
+                        });
+            }
         });
 
         // 중단 또는 하단 클릭 시 피드 상세 화면으로 이동함

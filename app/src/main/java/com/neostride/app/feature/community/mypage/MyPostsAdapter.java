@@ -54,6 +54,11 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onFilterClick(String filter); // "all" | "feed" | "tip"
     }
 
+    // 삭제 완료 시 Activity에 알리는 콜백 (type: TYPE_FEED 또는 TYPE_TIP)
+    public interface OnPostDeletedListener {
+        void onPostDeleted(int type);
+    }
+
     // ── 통합 아이템 래퍼 ───────────────────────────────────────────────────
     public static class PostItem {
         public final int type;
@@ -79,9 +84,14 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private final OnFilterClickListener filterListener;
     private final boolean isOwner; // true=내 글(수정/삭제), false=타인 글(신고/차단)
     private Runnable onBlockAction; // isOwner=false 일 때 차단 버튼 콜백
+    private OnPostDeletedListener onPostDeletedListener; // 삭제 완료 콜백
 
     public void setOnBlockAction(Runnable onBlockAction) {
         this.onBlockAction = onBlockAction;
+    }
+
+    public void setOnPostDeletedListener(OnPostDeletedListener listener) {
+        this.onPostDeletedListener = listener;
     }
 
     public MyPostsAdapter(Context context, List<PostItem> items, String currentFilter, OnFilterClickListener filterListener) {
@@ -484,10 +494,16 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 .deleteFeed(feedId, new FeedRepository.RepositoryCallback<Boolean>() {
                     @Override public void onSuccess(Boolean data) {
                         Toast.makeText(context, "피드를 삭제했습니다", Toast.LENGTH_SHORT).show();
-                        int dataPos = adapterPosition - 1; // 헤더 offset
-                        if (dataPos >= 0 && dataPos < items.size()) {
-                            items.remove(dataPos);
-                            notifyItemRemoved(adapterPosition);
+                        // adapterPosition은 팝업 dismiss 후 stale(-1)할 수 있으므로 ID로 탐색
+                        for (int i = 0; i < items.size(); i++) {
+                            PostItem pi = items.get(i);
+                            if (pi.type == TYPE_FEED && pi.feed != null && pi.feed.contentId == feedId) {
+                                items.remove(i);
+                                notifyItemRemoved(i + 1); // +1 for header
+                                if (onPostDeletedListener != null)
+                                    onPostDeletedListener.onPostDeleted(TYPE_FEED);
+                                break;
+                            }
                         }
                     }
                     @Override public void onError(String message) {
@@ -506,10 +522,16 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 .deleteTip(tipId, new TipRepository.TipDeleteCallback() {
                     @Override public void onSuccess() {
                         Toast.makeText(context, "팁을 삭제했습니다", Toast.LENGTH_SHORT).show();
-                        int dataPos = adapterPosition - 1; // 헤더 offset
-                        if (dataPos >= 0 && dataPos < items.size()) {
-                            items.remove(dataPos);
-                            notifyItemRemoved(adapterPosition);
+                        // tipId로 탐색하여 삭제 (stale position 방지)
+                        for (int i = 0; i < items.size(); i++) {
+                            PostItem pi = items.get(i);
+                            if (pi.type == TYPE_TIP && pi.tip != null && tipId.equals(pi.tip.getTipId())) {
+                                items.remove(i);
+                                notifyItemRemoved(i + 1); // +1 for header
+                                if (onPostDeletedListener != null)
+                                    onPostDeletedListener.onPostDeleted(TYPE_TIP);
+                                break;
+                            }
                         }
                     }
                     @Override public void onFailure(String message) {

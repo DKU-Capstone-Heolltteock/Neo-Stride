@@ -70,6 +70,7 @@ public class MyPageActivity extends AppCompatActivity {
 
     // ── 필터 상태 ──
     private String currentPostFilter = "all"; // "all" | "feed" | "tip"
+    private String currentActivityType = null; // "comments" | "likes" | "bookmarks"
 
     // ── 레포지터리 ──
     private MyPageRepository repository;
@@ -170,6 +171,11 @@ public class MyPageActivity extends AppCompatActivity {
                         intent.putExtra("nickname", nickname);
                         startActivity(intent);
                     });
+                    // 북마크 탭: 해제 시 목록에서 즉시 제거 + 카운트 갱신
+                    if ("bookmarks".equals(type)) {
+                        adapter.setRemoveOnUnbookmark(true);
+                        adapter.setOnBookmarkRemovedListener(MyPageActivity.this::onBookmarkRemovedFromList);
+                    }
                     rvMyFeeds.setAdapter(adapter);
                     if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
                 } else {
@@ -477,25 +483,28 @@ public class MyPageActivity extends AppCompatActivity {
         // [핵심 2] 클릭 리스너 통합 (하단에 있던 중복 리스너는 지워야 합니다!)
         popupView.findViewById(R.id.menu_my_comments).setOnClickListener(v -> {
             isMenuItemSelected = true;
+            currentActivityType = "comments";
             int count = (cachedUserData != null && cachedUserData.commentedFeedCount != null) ? cachedUserData.commentedFeedCount : 0;
             updateActivityTabTitle("내가 쓴 댓글 " + count);
-            loadFeeds("comments"); // [추가] 댓글 단 피드 데이터 요청
+            loadFeeds("comments");
             popupWindow.dismiss();
         });
 
         popupView.findViewById(R.id.menu_my_likes).setOnClickListener(v -> {
             isMenuItemSelected = true;
+            currentActivityType = "likes";
             int count = (cachedUserData != null && cachedUserData.likedFeedCount != null) ? cachedUserData.likedFeedCount : 0;
             updateActivityTabTitle("내가 한 좋아요 " + count);
-            loadFeeds("likes"); // [추가] 좋아요 한 피드 데이터 요청
+            loadFeeds("likes");
             popupWindow.dismiss();
         });
 
         popupView.findViewById(R.id.menu_my_bookmarks).setOnClickListener(v -> {
             isMenuItemSelected = true;
+            currentActivityType = "bookmarks";
             int count = (cachedUserData != null && cachedUserData.bookmarkedFeedCount != null) ? cachedUserData.bookmarkedFeedCount : 0;
             updateActivityTabTitle("내가 한 북마크 " + count);
-            loadFeeds("bookmarks"); // [추가] 북마크 한 피드 데이터 요청
+            loadFeeds("bookmarks");
             popupWindow.dismiss();
         });
 
@@ -652,7 +661,9 @@ public class MyPageActivity extends AppCompatActivity {
                     tvEmptyState.setVisibility(View.VISIBLE);
                 }
             } else {
-                rvMyFeeds.setAdapter(new MyPostsAdapter(this, combined, currentPostFilter, this::onFilterClick));
+                MyPostsAdapter adapter = new MyPostsAdapter(this, combined, currentPostFilter, this::onFilterClick);
+                adapter.setOnPostDeletedListener(this::decrementPostTabCount);
+                rvMyFeeds.setAdapter(adapter);
             }
         });
 
@@ -707,7 +718,9 @@ public class MyPageActivity extends AppCompatActivity {
                     List<MyPostsAdapter.PostItem> items = new ArrayList<>();
                     for (CommunityContentResponse f : response.body())
                         items.add(new MyPostsAdapter.PostItem(f));
-                    rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick));
+                    MyPostsAdapter adapter = new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick);
+                    adapter.setOnPostDeletedListener(MyPageActivity.this::decrementPostTabCount);
+                    rvMyFeeds.setAdapter(adapter);
                     if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
                 } else {
                     // 빈 목록이어도 헤더(필터 버튼)는 보여야 하므로 빈 어댑터로 설정
@@ -742,7 +755,9 @@ public class MyPageActivity extends AppCompatActivity {
                     List<MyPostsAdapter.PostItem> items = new ArrayList<>();
                     for (TipResponse t : response.body())
                         items.add(new MyPostsAdapter.PostItem(t));
-                    rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick));
+                    MyPostsAdapter adapter = new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick);
+                    adapter.setOnPostDeletedListener(MyPageActivity.this::decrementPostTabCount);
+                    rvMyFeeds.setAdapter(adapter);
                     if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
                 } else {
                     rvMyFeeds.setAdapter(new MyPostsAdapter(MyPageActivity.this, new ArrayList<>(), currentPostFilter, MyPageActivity.this::onFilterClick));
@@ -762,6 +777,37 @@ public class MyPageActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    // ─── 글 삭제 완료 시 탭 카운트 즉시 감소 ───
+    private void decrementPostTabCount(int type) {
+        if (cachedUserData == null) return;
+        if (type == MyPostsAdapter.TYPE_FEED) {
+            if (cachedUserData.postCount != null && cachedUserData.postCount > 0)
+                cachedUserData.postCount--;
+        } else if (type == MyPostsAdapter.TYPE_TIP) {
+            if (cachedUserData.tipCount != null && cachedUserData.tipCount > 0)
+                cachedUserData.tipCount--;
+        }
+        TabLayout.Tab postTab = tabLayout.getTabAt(0);
+        if (postTab != null) {
+            int feedCount = (cachedUserData.postCount != null) ? cachedUserData.postCount : 0;
+            int tipCount  = (cachedUserData.tipCount  != null) ? cachedUserData.tipCount  : 0;
+            postTab.setText("내가 쓴 글 " + (feedCount + tipCount));
+        }
+    }
+
+    // ─── 북마크 목록에서 아이템이 제거될 때 카운트 즉시 갱신 ───
+    private void onBookmarkRemovedFromList() {
+        if (cachedUserData != null && cachedUserData.bookmarkedFeedCount != null
+                && cachedUserData.bookmarkedFeedCount > 0) {
+            cachedUserData.bookmarkedFeedCount--;
+        }
+        if ("bookmarks".equals(currentActivityType)) {
+            int count = (cachedUserData != null && cachedUserData.bookmarkedFeedCount != null)
+                    ? cachedUserData.bookmarkedFeedCount : 0;
+            updateActivityTabTitle("내가 한 북마크 " + count);
+        }
     }
 
     // ─── "활동" 탭 텍스트를 갱신 (기본값: "내 활동 ▼", 하위 메뉴 선택 시 해당 이름 표시) ───

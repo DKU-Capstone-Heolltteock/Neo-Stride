@@ -22,6 +22,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.neostride.app.R;
+import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.feature.badge.api.BadgeService;
+import com.neostride.app.feature.badge.repository.BadgeRepository;
 import com.neostride.app.feature.community.common.util.TimeFormatter;
 import com.neostride.app.feature.community.tip.model.TipItem;
 import com.neostride.app.feature.community.tip.model.TipResponse;
@@ -133,12 +136,25 @@ public class TipFragment extends Fragment {
         btnCourse.setOnClickListener(v -> selectCategory(btnCourse, "코스"));
         btnGear.setOnClickListener(v -> selectCategory(btnGear, "장비"));
 
-        // 글쓰기 버튼 클릭 시 팁 업로드 화면으로 이동함
+        // 글쓰기 버튼 클릭 시 배지 등급 확인 후 팁 업로드 화면으로 이동함
         View btnWriteTip = view.findViewById(R.id.btn_write_tip);
         if (btnWriteTip != null) {
             btnWriteTip.setOnClickListener(v -> {
-                Intent intent = new Intent(requireContext(), TipUploadActivity.class);
-                tipUploadLauncher.launch(intent);
+                BadgeService badgeService = ApiClient.getInstance().create(BadgeService.class);
+                BadgeRepository badgeRepository = new BadgeRepository(badgeService);
+                badgeRepository.fetchBadgeDetail(badgeResponse -> {
+                    requireActivity().runOnUiThread(() -> {
+                        String tier = badgeResponse != null ? badgeResponse.tier : "none";
+                        if (tier == null || tier.equalsIgnoreCase("none")) {
+                            Toast.makeText(requireContext(),
+                                    "팁 게시판은 브론즈 이상 배지 보유자만 작성할 수 있습니다.",
+                                    Toast.LENGTH_SHORT).show();
+                        } else {
+                            Intent intent = new Intent(requireContext(), TipUploadActivity.class);
+                            tipUploadLauncher.launch(intent);
+                        }
+                    });
+                });
             });
         }
 

@@ -46,8 +46,23 @@ public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder
         void onProfileClick(int userId, String nickname);
     }
 
+    // 북마크 해제로 아이템이 제거될 때 Activity에 알리는 콜백
+    public interface OnBookmarkRemovedListener {
+        void onBookmarkRemoved();
+    }
+
     private List<CommunityContentResponse> feedList;
     private OnProfileClickListener profileClickListener;
+    private boolean removeOnUnbookmark = false;       // true = 북마크 해제 시 목록에서 즉시 제거
+    private OnBookmarkRemovedListener bookmarkRemovedListener;
+
+    public void setRemoveOnUnbookmark(boolean remove) {
+        this.removeOnUnbookmark = remove;
+    }
+
+    public void setOnBookmarkRemovedListener(OnBookmarkRemovedListener listener) {
+        this.bookmarkRemovedListener = listener;
+    }
 
     public MyFeedAdapter(List<CommunityContentResponse> list) {
         this.feedList = list;
@@ -115,6 +130,9 @@ public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder
 
         // 5. 북마크 클릭 리스너
         holder.ivBookmark.setOnClickListener(v -> {
+            int clickPos = holder.getBindingAdapterPosition();
+            if (clickPos == RecyclerView.NO_POSITION) return;
+
             item.isBookmarked = !item.isBookmarked;
             if (item.isBookmarked) {
                 holder.ivBookmark.setImageResource(R.drawable.ic_bookmark_filled);
@@ -122,6 +140,13 @@ public class MyFeedAdapter extends RecyclerView.Adapter<MyFeedAdapter.ViewHolder
             } else {
                 holder.ivBookmark.setImageResource(R.drawable.ic_bookmark);
                 holder.ivBookmark.setColorFilter(Color.WHITE);
+            }
+
+            // 북마크 목록 탭에서 해제 시 → 아이템 즉시 제거 + Activity 카운트 갱신 알림
+            if (removeOnUnbookmark && !item.isBookmarked) {
+                feedList.remove(clickPos);
+                notifyItemRemoved(clickPos);
+                if (bookmarkRemovedListener != null) bookmarkRemovedListener.onBookmarkRemoved();
             }
 
             MyPageRepository repository = new MyPageRepository();
