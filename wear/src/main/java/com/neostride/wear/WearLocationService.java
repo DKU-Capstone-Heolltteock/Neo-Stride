@@ -4,20 +4,17 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Looper;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.Priority;
 
 public class WearLocationService extends Service {
 
@@ -25,32 +22,32 @@ public class WearLocationService extends Service {
     public static final String EXTRA_LATITUDE = "latitude";
     public static final String EXTRA_LONGITUDE = "longitude";
     public static final String EXTRA_TIME = "time";
+    public static final String EXTRA_PERMISSION_DENIED = "permission_denied";
 
     private static final String CHANNEL_ID = "wear_running_channel";
-    private FusedLocationProviderClient fusedLocationClient;
-    private LocationCallback locationCallback;
+    private LocationManager locationManager;
+
+    private final LocationListener locationListener = new LocationListener() {
+        @Override
+        public void onLocationChanged(Location location) {
+            Intent intent = new Intent(ACTION_LOCATION_UPDATE);
+            intent.setPackage(getPackageName());
+            intent.putExtra(EXTRA_LATITUDE, location.getLatitude());
+            intent.putExtra(EXTRA_LONGITUDE, location.getLongitude());
+            intent.putExtra(EXTRA_TIME, System.currentTimeMillis());
+            sendBroadcast(intent);
+        }
+
+        @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+        @Override public void onProviderEnabled(String provider) {}
+        @Override public void onProviderDisabled(String provider) {}
+    };
 
     @Override
     public void onCreate() {
         super.onCreate();
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         createNotificationChannel();
-
-        locationCallback = new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult result) {
-                if (result == null) return;
-                Location location = result.getLastLocation();
-                if (location == null) return;
-
-                // Activity로 좌표 브로드캐스트
-                Intent intent = new Intent(ACTION_LOCATION_UPDATE);
-                intent.putExtra(EXTRA_LATITUDE, location.getLatitude());
-                intent.putExtra(EXTRA_LONGITUDE, location.getLongitude());
-                intent.putExtra(EXTRA_TIME, System.currentTimeMillis());
-                sendBroadcast(intent);
-            }
-        };
     }
 
     @Override
@@ -67,21 +64,33 @@ public class WearLocationService extends Service {
     }
 
     private void startLocationUpdates() {
-        LocationRequest request = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000)
-                .setMinUpdateIntervalMillis(1000)
-                .build();
-
         try {
-            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper());
+            locationManager.requestLocationUpdates(
+                    LocationManager.GPS_PROVIDER,
+                    5000, 5f,
+                    locationListener, Looper.getMainLooper()
+            );
+            if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                locationManager.requestLocationUpdates(
+                        LocationManager.NETWORK_PROVIDER,
+                        5000, 5f,
+                        locationListener, Looper.getMainLooper()
+                );
+            }
         } catch (SecurityException e) {
-            e.printStackTrace();
+            Intent intent = new Intent(ACTION_LOCATION_UPDATE);
+            intent.setPackage(getPackageName());
+            intent.putExtra(EXTRA_PERMISSION_DENIED, true);
+            sendBroadcast(intent);
         }
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
-        fusedLocationClient.removeLocationUpdates(locationCallback);
+        if (locationManager != null) {
+            locationManager.removeUpdates(locationListener);
+        }
     }
 
     @Nullable
