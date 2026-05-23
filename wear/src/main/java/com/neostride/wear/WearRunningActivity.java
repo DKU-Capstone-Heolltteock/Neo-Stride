@@ -11,6 +11,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -41,6 +42,7 @@ public class WearRunningActivity extends FragmentActivity {
     private int elapsedSec = 0;
     private double lastLat = 0, lastLng = 0;
     private boolean hasLastLocation = false;
+    private boolean isGpsAcquired = false;
     private final List<double[]> gpsPoints = new ArrayList<>();
 
     // 타이머
@@ -54,11 +56,23 @@ public class WearRunningActivity extends FragmentActivity {
     private final BroadcastReceiver locationReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
+            if (intent.getBooleanExtra(WearLocationService.EXTRA_PERMISSION_DENIED, false)) {
+                stopRunning();
+                Toast.makeText(WearRunningActivity.this, "위치 권한이 없습니다.\n설정에서 허용해 주세요.", Toast.LENGTH_LONG).show();
+                tvBtnLabel.setText("시작");
+                return;
+            }
+
             if (!isRunning || isPaused) return;
 
             double lat = intent.getDoubleExtra(WearLocationService.EXTRA_LATITUDE, 0);
             double lng = intent.getDoubleExtra(WearLocationService.EXTRA_LONGITUDE, 0);
             long time = intent.getLongExtra(WearLocationService.EXTRA_TIME, 0);
+
+            if (!isGpsAcquired) {
+                isGpsAcquired = true;
+                tvPace.setText("--'--\"/km");
+            }
 
             if (hasLastLocation) {
                 float[] result = new float[1];
@@ -137,10 +151,12 @@ public class WearRunningActivity extends FragmentActivity {
         totalDistanceKm = 0f;
         elapsedSec = 0;
         hasLastLocation = false;
+        isGpsAcquired = false;
         gpsPoints.clear();
 
         tvBtnLabel.setText("일시정지");
         tvBtnLabel.setTextColor(0xFF000000);
+        tvPace.setText("GPS 찾는 중...");
 
         // GPS 서비스 시작
         Intent serviceIntent = new Intent(this, WearLocationService.class);
