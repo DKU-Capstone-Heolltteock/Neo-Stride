@@ -384,10 +384,19 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
                                             .create(FriendApi.class));
                     FriendRequest req =
                             new FriendRequest(targetUserId, "block");
-                    friendRepo.updateStatus(req, success ->
-                            Toast.makeText(context,
-                                    success ? label + "을 차단했습니다." : "차단에 실패했습니다.",
-                                    Toast.LENGTH_SHORT).show());
+                    friendRepo.updateStatus(req, success -> {
+                        Toast.makeText(context,
+                                success ? label + "을 차단했습니다." : "차단에 실패했습니다.",
+                                Toast.LENGTH_SHORT).show();
+                        if (success) {
+                            // 차단 성공 시 해당 유저의 피드를 목록에서 즉시 제거
+                            feedItemList.removeIf(i -> {
+                                Long writerId = i.getWriterId();
+                                return writerId != null && writerId.intValue() == targetUserId;
+                            });
+                            notifyDataSetChanged();
+                        }
+                    });
                 }
         );
     }

@@ -2,6 +2,7 @@ package com.neostride.app.feature.auth.api;
 
 import com.neostride.app.feature.auth.model.LoginRequest;
 import com.neostride.app.feature.auth.model.LoginResponse;
+import com.neostride.app.feature.auth.model.RefreshRequest;
 import com.neostride.app.feature.auth.model.SignupRequest;
 import com.neostride.app.feature.auth.model.SignupResponse;
 
@@ -18,6 +19,10 @@ public interface AuthApi {
     // 로그인
     @POST("/api/auth/login")
     Call<LoginResponse> login(@Body LoginRequest request);
+
+    // 토큰 갱신
+    @POST("/api/auth/refresh")
+    Call<LoginResponse> refresh(@Body RefreshRequest request);
 
     // 회원가입 (이미지 없이 JSON으로)
     @POST("/api/auth/signup")
