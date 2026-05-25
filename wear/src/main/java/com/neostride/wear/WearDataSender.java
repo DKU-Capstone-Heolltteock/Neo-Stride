@@ -21,7 +21,8 @@ public class WearDataSender {
                                          float distanceKm,
                                          int durationSec,
                                          int paceSecPerKm,
-                                         List<double[]> gpsPoints) {
+                                         List<double[]> gpsPoints,
+                                         boolean isCoaching) {
         try {
             JSONArray traceArray = new JSONArray();
             for (double[] point : gpsPoints) {
@@ -43,6 +44,7 @@ public class WearDataSender {
             putDataMapRequest.getDataMap().putInt("pace_sec_per_km", paceSecPerKm);
             putDataMapRequest.getDataMap().putString("gps_traces", traceArray.toString());
             putDataMapRequest.getDataMap().putLong("timestamp", System.currentTimeMillis());
+            putDataMapRequest.getDataMap().putBoolean("is_coaching", isCoaching);
 
             PutDataRequest request = putDataMapRequest.asPutDataRequest().setUrgent();
 

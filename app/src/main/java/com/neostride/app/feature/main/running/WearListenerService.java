@@ -24,19 +24,22 @@ import java.util.List;
 import java.util.Locale;
 import android.net.Uri;
 import com.google.android.gms.wearable.Wearable;
+import com.neostride.app.feature.main.coaching.GoalStorage;
+import com.neostride.app.feature.main.coaching.repository.CoachingRepository;
+import com.neostride.app.feature.main.coaching.model.GoalStatusUpdateRequest;
+import java.util.Calendar;
 
 /*
  * 워치에서 전송한 러닝 결과를 폰 앱에서 수신하는 서비스임
  *
  * 전체 흐름:
- * 1. 워치 WearDataSender가 /running_result 경로로 DataItem 전송함
+ * 1. 워치 WearDataSender가 /running_result/{run_id} 경로로 DataItem 전송함
  * 2. 폰의 WearListenerService가 해당 데이터를 수신함
  * 3. 워치에서 받은 거리, 시간, 페이스, GPS 데이터를 RunningRecordRequest로 변환함
  * 4. RunningRepository를 통해 서버에 러닝 기록을 저장함
+ * 5. 서버 저장 성공 시 DataItem을 삭제해 재동기화로 인한 중복 저장을 방지함
  *
- * 주의:
- * MainActivity에서 WearDataReceiver를 별도로 등록하면 중복 저장될 수 있으므로
- * 워치 데이터 수신은 이 서비스 하나만 사용하는 것을 권장함
+ * 워치 데이터 수신은 AndroidManifest에 등록된 이 서비스가 유일한 진입점임
  */
 public class WearListenerService extends WearableListenerService {
 
@@ -83,10 +86,13 @@ public class WearListenerService extends WearableListenerService {
             long timestamp = dataMap.getLong("timestamp", System.currentTimeMillis());
             long runId = dataMap.getLong("run_id", 0L);
 
+            boolean isCoaching = dataMap.getBoolean("is_coaching", false);
+
             Log.d(TAG, "워치 데이터 수신 성공");
             Log.d(TAG, "distanceKm = " + distanceKm);
             Log.d(TAG, "durationSec = " + durationSec);
             Log.d(TAG, "paceSecPerKm = " + paceSecPerKm);
+            Log.d(TAG, "isCoaching = " + isCoaching);
             Log.d(TAG, "gpsTracesJson = " + gpsTracesJson);
             Log.d(TAG, "timestamp = " + timestamp);
             Log.d(TAG, "runId = " + runId);
@@ -116,7 +122,7 @@ public class WearListenerService extends WearableListenerService {
                     gpsTraces,
                     null
             );
-            saveWatchRunningRecord(request, event.getDataItem().getUri());
+            saveWatchRunningRecord(request, event.getDataItem().getUri(), isCoaching, durationSec);
         }
     }
 
@@ -176,13 +182,53 @@ public class WearListenerService extends WearableListenerService {
     /*
      * 워치 러닝 기록을 서버에 저장하는 함수임
      */
-    private void saveWatchRunningRecord(RunningRecordRequest request, Uri dataItemUri) {
+    private void saveWatchRunningRecord(RunningRecordRequest request, Uri dataItemUri,
+                                        boolean isCoaching, int durationSec) {
         RunningRepository runningRepository = new RunningRepository();
 
         runningRepository.saveRunningRecord(request, new RunningRepository.OnResultListener<RunningRecordResponse>() {
             @Override
             public void onSuccess(RunningRecordResponse data) {
                 Log.d(TAG, "워치 러닝 기록 서버 저장 성공!");
+
+                // 코칭 모드 기록이면 오늘 플랜을 completed로 업데이트
+                if (isCoaching) {
+                    Calendar today = Calendar.getInstance();
+                    String todayKey = today.get(Calendar.YEAR) + "-"
+                            + (today.get(Calendar.MONTH) + 1) + "-"
+                            + today.get(Calendar.DAY_OF_MONTH);
+                    GoalStorage.PlanData plan = GoalStorage.getPlan(WearListenerService.this, todayKey);
+                    if (plan != null) {
+                        plan.status = "completed";
+                        plan.completedElapsedSec = durationSec;
+                        GoalStorage.savePlan(WearListenerService.this, todayKey, plan);
+                        Log.d(TAG, "코칭 목표 completed 처리 완료: " + todayKey);
+
+                        // 서버에도 완료 상태 반영 → CoachingFragment가 덮어쓰지 않도록
+                        if (plan.goalId != null && plan.goalId.startsWith("goal_server_")) {
+                            try {
+                                int serverGoalId = Integer.parseInt(plan.goalId.replace("goal_server_", ""));
+                                CoachingRepository coachingRepo = new CoachingRepository();
+                                coachingRepo.updateGoalStatus(
+                                        serverGoalId,
+                                        new GoalStatusUpdateRequest(false, true),
+                                        new CoachingRepository.OnResultListener<com.neostride.app.feature.main.coaching.model.GoalResponse>() {
+                                            @Override
+                                            public void onSuccess(com.neostride.app.feature.main.coaching.model.GoalResponse r) {
+                                                Log.d(TAG, "서버 목표 상태 완료 처리 성공");
+                                            }
+                                            @Override
+                                            public void onError(String message) {
+                                                Log.e(TAG, "서버 목표 상태 완료 처리 실패: " + message);
+                                            }
+                                        }
+                                );
+                            } catch (NumberFormatException e) {
+                                Log.e(TAG, "goalId 파싱 실패: " + plan.goalId);
+                            }
+                        }
+                    }
+                }
 
                 /*
                  * 서버 저장이 성공한 워치 DataItem을 삭제함

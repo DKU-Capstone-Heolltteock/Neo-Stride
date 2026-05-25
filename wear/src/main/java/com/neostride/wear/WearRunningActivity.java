@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -19,23 +20,34 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 import androidx.cardview.widget.CardView;
 
-import java.text.SimpleDateFormat;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
+
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 public class WearRunningActivity extends FragmentActivity {
 
+    private static final String PATH_COACHING_GOAL = "/coaching_goal";
+
     // UI
     private TextView tvDistance, tvTime, tvPace, tvBtnLabel;
-    private TextView tvResultDistance, tvResultTime, tvResultPace;
-    private CardView btnToggle, btnResultConfirm;
-    private View layoutRunning, layoutResult;
+    private TextView tvResultDistance, tvResultTime, tvResultPace, tvResultLabel;
+    private TextView tvGoalInfo, tvCoachingRemaining, tvGoalTimeInfo;
+    private CardView btnToggle, btnResultConfirm, btnFreeRun, btnCoachingRun;
+    private View layoutRunning, layoutResult, layoutModePicker;
 
     // 상태
     private boolean isRunning = false;
     private boolean isPaused = false;
+    private boolean isCoachingMode = false;
+    private boolean goalReached = false; // 목표 거리를 실제로 달성했을 때만 true
+
+    // 코칭 목표 거리
+    private float targetDistanceKm = 0f;
 
     // 측정값
     private float totalDistanceKm = 0f;
@@ -79,6 +91,21 @@ public class WearRunningActivity extends FragmentActivity {
                 android.location.Location.distanceBetween(lastLat, lastLng, lat, lng, result);
                 totalDistanceKm += result[0] / 1000f;
                 updateDistanceUI();
+
+                // 코칭 모드: 목표 거리 달성 시 자동 종료
+                if (isCoachingMode && targetDistanceKm > 0 && totalDistanceKm >= targetDistanceKm) {
+                    totalDistanceKm = targetDistanceKm; // 정확히 목표치로 고정
+                    updateDistanceUI();
+                    goalReached = true;
+                    stopRunning();
+                    return;
+                }
+
+                // 코칭 모드: 남은 거리 실시간 갱신
+                if (isCoachingMode && tvCoachingRemaining != null) {
+                    float remaining = Math.max(0f, targetDistanceKm - totalDistanceKm);
+                    tvCoachingRemaining.setText(String.format(Locale.getDefault(), "목표까지 %.2fkm", remaining));
+                }
             }
 
             lastLat = lat;
@@ -94,17 +121,27 @@ public class WearRunningActivity extends FragmentActivity {
         setContentView(R.layout.activity_wear_running);
 
         // 뷰 바인딩
-        tvDistance = findViewById(R.id.tv_distance);
-        tvTime = findViewById(R.id.tv_time);
-        tvPace = findViewById(R.id.tv_pace);
-        tvBtnLabel = findViewById(R.id.tv_btn_label);
-        tvResultDistance = findViewById(R.id.tv_result_distance);
-        tvResultTime = findViewById(R.id.tv_result_time);
-        tvResultPace = findViewById(R.id.tv_result_pace);
-        btnToggle = findViewById(R.id.btn_toggle);
-        btnResultConfirm = findViewById(R.id.btn_result_confirm);
-        layoutRunning = findViewById(R.id.layout_running);
-        layoutResult = findViewById(R.id.layout_result);
+        tvDistance         = findViewById(R.id.tv_distance);
+        tvTime             = findViewById(R.id.tv_time);
+        tvPace             = findViewById(R.id.tv_pace);
+        tvBtnLabel         = findViewById(R.id.tv_btn_label);
+        tvResultDistance   = findViewById(R.id.tv_result_distance);
+        tvResultTime       = findViewById(R.id.tv_result_time);
+        tvResultPace       = findViewById(R.id.tv_result_pace);
+        tvResultLabel      = findViewById(R.id.tv_result_label);
+        tvGoalInfo         = findViewById(R.id.tv_goal_info);
+        tvGoalTimeInfo = findViewById(R.id.tv_goal_time_info);
+        tvCoachingRemaining = findViewById(R.id.tv_coaching_remaining);
+        btnToggle          = findViewById(R.id.btn_toggle);
+        btnResultConfirm   = findViewById(R.id.btn_result_confirm);
+        btnFreeRun         = findViewById(R.id.btn_free_run);
+        btnCoachingRun     = findViewById(R.id.btn_coaching_run);
+        layoutRunning      = findViewById(R.id.layout_running);
+        layoutResult       = findViewById(R.id.layout_result);
+        layoutModePicker   = findViewById(R.id.layout_mode_picker);
+        View layoutStopWarning  = findViewById(R.id.layout_stop_warning);
+        CardView btnWarningStop   = findViewById(R.id.btn_warning_stop);
+        CardView btnWarningCancel = findViewById(R.id.btn_warning_cancel);
 
         // 권한 런처
         locationPermissionLauncher = registerForActivityResult(
@@ -112,9 +149,23 @@ public class WearRunningActivity extends FragmentActivity {
                 granted -> { if (granted) startRunning(); }
         );
 
-        // 시작/정지 버튼
+        // 자유 러닝 버튼
+        btnFreeRun.setOnClickListener(v -> {
+            isCoachingMode = false;
+            checkPermissionAndStart();
+        });
+
+        // 코칭 모드 버튼
+        btnCoachingRun.setOnClickListener(v -> {
+            isCoachingMode = true;
+            checkPermissionAndStart();
+        });
+
+        // 일시정지/재개 버튼 (측정 중 화면)
         btnToggle.setOnClickListener(v -> {
             if (!isRunning) {
+                // 모드 피커 없이 layout_running이 바로 보이는 경우 (코칭 목표 없을 때)
+                isCoachingMode = false;
                 checkPermissionAndStart();
             } else if (isPaused) {
                 resumeRunning();
@@ -123,20 +174,79 @@ public class WearRunningActivity extends FragmentActivity {
             }
         });
 
-        // 완료 화면 길게 누르면 종료 (워치는 화면 작아서 길게 누르기로)
+        // 길게 누르면 종료 전 검사 (코칭 미달이면 경고창)
         btnToggle.setOnLongClickListener(v -> {
-            if (isRunning) {
-                stopRunning();
-                return true;
-            }
+            if (isRunning) { checkBeforeStop(layoutStopWarning); return true; }
             return false;
+        });
+
+        // 경고창 - 종료
+        btnWarningStop.setOnClickListener(v -> {
+            layoutStopWarning.setVisibility(View.GONE);
+            stopRunning();
+        });
+
+        // 경고창 - 계속 달리기
+        btnWarningCancel.setOnClickListener(v -> {
+            layoutStopWarning.setVisibility(View.GONE);
+            layoutRunning.setVisibility(View.VISIBLE);
+            if (isPaused) resumeRunning();
         });
 
         // 결과 확인 버튼
         btnResultConfirm.setOnClickListener(v -> finish());
+
+        // 폰에서 전송한 오늘의 코칭 목표 DataItem 읽기
+        loadCoachingGoal();
+    }
+
+    // ─── 폰에서 전송한 /coaching_goal DataItem을 읽어 모드 선택 화면 표시 여부 결정 ───
+    private void loadCoachingGoal() {
+        Wearable.getDataClient(this)
+                .getDataItems(Uri.parse("wear://*" + PATH_COACHING_GOAL))
+                .addOnSuccessListener(dataItems -> {
+                    for (DataItem item : dataItems) {
+                        DataMap map = DataMapItem.fromDataItem(item).getDataMap();
+                        float distanceKm = map.getFloat("distance_km", 0f);
+                        int paceSecPerKm = map.getInt("pace_sec_per_km", 0);
+                        if (distanceKm > 0f) {
+                            targetDistanceKm = distanceKm;
+                            showModePicker(distanceKm, paceSecPerKm);
+                            dataItems.release();
+                            return;
+                        }
+                    }
+                    // 코칭 목표 없음 → 자유 러닝 화면 바로 표시
+                    showFreeRunOnly();
+                    dataItems.release();
+                })
+                .addOnFailureListener(e -> showFreeRunOnly());
+    }
+
+    // 코칭 목표 있음 → 모드 선택 화면
+    private void showModePicker(float distanceKm, int paceSecPerKm) {
+        layoutModePicker.setVisibility(View.VISIBLE);
+        layoutRunning.setVisibility(View.GONE);
+        layoutResult.setVisibility(View.GONE);
+        tvGoalInfo.setText(String.format(Locale.getDefault(), "%.2f km", distanceKm));
+
+        // 예상 시간 = 거리 × 페이스(초/km)
+        int totalSec = (int)(distanceKm * paceSecPerKm);
+        int min = totalSec / 60;
+        int sec = totalSec % 60;
+        tvGoalTimeInfo.setText(String.format(Locale.getDefault(), "%d:%02d 이내", min, sec));
+    }
+
+    // 코칭 목표 없음 → 자유 러닝 화면 바로
+    private void showFreeRunOnly() {
+        layoutModePicker.setVisibility(View.GONE);
+        layoutRunning.setVisibility(View.VISIBLE);
+        layoutResult.setVisibility(View.GONE);
     }
 
     private void checkPermissionAndStart() {
+        layoutModePicker.setVisibility(View.GONE);
+        layoutRunning.setVisibility(View.VISIBLE);
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED) {
             startRunning();
@@ -152,21 +262,29 @@ public class WearRunningActivity extends FragmentActivity {
         elapsedSec = 0;
         hasLastLocation = false;
         isGpsAcquired = false;
+        goalReached = false;
         gpsPoints.clear();
 
         tvBtnLabel.setText("일시정지");
         tvBtnLabel.setTextColor(0xFF000000);
         tvPace.setText("GPS 찾는 중...");
 
-        // GPS 서비스 시작
-        Intent serviceIntent = new Intent(this, WearLocationService.class);
-        startForegroundService(serviceIntent);
+        // 코칭 모드: 남은 거리 뷰 표시
+        if (tvCoachingRemaining != null) {
+            if (isCoachingMode && targetDistanceKm > 0) {
+                tvCoachingRemaining.setVisibility(View.VISIBLE);
+                tvCoachingRemaining.setText(String.format(Locale.getDefault(), "목표까지 %.2fkm", targetDistanceKm));
+            } else {
+                tvCoachingRemaining.setVisibility(View.GONE);
+            }
+        }
 
-        // GPS 브로드캐스트 등록
+        // GPS 서비스 시작
+        startForegroundService(new Intent(this, WearLocationService.class));
+
         IntentFilter filter = new IntentFilter(WearLocationService.ACTION_LOCATION_UPDATE);
         registerReceiver(locationReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
 
-        // 타이머 시작
         startTimer();
     }
 
@@ -182,23 +300,33 @@ public class WearRunningActivity extends FragmentActivity {
         startTimer();
     }
 
+    // 코칭 모드 목표 미달 중단 시 경고창, 그 외엔 바로 종료
+    private void checkBeforeStop(View layoutStopWarning) {
+        if (isCoachingMode && !goalReached && totalDistanceKm < targetDistanceKm) {
+            if (!isPaused) pauseRunning();
+            layoutRunning.setVisibility(View.GONE);
+            layoutStopWarning.setVisibility(View.VISIBLE);
+        } else {
+            stopRunning();
+        }
+    }
+
     private void stopRunning() {
         isRunning = false;
         isPaused = false;
 
-        // 타이머 정지
         timerHandler.removeCallbacks(timerRunnable);
-
-        // GPS 서비스 정지
         stopService(new Intent(this, WearLocationService.class));
-
         try { unregisterReceiver(locationReceiver); } catch (Exception ignored) {}
 
-        // 폰으로 데이터 전송
         int paceSecPerKm = totalDistanceKm > 0 ? (int)(elapsedSec / totalDistanceKm) : 0;
-        WearDataSender.sendRunningResult(this, totalDistanceKm, elapsedSec, paceSecPerKm, gpsPoints);
 
-        // 결과 화면 표시
+        // 코칭 모드에서 목표 거리를 채운 경우(goalReached)만 저장
+        // 자유 러닝은 항상 저장, 코칭 미달 중단은 저장 안 함 (폰과 동일 정책)
+        if (!isCoachingMode || goalReached) {
+            WearDataSender.sendRunningResult(this, totalDistanceKm, elapsedSec, paceSecPerKm, gpsPoints, goalReached);
+        }
+
         showResult(paceSecPerKm);
     }
 
@@ -237,6 +365,17 @@ public class WearRunningActivity extends FragmentActivity {
     private void showResult(int paceSecPerKm) {
         layoutRunning.setVisibility(View.GONE);
         layoutResult.setVisibility(View.VISIBLE);
+
+        // 목표 거리를 실제로 달성했을 때만 "목표 달성!", 그 외엔 "측정 완료"
+        if (tvResultLabel != null) {
+            if (goalReached) {
+                tvResultLabel.setText("목표 달성!");
+                tvResultLabel.setTextColor(0xFFFF9500);
+            } else {
+                tvResultLabel.setText("측정 완료");
+                tvResultLabel.setTextColor(0xFFCCFF00);
+            }
+        }
 
         tvResultDistance.setText(String.format(Locale.getDefault(), "%.2f km", totalDistanceKm));
 

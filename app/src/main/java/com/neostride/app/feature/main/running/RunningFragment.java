@@ -772,8 +772,33 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             GoalStorage.PlanData todayPlan = GoalStorage.getPlan(requireContext(), todayPlanKey);
             if (todayPlan != null) {
                 todayPlan.status = "completed";
-                todayPlan.completedElapsedSec = totalSec;  // 완료 화면 복원용
+                todayPlan.completedElapsedSec = totalSec;
                 GoalStorage.savePlan(requireContext(), todayPlanKey, todayPlan);
+
+                // 서버에도 완료 상태 반영 → CoachingFragment가 덮어쓰지 않도록
+                if (todayPlan.goalId != null && todayPlan.goalId.startsWith("goal_server_")) {
+                    try {
+                        int serverGoalId = Integer.parseInt(todayPlan.goalId.replace("goal_server_", ""));
+                        com.neostride.app.feature.main.coaching.repository.CoachingRepository coachingRepo =
+                                new com.neostride.app.feature.main.coaching.repository.CoachingRepository();
+                        coachingRepo.updateGoalStatus(
+                                serverGoalId,
+                                new com.neostride.app.feature.main.coaching.model.GoalStatusUpdateRequest(false, true),
+                                new com.neostride.app.feature.main.coaching.repository.CoachingRepository.OnResultListener<com.neostride.app.feature.main.coaching.model.GoalResponse>() {
+                                    @Override
+                                    public void onSuccess(com.neostride.app.feature.main.coaching.model.GoalResponse r) {
+                                        Log.d("RunningFragment", "서버 목표 상태 완료 처리 성공");
+                                    }
+                                    @Override
+                                    public void onError(String message) {
+                                        Log.e("RunningFragment", "서버 목표 상태 완료 처리 실패: " + message);
+                                    }
+                                }
+                        );
+                    } catch (NumberFormatException e) {
+                        Log.e("RunningFragment", "goalId 파싱 실패: " + todayPlan.goalId);
+                    }
+                }
             }
         }
 
@@ -1005,6 +1030,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_SCREEN_ON);
         requireContext().registerReceiver(screenStateReceiver, filter);
+
+        // 오늘의 코칭 목표를 워치로 전송 (워치 코칭 모드 버튼 표시 여부 결정)
+        WearGoalSender.sendTodayGoal(requireContext());
 
         // 위치 권한 요청 — onResume에서 처리해야 알림 권한 다이얼로그가 닫힌 뒤 순서대로 뜸
         // (onCreateView에서 요청하면 알림 다이얼로그와 충돌해 Android가 무시함)
