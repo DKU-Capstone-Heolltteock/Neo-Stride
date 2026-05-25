@@ -316,14 +316,15 @@ public class FeedRepository {
     ) {
         // ── 텍스트 필드 ────────────────────────────────────────────────────────
         Map<String, RequestBody> fields = new HashMap<>();
-        fields.put("title",       toPlainBody(request.getTitle()));
-        fields.put("content",     toPlainBody(request.getContent()));
-        fields.put("privacy",     toPlainBody(request.getPrivacy()));
-        fields.put("mapVisible",  toPlainBody(String.valueOf(request.isMapVisible())));
-        fields.put("distance",    toPlainBody(String.valueOf(request.getDistance())));
-        fields.put("runningTime", toPlainBody(request.getRunningTime()));
-        fields.put("pace",        toPlainBody(request.getPace()));
-        fields.put("tagCount",    toPlainBody(String.valueOf(request.getTagCount())));
+        fields.put("title",            toPlainBody(request.getTitle()));
+        fields.put("content",          toPlainBody(request.getContent()));
+        fields.put("privacy",          toPlainBody(request.getPrivacy()));
+        fields.put("mapVisible",       toPlainBody(String.valueOf(request.isMapVisible())));
+        fields.put("distance",         toPlainBody(String.valueOf(request.getDistance())));
+        fields.put("runningTime",      toPlainBody(request.getRunningTime()));
+        fields.put("pace",             toPlainBody(request.getPace()));
+        fields.put("tagCount",         toPlainBody(String.valueOf(request.getTagCount())));
+        fields.put("runningRecordId",  toPlainBody(String.valueOf(request.getRunningRecordId())));
 
         // taggedUserIds → JSON 배열 문자열로 직렬화
         if (request.getTaggedUserIds() != null && !request.getTaggedUserIds().isEmpty()) {

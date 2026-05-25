@@ -78,10 +78,11 @@ public class TipRepository {
     ) {
         // ── 텍스트 필드 ─────────────────────────────────────────────────────────
         Map<String, RequestBody> fields = new HashMap<>();
-        fields.put("category",   toPlainBody(request.getCategory()));
-        fields.put("title",      toPlainBody(request.getTitle()));
-        fields.put("content",    toPlainBody(request.getContent()));
-        fields.put("gpsVisible", toPlainBody(String.valueOf(request.isGpsVisible())));
+        fields.put("category",      toPlainBody(request.getCategory()));
+        fields.put("title",         toPlainBody(request.getTitle()));
+        fields.put("content",       toPlainBody(request.getContent()));
+        fields.put("gpsVisible",    toPlainBody(String.valueOf(request.isGpsVisible())));
+        fields.put("courseAddress", toPlainBody(request.getCourseAddress() != null ? request.getCourseAddress() : ""));
 
         // ── 이미지 파트 ──────────────────────────────────────────────────────────
         List<MultipartBody.Part> imageParts = new ArrayList<>();

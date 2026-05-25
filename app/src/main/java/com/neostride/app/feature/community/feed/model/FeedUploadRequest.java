@@ -25,6 +25,8 @@ public class FeedUploadRequest {
 
     private int tagCount;
 
+    private int runningRecordId;
+
     public FeedUploadRequest(
             String title,
             String content,
@@ -36,7 +38,8 @@ public class FeedUploadRequest {
             double distance,
             String runningTime,
             String pace,
-            int tagCount
+            int tagCount,
+            int runningRecordId
     ) {
         this.title = title;
         this.content = content;
@@ -49,6 +52,7 @@ public class FeedUploadRequest {
         this.runningTime = runningTime;
         this.pace = pace;
         this.tagCount = tagCount;
+        this.runningRecordId = runningRecordId;
     }
 
     public String getTitle() {
@@ -93,5 +97,9 @@ public class FeedUploadRequest {
 
     public int getTagCount() {
         return tagCount;
+    }
+
+    public int getRunningRecordId() {
+        return runningRecordId;
     }
 }

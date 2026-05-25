@@ -331,18 +331,14 @@ public class MyPageActivity extends AppCompatActivity {
             }
         });
 
-        // 배지 등급 조회 → 언랭이면 숨김, 아니면 색상 적용
+        // 배지 등급 조회 → 마이페이지에서는 언랭(NONE)도 회색으로 항상 표시
         badgeRepository.fetchBadgeDetail(badgeResponse -> {
             BadgeTier tier = BadgeTier.fromString(badgeResponse.tier);
-            if (ivBadge != null) {
-                if (tier.isNone()) {
-                    ivBadge.setVisibility(android.view.View.GONE);
-                } else if (ivBadge.getDrawable() != null) {
-                    ivBadge.setVisibility(android.view.View.VISIBLE);
-                    Drawable d = DrawableCompat.wrap(ivBadge.getDrawable()).mutate();
-                    DrawableCompat.setTint(d, tier.getColor());
-                    ivBadge.setImageDrawable(d);
-                }
+            if (ivBadge != null && ivBadge.getDrawable() != null) {
+                ivBadge.setVisibility(android.view.View.VISIBLE);
+                Drawable d = DrawableCompat.wrap(ivBadge.getDrawable()).mutate();
+                DrawableCompat.setTint(d, tier.getColor());
+                ivBadge.setImageDrawable(d);
             }
         });
 

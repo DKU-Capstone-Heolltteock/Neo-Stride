@@ -282,7 +282,8 @@ public class FeedUploadDialog {
                 mapVisible, mapVisible ? routeMapImageUri : null,
                 new ArrayList<>(selectedTaggedUserIds),
                 convertImageUrisToStrings(),
-                editDistance, editDurationText, editPaceText, selectedTagCount
+                editDistance, editDurationText, editPaceText, selectedTagCount,
+                0  // 편집 모드에서는 기존 record 연결 유지 (백엔드가 기존 값 유지)
         );
 
         FeedRepository repo = new FeedRepository(context);
@@ -331,7 +332,8 @@ public class FeedUploadDialog {
                 recordData.getDistance(),
                 formatRunningTime((int) recordData.getTime()),
                 formatPace(recordData.getPace()),
-                selectedTagCount
+                selectedTagCount,
+                recordData.getRunRecordId()
         );
         //임시로 로그찍음
         android.util.Log.e(
@@ -476,7 +478,7 @@ public class FeedUploadDialog {
 
             case "친구":
             case "친구에게만":
-                return "FRIEND";
+                return "FRIENDS";
 
             case "뱃지홀더":
             case "뱃지홀더에게만":
@@ -492,7 +494,7 @@ public class FeedUploadDialog {
 
             default:
                 android.util.Log.e("FeedUploadCheck", "알 수 없는 공개범위 값 = " + privacyText);
-                return "FRIEND";
+                return "PUBLIC";
         }
     }
 
