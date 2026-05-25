@@ -24,6 +24,8 @@ public class WearLocationService extends Service {
     public static final String EXTRA_TIME = "time";
     public static final String EXTRA_PERMISSION_DENIED = "permission_denied";
 
+    public static final String EXTRA_ACCURACY = "accuracy";
+
     private static final String CHANNEL_ID = "wear_running_channel";
     private LocationManager locationManager;
 
@@ -35,6 +37,7 @@ public class WearLocationService extends Service {
             intent.putExtra(EXTRA_LATITUDE, location.getLatitude());
             intent.putExtra(EXTRA_LONGITUDE, location.getLongitude());
             intent.putExtra(EXTRA_TIME, System.currentTimeMillis());
+            intent.putExtra(EXTRA_ACCURACY, location.getAccuracy());
             sendBroadcast(intent);
         }
 
@@ -67,13 +70,13 @@ public class WearLocationService extends Service {
         try {
             locationManager.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
-                    5000, 5f,
+                    1000, 2f,
                     locationListener, Looper.getMainLooper()
             );
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                         LocationManager.NETWORK_PROVIDER,
-                        5000, 5f,
+                        1000, 2f,
                         locationListener, Looper.getMainLooper()
                 );
             }

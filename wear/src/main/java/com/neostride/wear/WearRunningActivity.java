@@ -53,7 +53,9 @@ public class WearRunningActivity extends FragmentActivity {
     private float totalDistanceKm = 0f;
     private int elapsedSec = 0;
     private double lastLat = 0, lastLng = 0;
+    private long lastTime = 0;
     private boolean hasLastLocation = false;
+   
     private boolean isGpsAcquired = false;
     private final List<double[]> gpsPoints = new ArrayList<>();
 
@@ -80,16 +82,38 @@ public class WearRunningActivity extends FragmentActivity {
             double lat = intent.getDoubleExtra(WearLocationService.EXTRA_LATITUDE, 0);
             double lng = intent.getDoubleExtra(WearLocationService.EXTRA_LONGITUDE, 0);
             long time = intent.getLongExtra(WearLocationService.EXTRA_TIME, 0);
+            float accuracy = intent.getFloatExtra(WearLocationService.EXTRA_ACCURACY, 999f);
+
+            // 정확도 15m 초과 좌표 제거
+            if (accuracy > 15f) return;
 
             if (!isGpsAcquired) {
                 isGpsAcquired = true;
                 tvPace.setText("--'--\"/km");
+                // 첫 좌표는 버리고 기준점으로만 사용 (초반 튐 방지)
+                lastLat = lat;
+                lastLng = lng;
+                lastTime = time;
+                hasLastLocation = true;
+                return;
             }
 
             if (hasLastLocation) {
                 float[] result = new float[1];
                 android.location.Location.distanceBetween(lastLat, lastLng, lat, lng, result);
-                totalDistanceKm += result[0] / 1000f;
+                float distMeters = result[0];
+
+                // 1m 미만 이동 무시
+                if (distMeters < 1f) return;
+
+                // 속도 43km/h 초과 좌표 제거 (오차 튐 방지)
+                long timeDiffSec = (time - lastTime) / 1000;
+                if (timeDiffSec > 0) {
+                    float speedKmh = (distMeters / timeDiffSec) * 3.6f;
+                    if (speedKmh > 43f) return;
+                }
+
+                totalDistanceKm += distMeters / 1000f;
                 updateDistanceUI();
 
                 // 코칭 모드: 목표 거리 달성 시 자동 종료
@@ -110,6 +134,7 @@ public class WearRunningActivity extends FragmentActivity {
 
             lastLat = lat;
             lastLng = lng;
+            lastTime = time;
             hasLastLocation = true;
             gpsPoints.add(new double[]{lat, lng, time});
         }
@@ -261,6 +286,7 @@ public class WearRunningActivity extends FragmentActivity {
         totalDistanceKm = 0f;
         elapsedSec = 0;
         hasLastLocation = false;
+        lastTime = 0;
         isGpsAcquired = false;
         goalReached = false;
         gpsPoints.clear();
