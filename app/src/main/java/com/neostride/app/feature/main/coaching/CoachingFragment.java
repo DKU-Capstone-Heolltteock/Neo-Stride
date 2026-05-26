@@ -169,9 +169,7 @@ public class CoachingFragment extends Fragment {
         btnAddGoal.setOnClickListener(v -> {
             GoalSettingFragment goalFragment = new GoalSettingFragment();
             goalFragment.setOnGoalSavedListener(goalInput -> {
-                // 1. 로컬 임시 저장 (서버 응답 전 UI 즉시 반영용)
-                GoalStorage.saveGoalToPlanDays(requireContext(), goalInput);
-                refreshWeekPages();
+
 
                 // 2. 백엔드 전송
                 int userId = com.neostride.app.common.network.TokenManager.getUserId(requireContext());
@@ -781,6 +779,14 @@ public class CoachingFragment extends Fragment {
                         plan.description = planDay.getDescription(); // 훈련 설명 (예: "토요일 첫 코칭")
                         plan.aiFeedbackComment = planDay.getAiFeedbackComment(); // AI가 남긴 코멘트
                         plan.completedElapsedSec = planDay.getActualDurationSec(); // 실제 완료 시간 (있으면) - 러닝 탭 완료 화면에서 초과 시간 표시용
+
+                        android.util.Log.d("CoachingCheck",
+                                "Training Routine(AI) = "
+                                        + plan.distanceKm + "km / " + plan.paceStr
+                                        + ", Your Setting = "
+                                        + plan.totalGoalDistanceKm + "km / "
+                                        + plan.totalGoalPaceStr
+                        );
 
                         // 4. 완성된 데이터를 로컬 저장소(SharedPreferences)에 날짜별로 안전하게 저장합니다.
                         GoalStorage.savePlan(requireContext(), key, plan);
