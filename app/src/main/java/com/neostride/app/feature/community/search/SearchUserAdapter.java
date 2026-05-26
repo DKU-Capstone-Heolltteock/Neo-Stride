@@ -29,6 +29,7 @@ import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.resource.bitmap.CircleCrop;
 import com.neostride.app.R;
 import com.neostride.app.common.network.ApiClient;
+import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.badge.model.BadgeTier;
 import com.neostride.app.feature.community.friend.api.FriendApi;
 import com.neostride.app.feature.community.friend.model.FriendRequest;
@@ -116,9 +117,39 @@ public class SearchUserAdapter extends RecyclerView.Adapter<SearchUserAdapter.Se
         holder.btnAction.setCompoundDrawablePadding(0);
 
         /*
+         * 본인 프로필 여부 — 내 ID와 항목 userId가 일치하면 '본인' 버튼으로 표시
+         */
+        int myUserId = TokenManager.getUserId(context);
+        boolean isSelf = item.getUserId() != null && item.getUserId().longValue() == (long) myUserId;
+
+        if (isSelf) {
+            // 본인 — 비활성화된 '본인' 버튼으로 표시
+            holder.btnAction.setText("본인");
+            holder.btnAction.setCompoundDrawables(null, null, null, null);
+            GradientDrawable selfBg = new GradientDrawable();
+            selfBg.setShape(GradientDrawable.RECTANGLE);
+            selfBg.setCornerRadius(context.getResources().getDisplayMetrics().density * 20);
+            selfBg.setColor(Color.parseColor("#555555"));
+            holder.btnAction.setBackground(selfBg);
+            holder.btnAction.setTextColor(Color.parseColor("#AAAAAA"));
+            holder.btnAction.setClickable(false);
+            holder.btnAction.setEnabled(false);
+            holder.btnActionSecondary.setVisibility(View.GONE);
+            // 본인 프로필 클릭은 MyPageActivity로 이동
+            holder.itemView.setOnClickListener(v -> {
+                Intent intent = new Intent(context,
+                        com.neostride.app.feature.community.mypage.MyPageActivity.class);
+                context.startActivity(intent);
+            });
+            return;
+        }
+
+        /*
          * 우측 액션 버튼 — 나와의 관계(status)에 따라 텍스트/색상 결정
          */
         applyActionButton(holder.btnAction, item.getStatus());
+        holder.btnAction.setClickable(true);
+        holder.btnAction.setEnabled(true);
 
         /*
          * received 상태일 때만 '거절' 보조 버튼을 표시함 — FriendAdapter와 동일한 빨간 스타일

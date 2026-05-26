@@ -1,9 +1,12 @@
 package com.neostride.app.feature.community.feed;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -41,10 +44,32 @@ import retrofit2.Response;
  */
 public class FeedFragment extends Fragment {
 
+    private static final int PAGE_SIZE = 5;
+
     private RecyclerView rvFeedList;
     private FeedAdapter feedAdapter;
     private List<FeedItem> feedItemList;
     private FeedRepository feedRepository;
+
+    // 서버에서 받아온 전체 피드 데이터 버퍼 (클라이언트 페이지네이션용)
+    private List<FeedResponse> allFeedResponses = new ArrayList<>();
+
+    // 북마크·좋아요·댓글 상태 (getFeedList 이후 비동기로 채워짐)
+    private final Set<Long> feedBookmarkedIds = new HashSet<>();
+    private final Set<Long> feedLikedIds      = new HashSet<>();
+    private final Set<Long> feedCommentedIds  = new HashSet<>();
+
+    // 현재 RecyclerView에 표시된 아이템 수
+    private int displayedCount = 0;
+
+    // 상태 API 3개가 모두 완료됐는지 여부
+    private boolean feedStatesLoaded = false;
+
+    // 로딩 애니메이션
+    private TextView tvLoading;
+    private final Handler loadingHandler = new Handler(Looper.getMainLooper());
+    private Runnable loadingRunnable;
+    private int loadingDotCount = 1;
 
     // 현재 열린 FeedUploadDialog 참조 (사진 picker 결과 전달용)
     private FeedUploadDialog currentFeedUploadDialog;
@@ -81,13 +106,29 @@ public class FeedFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        rvFeedList = view.findViewById(R.id.rv_feed_list);
+        rvFeedList  = view.findViewById(R.id.rv_feed_list);
+        tvLoading   = view.findViewById(R.id.tv_loading);
         feedRepository = new FeedRepository(requireContext());
         feedItemList = new ArrayList<>();
         feedAdapter = new FeedAdapter(feedItemList);
 
         rvFeedList.setLayoutManager(new LinearLayoutManager(requireContext()));
         rvFeedList.setAdapter(feedAdapter);
+
+        // 스크롤 끝 근처에서 다음 PAGE_SIZE개 추가 로드
+        rvFeedList.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                if (dy <= 0) return; // 위로 스크롤은 무시
+                LinearLayoutManager lm = (LinearLayoutManager) rvFeedList.getLayoutManager();
+                if (lm == null) return;
+                // 마지막 보이는 아이템이 현재 표시된 수의 2개 이내면 미리 로드
+                if (lm.findLastVisibleItemPosition() >= displayedCount - 2
+                        && displayedCount < allFeedResponses.size()) {
+                    loadMoreFeeds();
+                }
+            }
+        });
 
         loadFeedList();
 
@@ -142,53 +183,59 @@ public class FeedFragment extends Fragment {
 
     /*
      * 피드 목록을 조회하는 함수임
-     * 피드 API가 is_bookmarked를 정확히 반환하지 않는 문제를 보완하기 위해
-     * 북마크 목록을 병렬로 조회하여 bookmarked 상태를 교차 설정함
+     *
+     * [개선된 로직]
+     * - API 1(피드 목록)이 도착하는 즉시 첫 PAGE_SIZE개를 화면에 표시함
+     * - API 2~4(북마크·좋아요·댓글 상태)는 백그라운드에서 완료 후
+     *   이미 표시된 아이템의 상태만 업데이트함 (화면이 멈추지 않음)
+     * - 스크롤 끝 근처에서 다음 PAGE_SIZE개를 추가로 표시함
      */
     private void loadFeedList() {
-        // 4-API 병렬: 전체 피드 + 북마크 + 좋아요 + 댓글
-        // 목록 API가 isBookmarked/isLiked/isCommented를 per-user로 정확히 안 내려줄 수 있어 교차 확인함
-        final List<FeedResponse>[] feedResponseHolder = new List[]{null};
-        final Set<Long> bookmarkedIds = new HashSet<>();
-        final Set<Long> likedIds = new HashSet<>();
-        final Set<Long> commentedIds = new HashSet<>();
-        final int[] pending = {4};
-        final String[] errorMsg = {null};
+        // 상태 초기화
+        allFeedResponses = new ArrayList<>();
+        feedBookmarkedIds.clear();
+        feedLikedIds.clear();
+        feedCommentedIds.clear();
+        displayedCount = 0;
+        feedStatesLoaded = false;
+        feedItemList.clear();
+        if (feedAdapter != null) feedAdapter.notifyDataSetChanged();
+        startLoadingAnimation();
 
-        Runnable onAllDone = () -> {
+        // 상태 API 3개(북마크·좋아요·댓글)가 모두 완료되면 이미 표시된 아이템 상태 갱신
+        final int[] statePending = {3};
+        Runnable onStatesReady = () -> {
             if (!isAdded()) return;
-            if (errorMsg[0] != null && feedResponseHolder[0] == null) {
-                Toast.makeText(requireContext(), errorMsg[0], Toast.LENGTH_SHORT).show();
-                return;
-            }
-            List<FeedResponse> data = feedResponseHolder[0] != null
-                    ? feedResponseHolder[0] : new ArrayList<>();
-            feedItemList.clear();
-            for (FeedResponse feedResponse : data) {
-                FeedItem item = convertResponseToFeedItem(feedResponse);
-                Long feedId = feedResponse.getFeedId();
-                if (feedId != null) {
-                    // 교차 확인: 목록 API값 OR 별도 목록에 있으면 true
-                    if (bookmarkedIds.contains(feedId)) item.setBookmarked(true);
-                    if (likedIds.contains(feedId))      item.setLiked(true);
-                    if (commentedIds.contains(feedId))  item.setCommented(true);
+            feedStatesLoaded = true;
+            for (FeedItem item : feedItemList) {
+                Long id = item.getFeedId();
+                if (id != null) {
+                    if (feedBookmarkedIds.contains(id)) item.setBookmarked(true);
+                    if (feedLikedIds.contains(id))      item.setLiked(true);
+                    if (feedCommentedIds.contains(id))  item.setCommented(true);
                 }
-                feedItemList.add(item);
             }
-            feedAdapter.notifyDataSetChanged();
+            if (feedAdapter != null) feedAdapter.notifyDataSetChanged();
         };
 
-        // API 1: 피드 목록
+        // API 1: 피드 목록 — 도착 즉시 첫 PAGE_SIZE개 표시
         feedRepository.getFeedList(new FeedRepository.RepositoryCallback<List<FeedResponse>>() {
             @Override
             public void onSuccess(List<FeedResponse> data) {
-                feedResponseHolder[0] = data;
-                if (--pending[0] == 0) onAllDone.run();
+                if (!isAdded()) return;
+                stopLoadingAnimation();
+                allFeedResponses = data != null ? data : new ArrayList<>();
+                int count = Math.min(PAGE_SIZE, allFeedResponses.size());
+                for (int i = 0; i < count; i++) {
+                    feedItemList.add(convertResponseToFeedItem(allFeedResponses.get(i)));
+                }
+                displayedCount = count;
+                if (feedAdapter != null) feedAdapter.notifyDataSetChanged();
             }
             @Override
             public void onError(String message) {
-                errorMsg[0] = message;
-                if (--pending[0] == 0) onAllDone.run();
+                stopLoadingAnimation();
+                if (isAdded()) Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -201,12 +248,12 @@ public class FeedFragment extends Fragment {
                                    Response<List<CommunityContentResponse>> response) {
                 if (response.isSuccessful() && response.body() != null)
                     for (CommunityContentResponse f : response.body())
-                        bookmarkedIds.add((long) f.contentId);
-                if (--pending[0] == 0) onAllDone.run();
+                        feedBookmarkedIds.add((long) f.contentId);
+                if (--statePending[0] == 0) onStatesReady.run();
             }
             @Override
             public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
-                if (--pending[0] == 0) onAllDone.run();
+                if (--statePending[0] == 0) onStatesReady.run();
             }
         });
 
@@ -217,12 +264,12 @@ public class FeedFragment extends Fragment {
                                    Response<List<CommunityContentResponse>> response) {
                 if (response.isSuccessful() && response.body() != null)
                     for (CommunityContentResponse f : response.body())
-                        likedIds.add((long) f.contentId);
-                if (--pending[0] == 0) onAllDone.run();
+                        feedLikedIds.add((long) f.contentId);
+                if (--statePending[0] == 0) onStatesReady.run();
             }
             @Override
             public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
-                if (--pending[0] == 0) onAllDone.run();
+                if (--statePending[0] == 0) onStatesReady.run();
             }
         });
 
@@ -233,14 +280,76 @@ public class FeedFragment extends Fragment {
                                    Response<List<CommunityContentResponse>> response) {
                 if (response.isSuccessful() && response.body() != null)
                     for (CommunityContentResponse f : response.body())
-                        commentedIds.add((long) f.contentId);
-                if (--pending[0] == 0) onAllDone.run();
+                        feedCommentedIds.add((long) f.contentId);
+                if (--statePending[0] == 0) onStatesReady.run();
             }
             @Override
             public void onFailure(Call<List<CommunityContentResponse>> call, Throwable t) {
-                if (--pending[0] == 0) onAllDone.run();
+                if (--statePending[0] == 0) onStatesReady.run();
             }
         });
+    }
+
+    /*
+     * 스크롤 시 다음 PAGE_SIZE개를 feedItemList에 추가하는 함수임
+     * 상태 API가 완료됐으면 북마크·좋아요·댓글 상태도 함께 반영함
+     */
+    private void loadMoreFeeds() {
+        int start = displayedCount;
+        int end = Math.min(start + PAGE_SIZE, allFeedResponses.size());
+        if (start >= end) return;
+        for (int i = start; i < end; i++) {
+            FeedItem item = convertResponseToFeedItem(allFeedResponses.get(i));
+            Long id = item.getFeedId();
+            if (id != null && feedStatesLoaded) {
+                if (feedBookmarkedIds.contains(id)) item.setBookmarked(true);
+                if (feedLikedIds.contains(id))      item.setLiked(true);
+                if (feedCommentedIds.contains(id))  item.setCommented(true);
+            }
+            feedItemList.add(item);
+        }
+        displayedCount = end;
+        if (feedAdapter != null) feedAdapter.notifyItemRangeInserted(start, end - start);
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        stopLoadingAnimation();
+    }
+
+    /*
+     * 로딩 중 텍스트 애니메이션을 시작하는 함수임
+     * "로딩중." → "로딩중.." → "로딩중..." 순서로 500ms마다 전환함
+     */
+    private void startLoadingAnimation() {
+        if (tvLoading == null) return;
+        loadingDotCount = 1;
+        tvLoading.setVisibility(View.VISIBLE);
+        if (loadingRunnable != null) loadingHandler.removeCallbacks(loadingRunnable);
+        loadingRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (tvLoading == null || tvLoading.getVisibility() != View.VISIBLE) return;
+                StringBuilder dots = new StringBuilder();
+                for (int i = 0; i < loadingDotCount; i++) dots.append(".");
+                tvLoading.setText("로딩중" + dots);
+                loadingDotCount = (loadingDotCount % 3) + 1;
+                loadingHandler.postDelayed(this, 500);
+            }
+        };
+        loadingHandler.post(loadingRunnable);
+    }
+
+    /*
+     * 로딩 중 텍스트 애니메이션을 중지하고 숨기는 함수임
+     */
+    private void stopLoadingAnimation() {
+        if (loadingRunnable != null) {
+            loadingHandler.removeCallbacks(loadingRunnable);
+            loadingRunnable = null;
+        }
+        if (tvLoading != null) tvLoading.setVisibility(View.GONE);
     }
 
     /*

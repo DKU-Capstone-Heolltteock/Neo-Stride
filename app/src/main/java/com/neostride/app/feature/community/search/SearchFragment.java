@@ -18,6 +18,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -84,6 +85,12 @@ public class SearchFragment extends Fragment {
     private TextView btnTipGear;
 
     private SearchRepository searchRepository;
+
+    // 로딩 애니메이션
+    private TextView tvLoading;
+    private final Handler loadingHandler = new Handler(Looper.getMainLooper());
+    private Runnable loadingRunnable;
+    private int loadingDotCount = 1;
 
     /*
      * 현재 선택된 메인 검색 탭임
@@ -169,8 +176,9 @@ public class SearchFragment extends Fragment {
      * XML View들을 Java 코드와 연결하는 함수임
      */
     private void initViews(View view) {
-        etSearch = view.findViewById(R.id.et_search);
-        rvSearch = view.findViewById(R.id.rv_search);
+        etSearch  = view.findViewById(R.id.et_search);
+        rvSearch  = view.findViewById(R.id.rv_search);
+        tvLoading = view.findViewById(R.id.tv_loading);
 
         tabFeed    = view.findViewById(R.id.tab_feed);
         tabTip     = view.findViewById(R.id.tab_tip);
@@ -402,6 +410,7 @@ public class SearchFragment extends Fragment {
         userAdapter = null;
 
         rvSearch.setAdapter(null);
+        startLoadingAnimation();
 
         loadPage();
     }
@@ -440,7 +449,7 @@ public class SearchFragment extends Fragment {
             @Override
             public void onSuccess(List<FeedResponse> feedResponses) {
                 if (!isAdded()) return;
-
+                stopLoadingAnimation();
                 List<FeedItem> newItems = convertFeedResponsesToItems(feedResponses);
                 int insertStart = feedItemList.size();
                 feedItemList.addAll(newItems);
@@ -474,7 +483,7 @@ public class SearchFragment extends Fragment {
             @Override
             public void onSuccess(List<TipResponse> tipResponses) {
                 if (!isAdded()) return;
-
+                stopLoadingAnimation();
                 ArrayList<TipItem> newItems = convertTipResponsesToItems(tipResponses);
                 int insertStart = tipItemList.size();
                 tipItemList.addAll(newItems);
@@ -517,7 +526,7 @@ public class SearchFragment extends Fragment {
             @Override
             public void onSuccess(List<SearchUserResponse> userResponses) {
                 if (!isAdded()) return;
-
+                stopLoadingAnimation();
                 int insertStart = userItemList.size();
                 userItemList.addAll(userResponses);
 
@@ -554,7 +563,7 @@ public class SearchFragment extends Fragment {
             @Override
             public void onSuccess(List<SearchUserResponse> userResponses) {
                 if (!isAdded()) return;
-
+                stopLoadingAnimation();
                 userItemList.clear();
                 userItemList.addAll(userResponses);
 
@@ -663,11 +672,12 @@ public class SearchFragment extends Fragment {
     public void onDestroyView() {
         super.onDestroyView();
         /*
-         * Fragment가 종료될 때 대기 중인 디바운스 콜백을 제거해 메모리 누수를 방지함
+         * Fragment가 종료될 때 대기 중인 디바운스·로딩 콜백을 제거해 메모리 누수를 방지함
          */
         if (debounceRunnable != null) {
             debounceHandler.removeCallbacks(debounceRunnable);
         }
+        stopLoadingAnimation();
     }
 
     /*
@@ -675,8 +685,43 @@ public class SearchFragment extends Fragment {
      */
     private void showError(String message) {
         if (!isAdded()) return;
+        stopLoadingAnimation();
         isLoading = false;
         Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show();
+    }
+
+    /*
+     * 로딩 중 텍스트 애니메이션을 시작하는 함수임
+     * "로딩중." → "로딩중.." → "로딩중..." 순서로 500ms마다 전환함
+     */
+    private void startLoadingAnimation() {
+        if (tvLoading == null) return;
+        loadingDotCount = 1;
+        tvLoading.setVisibility(View.VISIBLE);
+        if (loadingRunnable != null) loadingHandler.removeCallbacks(loadingRunnable);
+        loadingRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (tvLoading == null || tvLoading.getVisibility() != View.VISIBLE) return;
+                StringBuilder dots = new StringBuilder();
+                for (int i = 0; i < loadingDotCount; i++) dots.append(".");
+                tvLoading.setText("로딩중" + dots);
+                loadingDotCount = (loadingDotCount % 3) + 1;
+                loadingHandler.postDelayed(this, 500);
+            }
+        };
+        loadingHandler.post(loadingRunnable);
+    }
+
+    /*
+     * 로딩 중 텍스트 애니메이션을 중지하고 숨기는 함수임
+     */
+    private void stopLoadingAnimation() {
+        if (loadingRunnable != null) {
+            loadingHandler.removeCallbacks(loadingRunnable);
+            loadingRunnable = null;
+        }
+        if (tvLoading != null) tvLoading.setVisibility(View.GONE);
     }
 
     private String getSafeText(String value, String defaultValue) {

@@ -25,18 +25,26 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
+import com.bumptech.glide.Glide;
+import com.neostride.app.BuildConfig;
 import com.neostride.app.R;
 import com.neostride.app.common.network.ApiClient;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.auth.LoginActivity;
 import com.neostride.app.feature.community.CommunityActivity;
 import com.neostride.app.feature.community.mypage.MyPageActivity;
+import com.neostride.app.feature.community.mypage.model.UserProfileResponse;
+import com.neostride.app.feature.community.mypage.repository.MyPageRepository;
 import com.neostride.app.feature.main.coaching.CoachingFragment;
 import com.neostride.app.feature.main.record.RecordFragment;
 import com.neostride.app.feature.main.running.RunningFragment;
 import com.neostride.app.feature.notification.NotificationActivity;
 import com.neostride.app.feature.notification.model.NotificationResponse;
 import com.neostride.app.feature.notification.repository.NotificationRepository;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -45,6 +53,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView tvRunning, tvRecord, tvCoaching, tvCommunity;
     private ImageView btnNotification, btnProfile;
     private View badgeNotification;
+    private MyPageRepository myPageRepository;
 
     // 알림 권한 요청 런처임
     private final ActivityResultLauncher<String> notificationPermissionLauncher =
@@ -65,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
         ApiClient.init(this);
 
         initViews();
+        myPageRepository = new MyPageRepository();
         requestInitialPermissions();
 
         if (savedInstanceState == null) {
@@ -102,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
          * 따라서 워치 러닝 결과 수신은 Manifest에 등록된 WearListenerService만 담당하게 함
          */
         checkUnreadNotifications();
+        loadProfileButton();
     }
 
     private void initViews() {
@@ -350,6 +361,43 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
         );
+    }
+
+    /*
+     * 서버에서 프로필 사진 URL을 받아 우측 상단 btnProfile 에 원형으로 로드한다.
+     */
+    private void loadProfileButton() {
+        if (myPageRepository == null || btnProfile == null) return;
+        myPageRepository.getUserProfile(new Callback<UserProfileResponse>() {
+            @Override
+            public void onResponse(Call<UserProfileResponse> call, Response<UserProfileResponse> response) {
+                if (!response.isSuccessful() || response.body() == null) return;
+                String photo = response.body().profilePhoto;
+                if (photo == null || photo.trim().isEmpty()) return;
+
+                // 상대 경로면 BASE_URL 붙이기
+                if (!photo.startsWith("http://") && !photo.startsWith("https://")) {
+                    String base = BuildConfig.BASE_URL;
+                    if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+                    photo = base + (photo.startsWith("/") ? photo : "/" + photo);
+                }
+
+                final String finalUrl = photo;
+                runOnUiThread(() ->
+                    Glide.with(MainActivity.this)
+                            .load(finalUrl)
+                            .circleCrop()
+                            .placeholder(R.drawable.ic_profile)
+                            .error(R.drawable.ic_profile)
+                            .into(btnProfile)
+                );
+            }
+
+            @Override
+            public void onFailure(Call<UserProfileResponse> call, Throwable t) {
+                // 실패 시 기본 아이콘 유지
+            }
+        });
     }
 
     private void replaceFragment(Fragment fragment) {

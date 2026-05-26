@@ -651,6 +651,27 @@ public class RunnerPageActivity extends AppCompatActivity {
         }
         runnerFriendCount = data.friendCount != null ? data.friendCount : 0;
         tvFriends.setText("친구 " + runnerFriendCount);
+        // 백엔드 응답에 is_blocked가 있으면 우선 적용 (Intent로 받은 값보다 정확)
+        // 백엔드에서 is_blocked 필드를 내려줘야 동작함
+        if (data.isBlocked != null && data.isBlocked && !isBlocked) {
+            isBlocked = true;
+            ivFriendRequestIcon.setVisibility(View.VISIBLE);
+            ivFriendRequestIcon.setImageResource(R.drawable.ic_friend_unlock);
+            ivFriendRequestIcon.setColorFilter(Color.BLACK);
+            tvFriendRequestLabel.setText("차단 해제");
+            tvFriendRequestLabel.setTextColor(Color.BLACK);
+            btnFriendRequest.setBackgroundResource(R.drawable.bg_badge_btn);
+            btnFriendRequest.setOnClickListener(v ->
+                friendRepository.updateStatus(new FriendRequest(targetUserId, "unblock"), success -> {
+                    runOnUiThread(() -> { if (success) { isBlocked = false; restoreUnblockedUI(); }
+                    else Toast.makeText(this, "차단 해제에 실패했습니다.", Toast.LENGTH_SHORT).show(); });
+                })
+            );
+            rvRunnerFeeds.setVisibility(View.GONE);
+            tvBlockedMessage.setVisibility(View.VISIBLE);
+            return; // 차단 상태면 이하 친구 버튼 갱신 불필요
+        }
+
         // 백엔드 응답에 is_friend가 있으면 우선 적용 (Intent로 받은 값보다 정확)
         if (data.isFriend != null) {
             isFriend = data.isFriend;

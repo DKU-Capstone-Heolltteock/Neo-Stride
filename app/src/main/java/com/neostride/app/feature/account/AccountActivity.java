@@ -33,9 +33,14 @@ import com.neostride.app.feature.account.api.AccountApi;
 import com.neostride.app.feature.account.model.AccountInfoResponse;
 import com.neostride.app.feature.auth.LoginActivity;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
+import okhttp3.RequestBody;
 import okhttp3.ResponseBody;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -65,7 +70,10 @@ public class AccountActivity extends AppCompatActivity {
                     Bitmap bitmap = (Bitmap) result.getData().getExtras().get("data");
                     if (bitmap != null) {
                         Glide.with(AccountActivity.this).load(bitmap).circleCrop().into(ivProfile);
-                        // TODO: 백엔드 연결 시 multipart 업로드
+                        // 비트맵 → PNG 바이트 변환 후 서버에 업로드
+                        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, bos);
+                        uploadProfileImage(bos.toByteArray(), "profile.jpg", "image/jpeg");
                     }
                 }
             });
@@ -88,7 +96,25 @@ public class AccountActivity extends AppCompatActivity {
                     Uri imageUri = result.getData().getData();
                     if (imageUri != null) {
                         Glide.with(this).load(imageUri).circleCrop().into(ivProfile);
-                        // TODO: 백엔드 연결 시 multipart 업로드
+                        // content:// URI → 바이트 배열로 읽어서 서버에 업로드
+                        try {
+                            InputStream is = getContentResolver().openInputStream(imageUri);
+                            if (is != null) {
+                                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                                byte[] buf = new byte[8192];
+                                int n;
+                                while ((n = is.read(buf)) != -1) bos.write(buf, 0, n);
+                                is.close();
+                                // MIME 타입 감지
+                                String mimeType = getContentResolver().getType(imageUri);
+                                if (mimeType == null) mimeType = "image/jpeg";
+                                String ext = mimeType.contains("png") ? ".png"
+                                        : mimeType.contains("webp") ? ".webp" : ".jpg";
+                                uploadProfileImage(bos.toByteArray(), "profile" + ext, mimeType);
+                            }
+                        } catch (Exception e) {
+                            Toast.makeText(this, "이미지를 읽을 수 없습니다.", Toast.LENGTH_SHORT).show();
+                        }
                     }
                 }
             });
@@ -442,6 +468,35 @@ public class AccountActivity extends AppCompatActivity {
                     LinearLayout.LayoutParams.WRAP_CONTENT);
         }
         dialog.show();
+    }
+
+    // ─── 프로필 이미지를 서버에 업로드하는 함수 ───
+    private void uploadProfileImage(byte[] bytes, String filename, String mimeType) {
+        RequestBody requestBody = RequestBody.create(bytes, MediaType.parse(mimeType));
+        MultipartBody.Part part = MultipartBody.Part.createFormData("image", filename, requestBody);
+
+        accountApi.updateProfileImage(part).enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+                runOnUiThread(() -> {
+                    if (response.isSuccessful()) {
+                        Toast.makeText(AccountActivity.this,
+                                "프로필 사진이 변경되었습니다.", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(AccountActivity.this,
+                                "프로필 사진 변경에 실패했습니다. (" + response.code() + ")",
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                runOnUiThread(() ->
+                        Toast.makeText(AccountActivity.this,
+                                "서버에 연결할 수 없습니다.", Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 
     // ─── dp 값을 픽셀로 변환 ───
