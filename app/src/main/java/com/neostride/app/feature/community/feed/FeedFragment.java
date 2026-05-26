@@ -225,6 +225,8 @@ public class FeedFragment extends Fragment {
                 if (!isAdded()) return;
                 stopLoadingAnimation();
                 allFeedResponses = data != null ? data : new ArrayList<>();
+                // 동시에 여러 번 loadFeedList()가 호출됐을 때 중복 방지
+                feedItemList.clear();
                 int count = Math.min(PAGE_SIZE, allFeedResponses.size());
                 for (int i = 0; i < count; i++) {
                     feedItemList.add(convertResponseToFeedItem(allFeedResponses.get(i)));
