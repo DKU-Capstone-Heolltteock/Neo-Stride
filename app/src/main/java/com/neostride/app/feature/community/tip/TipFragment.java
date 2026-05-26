@@ -353,8 +353,8 @@ public class TipFragment extends Fragment {
 
     /*
      * 카테고리 버튼 전체 스타일을 갱신하는 함수임
-     * 선택된 버튼은 카테고리별 네온색으로 표시하고,
-     * 선택되지 않은 버튼은 어두운 배경으로 표시함
+     * 선택된 버튼은 카테고리별 네온색으로 채워지고(불 켜짐),
+     * 선택되지 않은 버튼은 검은 배경으로 꺼진 상태로 표시함
      */
     private void updateCategoryButtonStyle(String category) {
         setUnselectedCategoryButton(btnAll);
@@ -388,6 +388,7 @@ public class TipFragment extends Fragment {
 
     /*
      * 선택되지 않은 카테고리 버튼 스타일을 적용하는 함수임
+     * 검은 배경에 흰 텍스트로 "꺼진" 상태를 표시함
      */
     private void setUnselectedCategoryButton(TextView button) {
         if (button == null) {
@@ -401,6 +402,7 @@ public class TipFragment extends Fragment {
 
     /*
      * 선택된 카테고리 버튼 스타일을 적용하는 함수임
+     * 네온 테두리 + 동일 색상 텍스트로 "불 켜진" 효과를 줌
      */
     private void setSelectedCategoryButton(TextView button, String colorCode) {
         if (button == null) {
@@ -408,32 +410,35 @@ public class TipFragment extends Fragment {
         }
 
         button.setBackground(makeSelectedCategoryBackground(colorCode));
-        button.setTextColor(Color.BLACK);
+        button.setTextColor(Color.parseColor(colorCode));
         button.setTypeface(null, Typeface.BOLD);
     }
 
     /*
-     * 선택된 카테고리 버튼의 둥근 네온 배경을 만드는 함수임
+     * 선택된 카테고리 버튼의 네온 테두리 배경을 만드는 함수임
+     * 배경은 어둡고 테두리가 네온 색상으로 빛나는 형태임
      */
     private GradientDrawable makeSelectedCategoryBackground(String colorCode) {
         GradientDrawable drawable = new GradientDrawable();
 
         drawable.setShape(GradientDrawable.RECTANGLE);
-        drawable.setColor(Color.parseColor(colorCode));
+        drawable.setColor(Color.parseColor("#1A1A1A"));
+        drawable.setStroke(dp(2), Color.parseColor(colorCode));
         drawable.setCornerRadius(dp(18));
 
         return drawable;
     }
 
     /*
-     * 선택되지 않은 카테고리 버튼의 둥근 어두운 배경을 만드는 함수임
+     * 선택되지 않은 카테고리 버튼의 검은 배경을 만드는 함수임
+     * 불이 꺼진 상태처럼 어두운 pill 모양으로 표시함
      */
     private GradientDrawable makeUnselectedCategoryBackground() {
         GradientDrawable drawable = new GradientDrawable();
 
         drawable.setShape(GradientDrawable.RECTANGLE);
-        drawable.setColor(Color.parseColor("#2A2A2A"));
-        drawable.setStroke(dp(1), Color.parseColor("#555555"));
+        drawable.setColor(Color.parseColor("#1A1A1A"));
+        drawable.setStroke(dp(1), Color.parseColor("#333333"));
         drawable.setCornerRadius(dp(18));
 
         return drawable;

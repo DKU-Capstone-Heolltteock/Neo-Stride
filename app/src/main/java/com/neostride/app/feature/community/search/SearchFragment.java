@@ -347,25 +347,26 @@ public class SearchFragment extends Fragment {
 
     /*
      * 팁 카테고리 버튼 1개의 선택/비선택 스타일을 적용하는 함수임
+     * 비선택: 검은 배경 + 흰 텍스트 (꺼진 상태)
+     * 선택:   카테고리 고유 색상으로 채워진 배경 + 어두운 텍스트 (불 켜진 상태)
      */
     private void setCategoryButtonStyle(TextView button, boolean isSelected, String selectedColorCode) {
         if (button == null) return;
 
-        int selectedColor   = Color.parseColor(selectedColorCode);
-        int unselectedColor = Color.parseColor("#E8E8E8");
+        int categoryColor = Color.parseColor(selectedColorCode);
 
         GradientDrawable drawable = new GradientDrawable();
         drawable.setShape(GradientDrawable.RECTANGLE);
         drawable.setCornerRadius(dp(18));
 
         if (isSelected) {
-            drawable.setColor(selectedColor);
-            drawable.setStroke(dp(1), selectedColor);
-            button.setTextColor(Color.parseColor("#111111"));
+            drawable.setColor(Color.parseColor("#1A1A1A"));
+            drawable.setStroke(dp(2), categoryColor);
+            button.setTextColor(categoryColor);
         } else {
-            drawable.setColor(unselectedColor);
-            drawable.setStroke(dp(1), unselectedColor);
-            button.setTextColor(Color.parseColor("#111111"));
+            drawable.setColor(Color.parseColor("#1A1A1A"));
+            drawable.setStroke(dp(1), Color.parseColor("#333333"));
+            button.setTextColor(Color.WHITE);
         }
 
         button.setTypeface(null, Typeface.BOLD);
