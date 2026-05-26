@@ -60,6 +60,10 @@ public class FeedUploadDialog {
     // 편집 모드 — 신규 작성과 동일 다이얼로그를 재사용 (recordData 없이)
     private final boolean isEditMode;
     private final Long editFeedId;
+
+    // 완료 버튼 중복 클릭 방지 — true이면 이미 요청 중
+    private boolean isUploading = false;
+    private TextView btnComplete;
     // 편집 시 보존할 기존 러닝 통계 (recordData 자리 대체용)
     private double editDistance = 0.0;
     private String editDurationText = "00:00";
@@ -129,7 +133,7 @@ public class FeedUploadDialog {
         }
 
         ImageView btnAddPhoto = dialog.findViewById(R.id.btn_add_photo);
-        TextView btnComplete = dialog.findViewById(R.id.btn_complete_upload);
+        btnComplete = dialog.findViewById(R.id.btn_complete_upload);
         ImageView btnBack = dialog.findViewById(R.id.btn_back_upload);
         if (btnBack != null) btnBack.setOnClickListener(v -> dialog.dismiss());
 
@@ -192,8 +196,11 @@ public class FeedUploadDialog {
             privacyDialog.show();
         });
 
-        // 완료 버튼 클릭 시 — 편집 모드면 업데이트, 신규면 업로드
+        // 완료 버튼 클릭 시 — 이미 요청 중이면 차단, 편집 모드면 업데이트, 신규면 업로드
         btnComplete.setOnClickListener(v -> {
+            if (isUploading) return;
+            isUploading = true;
+            btnComplete.setEnabled(false);
             if (isEditMode) {
                 updateFeed();
             } else {
@@ -297,6 +304,9 @@ public class FeedUploadDialog {
 
             @Override
             public void onError(String message) {
+                // 실패 시 재시도 가능하도록 플래그 복원
+                isUploading = false;
+                if (btnComplete != null) btnComplete.setEnabled(true);
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
             }
         });
@@ -374,6 +384,9 @@ public class FeedUploadDialog {
 
                     @Override
                     public void onError(String message) {
+                        // 실패 시 재시도 가능하도록 플래그 복원
+                        isUploading = false;
+                        if (btnComplete != null) btnComplete.setEnabled(true);
                         Toast.makeText(
                                 context,
                                 message,

@@ -67,6 +67,9 @@ public class TipUploadActivity extends AppCompatActivity {
     private boolean isEditMode = false;
     private Long editTipId = null;
 
+    // 완료 버튼 중복 클릭 방지 — true이면 이미 요청 중
+    private boolean isUploading = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -242,9 +245,12 @@ public class TipUploadActivity extends AppCompatActivity {
     }
 
     /*
-     * 완료 버튼 — 편집 모드면 update, 신규면 upload
+     * 완료 버튼 — 이미 요청 중이면 차단, 편집 모드면 update, 신규면 upload
      */
     private void submitTip() {
+        if (isUploading) return;
+        isUploading = true;
+        btnDone.setEnabled(false);
         if (isEditMode) {
             updateTip();
         } else {
@@ -284,6 +290,9 @@ public class TipUploadActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(String message) {
+                // 실패 시 재시도 가능하도록 플래그 복원
+                isUploading = false;
+                btnDone.setEnabled(true);
                 Toast.makeText(TipUploadActivity.this, message, Toast.LENGTH_SHORT).show();
             }
         });
@@ -488,6 +497,9 @@ public class TipUploadActivity extends AppCompatActivity {
 
                     @Override
                     public void onFailure(String message) {
+                        // 실패 시 재시도 가능하도록 플래그 복원
+                        isUploading = false;
+                        btnDone.setEnabled(true);
                         Toast.makeText(
                                 TipUploadActivity.this,
                                 message,
