@@ -87,9 +87,19 @@ public class AiLineChartView extends View {
         float chartWidth = width - paddingLeft - paddingRight;
         float chartHeight = height - paddingBottom - 60f;
 
-        float minPace = 3.0f;
-        float maxPace = 10.0f;
-        float paceRange = maxPace - minPace;
+        // 실제 데이터와 목표 페이스를 모두 고려해 범위를 동적으로 계산
+        float minPace = targetPaceValue;
+        float maxPace = targetPaceValue;
+        for (RunningRecordResponse res : records) {
+            float p = res.getPace() < 60 ? res.getPace() : res.getPace() / 60f;
+            if (p < minPace) minPace = p;
+            if (p > maxPace) maxPace = p;
+        }
+        // 여백 추가 (위아래 10%)
+        float margin = Math.max((maxPace - minPace) * 0.15f, 0.5f);
+        minPace = Math.max(0f, minPace - margin);
+        maxPace = maxPace + margin;
+        float paceRange = (maxPace - minPace) > 0 ? (maxPace - minPace) : 1f;
 
         // --- 1. 목표 점선 및 우측 라벨 그리기 ---
         float targetY = (height - paddingBottom) - ((maxPace - targetPaceValue) / paceRange * chartHeight);
@@ -112,12 +122,15 @@ public class AiLineChartView extends View {
 
                 // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위) → 분/km로 통일
                 float currPace = res.getPace() < 60 ? res.getPace() : res.getPace() / 60f;
-                if (currPace < minPace) currPace = minPace;
-                if (currPace > maxPace) currPace = maxPace;
                 float y = (height - paddingBottom) - ((maxPace - currPace) / paceRange * chartHeight);
 
                 // --- 목표 달성 여부에 따른 원 그리기 ---
-                if (finalGoalDistance > 0 && res.getDistance() >= finalGoalDistance) {
+                // 당일 목표 거리 + 목표 페이스 둘 다 달성해야 꽉찬 원
+                float dailyTarget = (dailyTargetDistances != null && i < dailyTargetDistances.size())
+                        ? dailyTargetDistances.get(i) : 0f;
+                boolean distanceAchieved = dailyTarget > 0 && res.getDistance() >= dailyTarget;
+                boolean paceAchieved = currPace <= targetPaceValue; // 페이스는 낮을수록(빠를수록) 달성
+                if (distanceAchieved && paceAchieved) {
                     pointPaint.setStyle(Paint.Style.FILL);
                 } else {
                     pointPaint.setStyle(Paint.Style.STROKE);

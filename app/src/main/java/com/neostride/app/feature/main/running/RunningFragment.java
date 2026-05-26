@@ -454,6 +454,15 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                     @Override
                     public void onSuccess(FeedbackResponse r) {
                         Log.d("RunningFragment", "AI 피드백 생성 성공");
+                        // GoalStorage에 피드백 저장 → 코칭탭 재진입 시 즉시 표시
+                        if (!isAdded()) return;
+                        if (r.getAiFeedbackComment() != null && !todayPlanKey.isEmpty()) {
+                            GoalStorage.PlanData plan = GoalStorage.getPlan(requireContext(), todayPlanKey);
+                            if (plan != null) {
+                                plan.aiFeedbackComment = r.getAiFeedbackComment();
+                                GoalStorage.savePlan(requireContext(), todayPlanKey, plan);
+                            }
+                        }
                     }
                     @Override
                     public void onError(String message) {

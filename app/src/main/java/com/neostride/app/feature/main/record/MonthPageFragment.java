@@ -27,8 +27,6 @@ import com.neostride.app.feature.main.running.repository.RunningRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
@@ -196,8 +194,6 @@ public class MonthPageFragment extends Fragment {
                 try {
                     // UTC → KST 변환 후 날짜 비교
                     LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
-                            .atZone(ZoneOffset.UTC)
-                            .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
                             .toLocalDate();
                     if (resDate.equals(dayItem.getDate())) {
                         dailyTotalDistance += res.getDistance();
@@ -225,8 +221,6 @@ public class MonthPageFragment extends Fragment {
         for (RunningRecordResponse res : records) {
             try {
                 LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
-                        .atZone(ZoneOffset.UTC)
-                        .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
                         .toLocalDate();
                 YearMonth resMonth = YearMonth.from(resDate);
                 if (resMonth.equals(displayMonth)) {
@@ -286,8 +280,6 @@ public class MonthPageFragment extends Fragment {
         for (RunningRecordResponse res : allServerRecords) {
             try {
                 LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
-                        .atZone(ZoneOffset.UTC)
-                        .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
                         .toLocalDate();
                 if (resDate.equals(date)) {
                     RunningRecordItem item = convertToItem(res);
@@ -312,7 +304,8 @@ public class MonthPageFragment extends Fragment {
         if (allPlans != null && !allPlans.isEmpty()) {
             layoutAiGoalAchievement.setVisibility(View.VISIBLE);
             GoalStorage.PlanData baseGoal = allPlans.values().iterator().next();
-            tvGraphGoalInfo.setText(String.format(Locale.KOREA, "• 설정한 목표 거리 : %.1fkm", baseGoal.totalGoalDistanceKm));
+            // 전체 코칭 기간의 최종 목표 거리 표시 (고정값)
+            tvGraphGoalInfo.setText(String.format(Locale.KOREA, "• 설정한 목표 거리 : %.2fkm", baseGoal.totalGoalDistanceKm));
             setupPaceChart(baseGoal.totalGoalPaceStr);
             if (!allServerRecords.isEmpty()) updateLineChart(allServerRecords);
         } else {
@@ -390,22 +383,41 @@ public class MonthPageFragment extends Fragment {
             finalGoalDist = allPlans.values().iterator().next().totalGoalDistanceKm;
         }
 
+        // 날짜별로 그룹화 — 하루에 점 1개 (달성한 기록 우선, 없으면 마지막 기록)
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+        java.util.LinkedHashMap<String, RunningRecordResponse> dailyBestMap = new java.util.LinkedHashMap<>();
+        java.util.HashMap<String, Float> dailyTargetMap = new java.util.HashMap<>();
+
         for (RunningRecordResponse res : records) {
-            if (res.getPlanId() != null) {
-                coachingRecords.add(res);
-                float dailyTarget = 0f;
-                try {
-                    LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter)
-                            .atZone(ZoneOffset.UTC)
-                            .withZoneSameInstant(ZoneId.of("Asia/Seoul"))
-                            .toLocalDate();
-                    String dateKey = resDate.getYear() + "-" + resDate.getMonthValue() + "-" + resDate.getDayOfMonth();
-                    GoalStorage.PlanData plan = allPlans != null ? allPlans.get(dateKey) : null;
-                    if (plan != null) dailyTarget = plan.distanceKm;
-                } catch (Exception e) { e.printStackTrace(); }
-                targetList.add(dailyTarget);
-            }
+            if (res.getPlanId() == null) continue;
+            try {
+                LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).toLocalDate();
+                if (!YearMonth.from(resDate).equals(displayMonth)) continue;
+                String dateKey = resDate.getYear() + "-" + resDate.getMonthValue() + "-" + resDate.getDayOfMonth();
+
+                GoalStorage.PlanData plan = allPlans != null ? allPlans.get(dateKey) : null;
+                float dailyTarget = plan != null ? plan.distanceKm : 0f;
+                int dailyPaceSec = plan != null ? plan.paceSecPerKm : 0;
+
+                // 이미 달성한 기록이 있으면 덮어쓰지 않음, 없으면 최신 기록으로 업데이트
+                boolean alreadyAchieved = false;
+                if (dailyBestMap.containsKey(dateKey)) {
+                    RunningRecordResponse prev = dailyBestMap.get(dateKey);
+                    float prevPace = prev.getPace() < 60 ? prev.getPace() * 60 : prev.getPace();
+                    boolean prevDist = dailyTarget > 0 && prev.getDistance() >= dailyTarget;
+                    boolean prevPaceOk = dailyPaceSec > 0 && prevPace <= dailyPaceSec;
+                    alreadyAchieved = prevDist && prevPaceOk;
+                }
+                if (!alreadyAchieved) {
+                    dailyBestMap.put(dateKey, res);
+                    dailyTargetMap.put(dateKey, dailyTarget);
+                }
+            } catch (Exception e) { e.printStackTrace(); }
+        }
+
+        for (java.util.Map.Entry<String, RunningRecordResponse> entry : dailyBestMap.entrySet()) {
+            coachingRecords.add(entry.getValue());
+            targetList.add(dailyTargetMap.getOrDefault(entry.getKey(), 0f));
         }
 
         AiLineChartView chartView = getView().findViewById(R.id.ai_line_chart);
