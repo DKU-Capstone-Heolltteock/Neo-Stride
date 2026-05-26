@@ -6,6 +6,8 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -44,6 +46,7 @@ import java.util.Set;
 public class TipFragment extends Fragment {
 
     private static final String TAG = "TipFragment";
+    private static final int PAGE_SIZE = 5;
 
     private RecyclerView rvTipList;
 
@@ -58,8 +61,20 @@ public class TipFragment extends Fragment {
     // 서버에서 가져온 전체 팁 목록을 저장함
     private final ArrayList<TipItem> tipList = new ArrayList<>();
 
-    // 선택된 카테고리에 따라 화면에 보여줄 팁 목록을 저장함
+    // 현재 카테고리에서 필터링된 전체 목록 (페이지네이션 소스)
+    private final ArrayList<TipItem> allFilteredTips = new ArrayList<>();
+
+    // 선택된 카테고리에 따라 화면에 보여줄 팁 목록을 저장함 (어댑터에 바인딩)
     private final ArrayList<TipItem> filteredTipList = new ArrayList<>();
+
+    // 현재 RecyclerView에 표시된 아이템 수
+    private int tipDisplayedCount = 0;
+
+    // 로딩 애니메이션
+    private TextView tvLoading;
+    private final Handler loadingHandler = new Handler(Looper.getMainLooper());
+    private Runnable loadingRunnable;
+    private int loadingDotCount = 1;
 
     /*
      * tipId별 좋아요 상태를 저장하는 Map임
@@ -106,6 +121,9 @@ public class TipFragment extends Fragment {
     ) {
         super.onViewCreated(view, savedInstanceState);
 
+        // 로딩 텍스트 뷰 연결
+        tvLoading = view.findViewById(R.id.tv_loading);
+
         // Repository를 초기화함
         tipRepository = new TipRepository();
 
@@ -123,6 +141,20 @@ public class TipFragment extends Fragment {
                 likeCountMap
         );
         rvTipList.setAdapter(tipAdapter);
+
+        // 스크롤 끝 근처에서 다음 PAGE_SIZE개 추가 로드
+        rvTipList.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                if (dy <= 0) return;
+                LinearLayoutManager lm = (LinearLayoutManager) rvTipList.getLayoutManager();
+                if (lm == null) return;
+                if (lm.findLastVisibleItemPosition() >= tipDisplayedCount - 2
+                        && tipDisplayedCount < allFilteredTips.size()) {
+                    loadMoreTips();
+                }
+            }
+        });
 
         // 카테고리 버튼을 연결함
         btnAll = view.findViewById(R.id.btn_tip_all);
@@ -208,58 +240,74 @@ public class TipFragment extends Fragment {
 
     /*
      * 서버에서 팁 목록을 조회하는 함수임
-     * 피드 목록과 동일하게 List<TipResponse> 형태로 응답을 받음
+     *
+     * [개선된 로직]
+     * - API 1(팁 목록)이 도착하는 즉시 첫 PAGE_SIZE개를 화면에 표시함
+     * - API 2~3(좋아요·댓글 상태)는 백그라운드에서 완료 후
+     *   이미 표시된 아이템의 상태만 업데이트함 (화면이 멈추지 않음)
+     * - 스크롤 끝 근처에서 다음 PAGE_SIZE개를 추가로 표시함
      */
     private void loadTipList() {
-        // 3-API 병렬: 전체 팁 목록 + 내가 좋아요한 팁 + 내가 댓글 단 팁
-        // 목록 API가 isLiked/isCommented를 per-user로 정확히 안 내려줄 수 있어 교차 확인함
-        final List<TipResponse>[] tipsHolder = new List[]{null};
-        final Set<Long> likedIds = new HashSet<>();
+        // 상태 초기화
+        tipList.clear();
+        likedStateMap.clear();
+        bookmarkedStateMap.clear();
+        likeCountMap.clear();
+        allFilteredTips.clear();
+        filteredTipList.clear();
+        tipDisplayedCount = 0;
+        if (tipAdapter != null) tipAdapter.notifyDataSetChanged();
+        startLoadingAnimation();
+
+        // liked·commented 교차 확인용 (API 2, 3에서 채워짐)
+        final Set<Long> likedIds     = new HashSet<>();
         final Set<Long> commentedIds = new HashSet<>();
-        final int[] pending = {3};
+        final int[] statePending     = {2}; // liked + commented
 
-        Runnable onAllDone = () -> {
+        // 상태 API 2개가 완료되면 현재 표시된 아이템 상태 갱신
+        Runnable onStatesReady = () -> {
             if (!isAdded()) return;
-            tipList.clear();
-            likedStateMap.clear();
-            bookmarkedStateMap.clear();
-            likeCountMap.clear();
-
-            if (tipsHolder[0] != null) {
-                for (TipResponse serverTip : tipsHolder[0]) {
-                    TipItem item = convertToTipItem(serverTip);
-                    tipList.add(item);
-
-                    Long tipId = serverTip.getTipId();
-                    if (tipId != null) {
-                        // isLiked: 목록 API값 OR liked 목록 교차 확인
-                        boolean liked = serverTip.isLiked() || likedIds.contains(tipId);
-                        likedStateMap.put(tipId, liked);
-                        bookmarkedStateMap.put(tipId, serverTip.isBookmarked());
-                        likeCountMap.put(tipId, serverTip.getLikeCount());
-
-                        // isCommented: 목록 API값 OR commented 목록 교차 확인
-                        if (commentedIds.contains(tipId)) {
-                            item.setCommented(true);
-                        }
-                    }
+            for (TipItem item : filteredTipList) {
+                Long id = item.getTipId();
+                if (id != null) {
+                    if (likedIds.contains(id))     likedStateMap.put(id, true);
+                    if (commentedIds.contains(id)) item.setCommented(true);
                 }
             }
-            applyFilter();
+            // tipList 전체에도 반영 (이후 스크롤로 추가되는 아이템 대비)
+            for (TipItem item : tipList) {
+                Long id = item.getTipId();
+                if (id != null) {
+                    if (likedIds.contains(id))     likedStateMap.put(id, true);
+                    if (commentedIds.contains(id)) item.setCommented(true);
+                }
+            }
+            if (tipAdapter != null) tipAdapter.notifyDataSetChanged();
         };
 
-        // API 1: 팁 전체 목록
+        // API 1: 팁 전체 목록 — 도착 즉시 첫 PAGE_SIZE개 표시
         tipRepository.getTips(new TipRepository.TipListCallback() {
             @Override
             public void onSuccess(List<TipResponse> response) {
-                tipsHolder[0] = response;
-                if (--pending[0] == 0) onAllDone.run();
+                if (!isAdded()) return;
+                stopLoadingAnimation();
+                for (TipResponse serverTip : response) {
+                    TipItem item = convertToTipItem(serverTip);
+                    tipList.add(item);
+                    Long tipId = serverTip.getTipId();
+                    if (tipId != null) {
+                        likedStateMap.put(tipId, serverTip.isLiked());
+                        bookmarkedStateMap.put(tipId, serverTip.isBookmarked());
+                        likeCountMap.put(tipId, serverTip.getLikeCount());
+                    }
+                }
+                applyFilter(); // 첫 PAGE_SIZE개 즉시 표시
             }
             @Override
             public void onFailure(String message) {
+                stopLoadingAnimation();
                 Log.e(TAG, "loadTipList failure = " + message);
                 if (isAdded()) Toast.makeText(requireContext(), "팁 목록을 불러오지 못했습니다: " + message, Toast.LENGTH_SHORT).show();
-                if (--pending[0] == 0) onAllDone.run();
             }
         });
 
@@ -267,16 +315,14 @@ public class TipFragment extends Fragment {
         tipRepository.getLikedTips(new retrofit2.Callback<List<TipResponse>>() {
             @Override
             public void onResponse(retrofit2.Call<List<TipResponse>> call, retrofit2.Response<List<TipResponse>> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    for (TipResponse t : response.body()) {
+                if (response.isSuccessful() && response.body() != null)
+                    for (TipResponse t : response.body())
                         if (t.getTipId() != null) likedIds.add(t.getTipId());
-                    }
-                }
-                if (--pending[0] == 0) onAllDone.run();
+                if (--statePending[0] == 0) onStatesReady.run();
             }
             @Override
             public void onFailure(retrofit2.Call<List<TipResponse>> call, Throwable t) {
-                if (--pending[0] == 0) onAllDone.run();
+                if (--statePending[0] == 0) onStatesReady.run();
             }
         });
 
@@ -284,18 +330,70 @@ public class TipFragment extends Fragment {
         tipRepository.getCommentedTips(new retrofit2.Callback<List<TipResponse>>() {
             @Override
             public void onResponse(retrofit2.Call<List<TipResponse>> call, retrofit2.Response<List<TipResponse>> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    for (TipResponse t : response.body()) {
+                if (response.isSuccessful() && response.body() != null)
+                    for (TipResponse t : response.body())
                         if (t.getTipId() != null) commentedIds.add(t.getTipId());
-                    }
-                }
-                if (--pending[0] == 0) onAllDone.run();
+                if (--statePending[0] == 0) onStatesReady.run();
             }
             @Override
             public void onFailure(retrofit2.Call<List<TipResponse>> call, Throwable t) {
-                if (--pending[0] == 0) onAllDone.run();
+                if (--statePending[0] == 0) onStatesReady.run();
             }
         });
+    }
+
+    /*
+     * 스크롤 시 다음 PAGE_SIZE개를 filteredTipList에 추가하는 함수임
+     */
+    private void loadMoreTips() {
+        int start = tipDisplayedCount;
+        int end = Math.min(start + PAGE_SIZE, allFilteredTips.size());
+        if (start >= end) return;
+        for (int i = start; i < end; i++) {
+            filteredTipList.add(allFilteredTips.get(i));
+        }
+        tipDisplayedCount = end;
+        if (tipAdapter != null) tipAdapter.notifyItemRangeInserted(start, end - start);
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        stopLoadingAnimation();
+    }
+
+    /*
+     * 로딩 중 텍스트 애니메이션을 시작하는 함수임
+     * "로딩중." → "로딩중.." → "로딩중..." 순서로 500ms마다 전환함
+     */
+    private void startLoadingAnimation() {
+        if (tvLoading == null) return;
+        loadingDotCount = 1;
+        tvLoading.setVisibility(View.VISIBLE);
+        if (loadingRunnable != null) loadingHandler.removeCallbacks(loadingRunnable);
+        loadingRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (tvLoading == null || tvLoading.getVisibility() != View.VISIBLE) return;
+                StringBuilder dots = new StringBuilder();
+                for (int i = 0; i < loadingDotCount; i++) dots.append(".");
+                tvLoading.setText("로딩중" + dots);
+                loadingDotCount = (loadingDotCount % 3) + 1;
+                loadingHandler.postDelayed(this, 500);
+            }
+        };
+        loadingHandler.post(loadingRunnable);
+    }
+
+    /*
+     * 로딩 중 텍스트 애니메이션을 중지하고 숨기는 함수임
+     */
+    private void stopLoadingAnimation() {
+        if (loadingRunnable != null) {
+            loadingHandler.removeCallbacks(loadingRunnable);
+            loadingRunnable = null;
+        }
+        if (tvLoading != null) tvLoading.setVisibility(View.GONE);
     }
 
     /*
@@ -440,21 +538,27 @@ public class TipFragment extends Fragment {
     }
 
     /*
-     * 선택된 카테고리에 맞게 리스트를 필터링하는 함수임
+     * 선택된 카테고리에 맞게 리스트를 필터링하고 첫 PAGE_SIZE개만 표시하는 함수임
+     * 카테고리가 바뀌거나 데이터가 새로 로드되면 페이지네이션을 처음부터 다시 시작함
      */
     private void applyFilter() {
-        filteredTipList.clear();
-
+        // 필터링된 전체 목록 재구성
+        allFilteredTips.clear();
         if (selectedCategory.equals("전체")) {
-            filteredTipList.addAll(tipList);
+            allFilteredTips.addAll(tipList);
         } else {
             for (TipItem item : tipList) {
                 if (item.getCategory() != null
                         && convertCategoryToKorean(item.getCategory()).equals(selectedCategory)) {
-                    filteredTipList.add(item);
+                    allFilteredTips.add(item);
                 }
             }
         }
+
+        // 첫 PAGE_SIZE개만 화면에 표시 (카테고리 변경 시 페이지네이션 리셋)
+        tipDisplayedCount = Math.min(PAGE_SIZE, allFilteredTips.size());
+        filteredTipList.clear();
+        filteredTipList.addAll(allFilteredTips.subList(0, tipDisplayedCount));
 
         if (tipAdapter != null) {
             tipAdapter.notifyDataSetChanged();

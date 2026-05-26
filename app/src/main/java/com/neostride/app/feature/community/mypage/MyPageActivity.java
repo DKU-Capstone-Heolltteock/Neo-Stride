@@ -144,6 +144,24 @@ public class MyPageActivity extends AppCompatActivity {
         setupTabLayout();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // AccountActivity에서 프로필 사진/닉네임을 변경하고 돌아올 때 최신 정보 반영
+        if (repository != null) {
+            repository.getUserProfile(new Callback<UserProfileResponse>() {
+                @Override
+                public void onResponse(Call<UserProfileResponse> call, Response<UserProfileResponse> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        updateUI(response.body());
+                    }
+                }
+                @Override
+                public void onFailure(Call<UserProfileResponse> call, Throwable t) {}
+            });
+        }
+    }
+
     // ─── 피드 타입(tagged/comments/likes/bookmarks)에 맞는 API를 호출하여 RecyclerView에 표시 ───
     private void loadFeeds(String type) {
         rvMyFeeds.setAdapter(null);
@@ -383,6 +401,25 @@ public class MyPageActivity extends AppCompatActivity {
         }
 
         this.cachedUserData = data;
+
+        // 프로필 이미지 — 서버 URL이 있으면 Glide로 로드, 없으면 기본 아이콘
+        if (data.profilePhoto != null && !data.profilePhoto.trim().isEmpty()) {
+            String photoUrl = data.profilePhoto;
+            // 상대 경로면 BASE_URL 앞에 붙임
+            if (!photoUrl.startsWith("http://") && !photoUrl.startsWith("https://")) {
+                String base = com.neostride.app.BuildConfig.BASE_URL;
+                if (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+                photoUrl = base + (photoUrl.startsWith("/") ? photoUrl : "/" + photoUrl);
+            }
+            Glide.with(this)
+                    .load(photoUrl)
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_profile)
+                    .error(R.drawable.ic_profile)
+                    .into(ivProfile);
+        } else {
+            ivProfile.setImageResource(R.drawable.ic_profile);
+        }
 
         // 위 if문 이후인 여기서부터는 data가 null이 아님이 보장
         // 닉네임 처리

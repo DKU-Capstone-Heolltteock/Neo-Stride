@@ -262,8 +262,12 @@ public class FriendActivity extends AppCompatActivity {
             dialog.dismiss();
             repository.updateStatus(new FriendRequest(userId, "delete"), success -> {
                 runOnUiThread(() -> {
-                    Toast.makeText(this, nickname + "님과 친구를 끊었습니다.", Toast.LENGTH_SHORT).show();
-                    if (success) loadData(statusKeys[getCurrentTabIndex()]);
+                    if (success) {
+                        Toast.makeText(this, nickname + "님과 친구를 끊었습니다.", Toast.LENGTH_SHORT).show();
+                        loadData(statusKeys[getCurrentTabIndex()]);
+                    } else {
+                        Toast.makeText(this, "친구 삭제에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    }
                 });
             });
         });
