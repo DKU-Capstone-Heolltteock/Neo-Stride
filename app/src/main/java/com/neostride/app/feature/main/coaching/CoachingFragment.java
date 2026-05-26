@@ -753,6 +753,7 @@ public class CoachingFragment extends Fragment {
                         // 2. 해당 날짜에 저장할 새로운 데이터 객체(PlanData)를 생성합니다.
                         GoalStorage.PlanData plan = new GoalStorage.PlanData();
                         plan.goalId = goalId; // 서버에서 부여한 고유 목표 ID를 연결합니다.
+                        plan.planId = planDay.getPlanDayId(); // ✅ 이 줄 추가
 
                         // --- [A. 오늘의 미션 데이터] ---
                         plan.distanceKm = planDay.getDayDistanceKm(); // 오늘 뛰어야 할 거리 (예: 3.2km)를 넣습니다.

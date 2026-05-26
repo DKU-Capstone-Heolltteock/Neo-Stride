@@ -413,6 +413,13 @@ public class MyPageActivity extends AppCompatActivity {
         } else {
             tvStatusMessage.setText("상태메세지가 없습니다.");
         }
+
+        // 프로필 이미지 처리
+        if (data.profilePhoto != null && !data.profilePhoto.isEmpty()) {
+            Glide.with(this).load(data.profilePhoto).circleCrop().into(ivProfile);
+        } else {
+            ivProfile.setImageResource(R.drawable.ic_profile);
+        }
     }
 
     // ─── 프로필 이미지 변경 다이얼로그 (카메라/갤러리/기본 이미지 선택) ───

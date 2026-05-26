@@ -56,6 +56,9 @@ import com.neostride.app.feature.main.running.model.GpsTraceRequest;
 import com.neostride.app.feature.main.running.model.RunningRecordRequest;
 import com.neostride.app.feature.main.running.repository.RunningRepository;
 import com.neostride.app.feature.main.coaching.GoalStorage;
+import com.neostride.app.feature.main.coaching.model.FeedbackRequest;
+import com.neostride.app.feature.main.coaching.model.FeedbackResponse;
+import com.neostride.app.feature.main.coaching.repository.CoachingRepository;
 import com.neostride.app.feature.badge.api.BadgeService;
 import com.neostride.app.feature.badge.model.BadgeTier;
 import com.neostride.app.feature.badge.repository.BadgeRepository;
@@ -415,7 +418,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
         // 서버 전송용 Request 객체 생성
         // 코칭 러닝이면 서버 plan_day_id 전송 → 기록탭 AI Coaching 라벨 표시 연결
-        Integer planId = (isCoachingRun && todayPlanServerId != null) ? todayPlanServerId : null;
+        Integer planId = (isCoachingRun && todayPlanServerId != null && todayPlanServerId > 0) ? todayPlanServerId : null;
 
         RunningRecordRequest request = new RunningRecordRequest(
                 currentUserId,
@@ -433,6 +436,30 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         if (runningRepository != null) {
             runningRepository.saveRunningRecord(request);
         }
+    }
+
+    // ─── AI 코칭 목표 완료 시 서버에 피드백 생성 요청 ───
+    private void requestAiFeedback() {
+        if (todayPlanServerId == null || todayPlanServerId <= 0) return;
+
+        CoachingRepository coachingRepo = new CoachingRepository();
+        FeedbackRequest feedbackReq = new FeedbackRequest(
+                todayPlanServerId,
+                totalDistanceMeters / 1000f,
+                (int) (elapsedMillis / 1000),
+                finalPaceMinPerKm
+        );
+        coachingRepo.requestFeedback(todayPlanServerId, feedbackReq,
+                new CoachingRepository.OnResultListener<FeedbackResponse>() {
+                    @Override
+                    public void onSuccess(FeedbackResponse r) {
+                        Log.d("RunningFragment", "AI 피드백 생성 성공");
+                    }
+                    @Override
+                    public void onError(String message) {
+                        Log.e("RunningFragment", "AI 피드백 생성 실패: " + message);
+                    }
+                });
     }
 
     @Override
@@ -805,6 +832,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         // 백엔드로 기록 전송 — 등급 상승 체크는 btnGoalCompleted 클릭 시점으로 이동
         // (checkAndShowTierUpgrade가 내부적으로 resetToReady()를 호출해 완료 UI를 초기화시키는 버그 방지)
         sendDataToBackend();
+
+        // AI 피드백 생성 요청 — 서버 plan_day_id가 있는 코칭 러닝에서만 동작
+        requestAiFeedback();
 
         // ── UI 세리머니 ──
         int neonGreen = 0xFFCCFF00;
