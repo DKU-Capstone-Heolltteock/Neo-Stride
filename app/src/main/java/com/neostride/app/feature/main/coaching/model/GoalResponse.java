@@ -47,8 +47,9 @@ public class GoalResponse {
         private List<String> runningDays; // 🌟 이 필드를 가져올 도구가 필요했습니다.
         @SerializedName("goal_distance_km")
         private float goalDistanceKm;
-        @SerializedName("goal_pace_min_per_km")
-        private float goalPaceMinPerKm;
+        // 부동소수점 오차 방지를 위해 서버도 "초 단위 정수"로 내려준다.
+        @SerializedName("goal_pace_sec_per_km")
+        private int goalPaceSecPerKm;
         @SerializedName("start_date")
         private String startDate;
         @SerializedName("end_date")
@@ -68,7 +69,7 @@ public class GoalResponse {
         public int getCustomWeeks() { return customWeeks; }
         public List<String> getRunningDays() { return runningDays; } // ✅ 에러 해결 포인트!
         public float getGoalDistanceKm() { return goalDistanceKm; }
-        public float getGoalPaceMinPerKm() { return goalPaceMinPerKm; }
+        public int getGoalPaceSecPerKm() { return goalPaceSecPerKm; }
         public String getStartDate() { return startDate; }
         public String getEndDate() { return endDate; }
         public boolean isActive() { return isActive; }
@@ -81,10 +82,10 @@ public class GoalResponse {
             return CoachingStatus.COMPLETED_FAIL;
         }
 
-        // 분 단위 소수 페이스를 "분:초" 형식 문자열로 변환한다. (예: 5.5 → "5:30")
+        // 초 단위 정수 페이스를 "분:초" 형식 문자열로 변환한다. (예: 330 → "5:30")
         public String getFormattedPace() {
-            int min = (int) goalPaceMinPerKm;
-            int sec = (int) Math.round((goalPaceMinPerKm - min) * 60);
+            int min = goalPaceSecPerKm / 60;
+            int sec = goalPaceSecPerKm % 60;
             return String.format(java.util.Locale.KOREA, "%d:%02d", min, sec);
         }
 

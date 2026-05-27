@@ -37,9 +37,10 @@ public class GoalCompletionEvaluator {
         // [조건 1] 조기 졸업: 최신 기록이 최종 목표 거리 + 페이스를 동시에 충족
         if (latestRun != null) {
             boolean distOk = latestRun.getDistance() >= goalInfo.getGoalDistanceKm();
-            // pace: 분/km 단위 — 작을수록 빠름
+            // latestRun.getPace()는 분/km(float), goalInfo는 초/km(int) — 단위 맞춰 비교 (작을수록 빠름)
+            float goalPaceMinPerKm = goalInfo.getGoalPaceSecPerKm() / 60f;
             boolean paceOk = latestRun.getPace() > 0 &&
-                    latestRun.getPace() <= goalInfo.getGoalPaceMinPerKm();
+                    latestRun.getPace() <= goalPaceMinPerKm;
             if (distOk && paceOk) {
                 return CoachingStatus.COMPLETED_SUCCESS;
             }

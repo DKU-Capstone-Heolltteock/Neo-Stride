@@ -183,12 +183,14 @@ public class CoachingFragment extends Fragment {
                     case 52: periodType = "1year";   break;
                     default: periodType = "custom";  break;
                 }
-                float goalPaceMinPerKm = goalInput.paceSecPerKm / 60f;
+                // 부동소수점 오차를 막기 위해 페이스는 "초 단위 정수"로 전송한다.
+                // 예) 5분 30초 → 330초
+                int goalPaceSecPerKm = goalInput.paceSecPerKm;
                 GoalRequest request =
                         new GoalRequest(
                                 userId, periodType, goalInput.durationWeeks,
                                 goalInput.runningDays, goalInput.distanceKm,
-                                goalPaceMinPerKm, startDate);
+                                goalPaceSecPerKm, startDate);
 
                 CoachingRepository repo =
                         new CoachingRepository();
@@ -755,7 +757,7 @@ public class CoachingFragment extends Fragment {
 
                         // --- [A. 오늘의 미션 데이터] ---
                         plan.distanceKm = planDay.getDayDistanceKm(); // 오늘 뛰어야 할 거리 (예: 3.2km)를 넣습니다.
-                        plan.paceSecPerKm = (int) (planDay.getDayPaceMinPerKm() * 60); // 오늘 페이스를 초 단위로 변환해 저장합니다.
+                        plan.paceSecPerKm = planDay.getDayPaceSecPerKm(); // 서버가 보낸 초 단위 정수를 그대로 저장합니다 (오차 방지).
                         plan.paceStr = planDay.getFormattedPace(); // 오늘 페이스 문자열(예: "6:00/km")을 저장합니다.
                         plan.isAiMission = true; // 서버 데이터는 AI 코칭 미션이므로 true로 설정하여 UI 수치를 노출합니다.
 
@@ -765,10 +767,10 @@ public class CoachingFragment extends Fragment {
                             // 서버에서 받은 전체 목표 거리(예: 10.0km)를 모든 날짜 데이터에 똑같이 복사합니다.
                             plan.totalGoalDistanceKm = (float) goal.getGoalDistanceKm();
 
-                            // 서버의 분 단위 소수점 페이스(예: 5.5)를 "5:30/km" 형태의 예쁜 문자열로 변환하여 저장합니다.
-                            double goalPaceMin = goal.getGoalPaceMinPerKm();
-                            int minutes = (int) goalPaceMin;
-                            int seconds = (int) ((goalPaceMin - minutes) * 60);
+                            // 서버의 초 단위 정수 페이스(예: 330)를 "5:30/km" 형태의 문자열로 변환하여 저장합니다.
+                            int goalPaceSec = goal.getGoalPaceSecPerKm();
+                            int minutes = goalPaceSec / 60;
+                            int seconds = goalPaceSec % 60;
                             plan.totalGoalPaceStr = String.format(java.util.Locale.KOREA, "%d:%02d/km", minutes, seconds);
                         }
 

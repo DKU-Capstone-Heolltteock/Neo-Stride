@@ -26,21 +26,23 @@ public class GoalRequest {
     @SerializedName("goal_distance_km")
     private float goalDistanceKm;
 
-    @SerializedName("goal_pace_min_per_km")
-    private float goalPaceMinPerKm;
+    // 부동소수점 오차 방지를 위해 "초 단위 정수"로 전송한다.
+    // 예) 5분 30초 → 330
+    @SerializedName("goal_pace_sec_per_km")
+    private int goalPaceSecPerKm;
 
     @SerializedName("start_date")
     private String startDate;           // "2026-04-30"
 
     public GoalRequest(int userId, String periodType, int customWeeks,
                        List<String> runningDays, float goalDistanceKm,
-                       float goalPaceMinPerKm, String startDate) {
+                       int goalPaceSecPerKm, String startDate) {
         this.userId = userId;
         this.periodType = periodType;
         this.customWeeks = customWeeks;
         this.runningDays = runningDays;
         this.goalDistanceKm = goalDistanceKm;
-        this.goalPaceMinPerKm = goalPaceMinPerKm;
+        this.goalPaceSecPerKm = goalPaceSecPerKm;
         this.startDate = startDate;
     }
 }

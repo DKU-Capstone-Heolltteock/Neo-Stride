@@ -21,8 +21,9 @@ public class PlanDayResponse implements Serializable {
     @SerializedName("day_distance_km")
     private float dayDistanceKm;
 
-    @SerializedName("day_pace_min_per_km")
-    private float dayPaceMinPerKm;
+    // 부동소수점 오차 방지를 위해 "초 단위 정수"로 받는다.
+    @SerializedName("day_pace_sec_per_km")
+    private int dayPaceSecPerKm;
 
     @SerializedName("description")
     private String description;             // AI가 생성한 당일 코멘트
@@ -43,7 +44,7 @@ public class PlanDayResponse implements Serializable {
     public int getPlanDayId() { return planDayId; }
     public String getPlanDate() { return planDate; }
     public float getDayDistanceKm() { return dayDistanceKm; }
-    public float getDayPaceMinPerKm() { return dayPaceMinPerKm; }
+    public int getDayPaceSecPerKm() { return dayPaceSecPerKm; }
     public String getDescription() { return description; }
     public boolean isCompleted() { return isCompleted; }
     public String getAiFeedbackComment() { return aiFeedbackComment; }
@@ -52,8 +53,8 @@ public class PlanDayResponse implements Serializable {
 
     // 편의 메서드
     public String getFormattedPace() {
-        int min = (int) dayPaceMinPerKm;
-        int sec = (int) ((dayPaceMinPerKm - min) * 60);
+        int min = dayPaceSecPerKm / 60;
+        int sec = dayPaceSecPerKm % 60;
         return String.format("%d:%02d/km", min, sec);
     }
 
