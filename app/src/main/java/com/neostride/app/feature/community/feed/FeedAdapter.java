@@ -361,11 +361,13 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
                                 Toast.LENGTH_SHORT).show();
                         if (success) {
                             // 차단 성공 시 해당 유저의 피드를 목록에서 즉시 제거
-                            feedItemList.removeIf(i -> {
-                                Long writerId = i.getWriterId();
-                                return writerId != null && writerId.intValue() == targetUserId;
+                            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                feedItemList.removeIf(i -> {
+                                    Long writerId = i.getWriterId();
+                                    return writerId != null && writerId.intValue() == targetUserId;
+                                });
+                                notifyDataSetChanged();
                             });
-                            notifyDataSetChanged();
                         }
                     });
                 }

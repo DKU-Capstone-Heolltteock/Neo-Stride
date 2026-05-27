@@ -726,7 +726,7 @@ public class SearchFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (feedAdapter != null || tipAdapter != null) {
+        if (feedAdapter != null || tipAdapter != null || userAdapter != null) {
             resetAndLoad();
         }
     }

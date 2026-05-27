@@ -216,7 +216,7 @@ public class SearchUserAdapter extends RecyclerView.Adapter<SearchUserAdapter.Se
             Intent intent = new Intent(context, RunnerPageActivity.class);
             intent.putExtra("user_id", item.getUserId().intValue());
             intent.putExtra("nickname", item.getNickname());
-            intent.putExtra("is_friend", item.isFriend());
+            intent.putExtra("friendship_status", item.getStatus() != null ? item.getStatus() : "none");
             context.startActivity(intent);
         });
     }
