@@ -54,6 +54,7 @@ import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.main.running.api.RunningApi;
 import com.neostride.app.feature.main.running.model.GpsTraceRequest;
 import com.neostride.app.feature.main.running.model.RunningRecordRequest;
+import com.neostride.app.feature.main.running.model.RunningRecordResponse;
 import com.neostride.app.feature.main.running.repository.RunningRepository;
 import com.neostride.app.feature.main.coaching.GoalStorage;
 import com.neostride.app.feature.main.coaching.model.FeedbackRequest;
@@ -63,6 +64,7 @@ import com.neostride.app.feature.badge.api.BadgeService;
 import com.neostride.app.feature.badge.model.BadgeTier;
 import com.neostride.app.feature.badge.repository.BadgeRepository;
 import android.graphics.drawable.GradientDrawable;
+import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -434,7 +436,19 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
         Log.d("NeoStride_Backend", "=== 서버 데이터 전송 요청 (등급: " + currentBadge + ") ===");
         if (runningRepository != null) {
-            runningRepository.saveRunningRecord(request);
+            runningRepository.saveRunningRecord(request, new RunningRepository.OnResultListener<RunningRecordResponse>() {
+                @Override
+                public void onSuccess(RunningRecordResponse data) {
+                    Log.d("NeoStride_Backend", "기록 저장 성공 ID: " + data.getRunRecordId());
+                }
+                @Override
+                public void onError(String message) {
+                    Log.e("NeoStride_Backend", "기록 저장 실패: " + message);
+                    if (isAdded()) {
+                        Toast.makeText(requireContext(), "기록 저장 실패: " + message, Toast.LENGTH_LONG).show();
+                    }
+                }
+            });
         }
     }
 
