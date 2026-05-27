@@ -76,6 +76,21 @@ public class RecordFragment extends Fragment {
         return view;
     }
 
+    // MainActivity가 add()+hide()/show() 패턴으로 fragment를 보존하므로,
+    // 새 측정이 끝나고 기록 탭으로 돌아와도 onResume/onCreateView가 호출되지 않는다.
+    // 다시 보일 때 attached된 MonthPageFragment들을 refresh해 최신 기록을 반영한다.
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden) {
+            for (Fragment f : getChildFragmentManager().getFragments()) {
+                if (f instanceof MonthPageFragment && f.isAdded()) {
+                    ((MonthPageFragment) f).refresh();
+                }
+            }
+        }
+    }
+
     // ─── 년/월 선택 NumberPicker 다이얼로그 표시 ───
     private void showYearMonthPicker() {
         int currentPos = viewPager.getCurrentItem();

@@ -551,9 +551,10 @@ public class CoachingFragment extends Fragment {
                 tvAiFeedback.setTextColor(0xFF888888);
             }
 
-            // 상세기록 버튼 클릭 리스너 (기존 로직 보존)
+            // 상세기록 버튼 클릭 리스너 — plan_day_id로 정확히 매칭, 못 찾으면 같은 날 코칭 record, 그것도 없으면 같은 날 첫 번째
             TextView btnViewDetail = layoutPlanDetail.findViewById(R.id.btn_view_detail);
             if (btnViewDetail != null) {
+                final int targetPlanId = plan.planId; // effectively final 캡쳐
                 btnViewDetail.setOnClickListener(v -> {
                     String dateStr = String.format("%d-%02d-%02d", selectedYear, selectedMonth, selectedDay);
                     RunningRepository repo = new RunningRepository();
@@ -561,18 +562,35 @@ public class CoachingFragment extends Fragment {
                         @Override
                         public void onSuccess(java.util.List<RunningRecordResponse> records) {
                             if (!isAdded()) return;
+
+                            RunningRecordResponse exactMatch = null;       // 1순위: plan_day_id 일치
+                            RunningRecordResponse coachingFallback = null; // 2순위: 같은 날 + 코칭(planId != null)
+                            RunningRecordResponse dateFallback = null;     // 3순위: 같은 날 첫 record
+
                             for (RunningRecordResponse r : records) {
-                                if (r.getCreatedAt() != null && r.getCreatedAt().startsWith(dateStr)) {
-                                    requireActivity().runOnUiThread(() -> {
-                                        RecordDetailFragment detailFragment = new RecordDetailFragment();
-                                        Bundle args = new Bundle();
-                                        args.putSerializable("record_data", r);
-                                        detailFragment.setArguments(args);
-                                        getParentFragmentManager().beginTransaction().replace(R.id.fragment_container, detailFragment).addToBackStack(null).commit();
-                                    });
-                                    break;
+                                if (r.getCreatedAt() == null || !r.getCreatedAt().startsWith(dateStr)) continue;
+                                if (dateFallback == null) dateFallback = r;
+                                if (r.getPlanId() != null) {
+                                    if (coachingFallback == null) coachingFallback = r;
+                                    if (targetPlanId > 0 && r.getPlanId() == targetPlanId) {
+                                        exactMatch = r;
+                                        break;
+                                    }
                                 }
                             }
+
+                            final RunningRecordResponse target =
+                                    exactMatch != null ? exactMatch
+                                            : (coachingFallback != null ? coachingFallback : dateFallback);
+                            if (target == null) return;
+
+                            requireActivity().runOnUiThread(() -> {
+                                RecordDetailFragment detailFragment = new RecordDetailFragment();
+                                Bundle args = new Bundle();
+                                args.putSerializable("record_data", target);
+                                detailFragment.setArguments(args);
+                                getParentFragmentManager().beginTransaction().replace(R.id.fragment_container, detailFragment).addToBackStack(null).commit();
+                            });
                         }
                         @Override public void onError(String message) { requireActivity().runOnUiThread(() -> android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_SHORT).show()); }
                     });

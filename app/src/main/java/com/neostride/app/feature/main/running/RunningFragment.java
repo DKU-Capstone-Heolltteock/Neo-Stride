@@ -96,6 +96,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
     // ── UI 뷰 ──
     private ViewPager2 viewPagerRunningMode;
+    // setupViewPager 재호출 시 콜백 누적 방지를 위해 등록한 콜백을 보관
+    private ViewPager2.OnPageChangeCallback runningModePageCallback;
     private CardView btnStop, btnPause, btnMyLocation, btnResultConfirm;
     private CardView btnGoalCompleted;
     private CardView btnWarningStop;
@@ -117,6 +119,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private Handler timerHandler = new Handler(Looper.getMainLooper());
     private long startTime = 0, pausedDuration = 0, pauseStartTime = 0, elapsedMillis = 0;
     private boolean isRunning = false, isPaused = false, isCoachingRun = false;
+    // 한 번의 측정에 대해 sendDataToBackend가 중복 호출되어 409 충돌을 일으키지 않도록 보호하는 플래그
+    //  (코칭 모드는 handleGoalCompleted, 자유 러닝은 btnResultConfirm 클릭에서 호출되는데 분기에 따라 둘 다 트리거될 수 있음)
+    private boolean alreadySentToBackend = false;
 
     // ── 카운트다운 / GPS 확보 대기 상태 ──
     private Handler countdownHandler = new Handler(Looper.getMainLooper());
@@ -325,6 +330,12 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
     // ─── 러닝 모드 ViewPager2 설정: 자유 러닝 / 오늘의 목표 카드 구성 및 자동 슬라이드 ───
     private void setupViewPager(View v) {
+        // 재호출(onHiddenChanged 등) 시 기존 콜백이 누적되지 않도록 먼저 해제
+        if (runningModePageCallback != null) {
+            viewPagerRunningMode.unregisterOnPageChangeCallback(runningModePageCallback);
+            runningModePageCallback = null;
+        }
+
         List<RunningModeItem> modes = new ArrayList<>();
         modes.add(new RunningModeItem("측정 시작", "자유 러닝", 0xFFCCFF00, false));
 
@@ -369,7 +380,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }));
 
         // 2. 페이지 변경 콜백 설정 — plan 상태는 매번 storage에서 최신값 읽음 (handleGoalCompleted 후에도 대응)
-        viewPagerRunningMode.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+        runningModePageCallback = new ViewPager2.OnPageChangeCallback() {
             @Override public void onPageSelected(int position) {
                 if (modes.get(position).isCoaching) {
                     layoutCoachingGoals.setVisibility(View.VISIBLE);
@@ -396,7 +407,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                     layoutCoachingGoals.setVisibility(View.GONE);
                 }
             }
-        });
+        };
+        viewPagerRunningMode.registerOnPageChangeCallback(runningModePageCallback);
 
         // 3. 카드 디자인 효과 (PageTransformer)
         float p = 55 * getResources().getDisplayMetrics().density;
@@ -422,6 +434,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private void sendDataToBackend() {
         // 10m(0.01km) 미만은 저장하지 않음
         if (totalDistanceMeters < 10f) return;
+        // 같은 측정에서 이미 전송했다면 차단 (코칭 모드에서 plan_day_id 중복 저장으로 409 발생 방지)
+        if (alreadySentToBackend) return;
+        alreadySentToBackend = true;
 
         // 1. GpsTraceRequest 리스트 조립
         List<GpsTraceRequest> traces = new ArrayList<>();
@@ -813,6 +828,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     //  startTracking 직후 첫 콜백부터 distanceTo() 누적 가능 (초반 0m 공백 제거)
     private void startTracking() {
         isRunning = true; isPaused = false; totalDistanceMeters = 0f;
+        alreadySentToBackend = false; // 새 측정 시작 → 전송 플래그 초기화
         // 카운트다운 중 확보한 좌표가 있으면 기준점으로 사용 (없으면 null로 시작 — 기존 동작)
         lastLocation = candidateStartLocation;
         candidateStartLocation = null;
@@ -1095,6 +1111,11 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
+    // ─── 측정/카운트다운 진행 중인지 (MainActivity 종료 다이얼로그에서 사용) ───
+    public boolean hasActiveTracking() {
+        return isRunning || isPreparingToStart;
+    }
+
     // ─── 러닝 종료: 페이스·칼로리 계산 후 showResult=true이면 결과 화면, false이면 초기화 ───
     private void stopTracking(boolean showResult) {
         isRunning = false;
@@ -1223,6 +1244,17 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                         else mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f));
                     }
                 });
+    }
+
+    // MainActivity가 add()+hide()/show() 패턴으로 fragment를 보존하므로,
+    // 코칭 탭에서 plan을 저장/삭제한 뒤 러닝 탭으로 돌아와도 onResume이 호출되지 않는다.
+    // 다시 보일 때 측정 중이 아니면 ViewPager를 재구성해 최신 코칭 카드 상태를 반영한다.
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden && !isRunning && !isPreparingToStart && getView() != null) {
+            setupViewPager(getView());
+        }
     }
 
     @Override
