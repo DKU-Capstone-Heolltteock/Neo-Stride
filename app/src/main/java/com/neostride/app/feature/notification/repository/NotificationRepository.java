@@ -55,6 +55,33 @@ public class NotificationRepository {
     }
 
     /*
+     * 알림 전체 읽음 처리 함수임
+     * PATCH /api/notifications/read-all
+     */
+    public void markAllRead(RepositoryCallback<Boolean> callback) {
+        long userId = TokenManager.getUserId(context);
+
+        notificationApi.markAllRead(userId).enqueue(new Callback<okhttp3.ResponseBody>() {
+            @Override
+            public void onResponse(
+                    Call<okhttp3.ResponseBody> call,
+                    Response<okhttp3.ResponseBody> response
+            ) {
+                if (response.isSuccessful()) {
+                    callback.onSuccess(true);
+                } else {
+                    callback.onError("오류 코드 " + response.code());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<okhttp3.ResponseBody> call, Throwable t) {
+                callback.onError("서버에 연결할 수 없습니다");
+            }
+        });
+    }
+
+    /*
      * 알림 단건 삭제 함수임
      * DELETE /api/notifications/{notificationId}
      */
