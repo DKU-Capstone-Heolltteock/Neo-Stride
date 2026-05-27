@@ -9,11 +9,21 @@ public class RunningModeItem {
     public String subtitle;
     public int bgColor;
     public boolean isCoaching;
+    public boolean isEnabled; // GPS 준비 전에는 false → 회색 비활성 상태
 
     public RunningModeItem(String title, String subtitle, int bgColor, boolean isCoaching) {
         this.title = title;
         this.subtitle = subtitle;
         this.bgColor = bgColor;
         this.isCoaching = isCoaching;
+        this.isEnabled = true; // 기본값: 활성
+    }
+
+    public RunningModeItem(String title, String subtitle, int bgColor, boolean isCoaching, boolean isEnabled) {
+        this.title = title;
+        this.subtitle = subtitle;
+        this.bgColor = bgColor;
+        this.isCoaching = isCoaching;
+        this.isEnabled = isEnabled;
     }
 }
