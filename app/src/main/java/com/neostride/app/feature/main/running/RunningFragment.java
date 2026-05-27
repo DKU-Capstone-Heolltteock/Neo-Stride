@@ -103,15 +103,34 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private LinearLayout layoutResult, layoutRunningControls, layoutCoachingGoals, layoutStopWarning;
     private FrameLayout layoutStartButtons;
     private TextView tvElapsedTime, tvDistance;
+    private TextView tvWarningTitle, tvWarningMessage;
     private ImageView ivPausePlay;
     private TextView tvResultDistance, tvResultTime, tvResultPace;
     private TextView tvGoalDistanceLabel, tvGoalTimeLabel;
     private ProgressBar progressGoalDistance, progressGoalTime;
+    // ── 카운트다운 / GPS 확보 대기 오버레이 ──
+    private FrameLayout layoutCountdownOverlay;
+    private TextView tvCountdownNumber, tvCountdownStatus;
+    private CardView btnCountdownCancel;
 
     // ── 타이머 및 상태 ──
     private Handler timerHandler = new Handler(Looper.getMainLooper());
     private long startTime = 0, pausedDuration = 0, pauseStartTime = 0, elapsedMillis = 0;
     private boolean isRunning = false, isPaused = false, isCoachingRun = false;
+
+    // ── 카운트다운 / GPS 확보 대기 상태 ──
+    private Handler countdownHandler = new Handler(Looper.getMainLooper());
+    private Runnable countdownRunnable;
+    private int countdownValue = 0;          // 3 → 2 → 1
+    private boolean isPreparingToStart = false; // 카운트다운/GPS 대기 중
+    private boolean isGpsAcquired = false;   // 첫 유효 좌표 수신 여부
+    private Location candidateStartLocation = null; // 카운트다운 중 받아둔 기준 좌표
+    private static final int COUNTDOWN_SECONDS = 3;
+
+    // 경고창의 "중단" 버튼이 결과 화면을 띄울지 결정 (모드별 분기)
+    //  - true : 자유 러닝/코칭 달성 후 종료 → 결과 화면 표시 → 확인 시 서버 저장
+    //  - false: 코칭 미달 중단 → 결과 화면 없이 바로 초기화 (저장 X)
+    private boolean pendingShowResultOnStop = false;
 
     // ── AI 코칭 목표 ──
     private double targetDistanceKm = 3.5;
@@ -262,6 +281,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
         tvElapsedTime = v.findViewById(R.id.tv_elapsed_time);
         tvDistance = v.findViewById(R.id.tv_distance);
+        tvWarningTitle = v.findViewById(R.id.tv_warning_title);
+        tvWarningMessage = v.findViewById(R.id.tv_warning_message);
         ivPausePlay = v.findViewById(R.id.iv_pause_play); // 🌟 새로운 ID와 연결
         tvResultDistance = v.findViewById(R.id.tv_result_distance);
         tvResultTime = v.findViewById(R.id.tv_result_time);
@@ -271,6 +292,12 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
         progressGoalDistance = v.findViewById(R.id.progress_goal_distance);
         progressGoalTime = v.findViewById(R.id.progress_goal_time);
+
+        // 카운트다운 오버레이
+        layoutCountdownOverlay = v.findViewById(R.id.layout_countdown_overlay);
+        tvCountdownNumber = v.findViewById(R.id.tv_countdown_number);
+        tvCountdownStatus = v.findViewById(R.id.tv_countdown_status);
+        btnCountdownCancel = v.findViewById(R.id.btn_countdown_cancel);
 
         // 프로그레스바 최대치 설정 (정밀도를 위해 10000 사용)
         if (progressGoalDistance != null) progressGoalDistance.setMax(10000);
@@ -290,9 +317,10 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         });
         if (btnWarningStop != null) btnWarningStop.setOnClickListener(view -> {
             layoutStopWarning.setVisibility(View.GONE);
-            stopTracking(false);
+            stopTracking(pendingShowResultOnStop);
         });
         if (btnGoalCompleted != null) btnGoalCompleted.setOnClickListener(view -> navigateToCoachingTab());
+        if (btnCountdownCancel != null) btnCountdownCancel.setOnClickListener(view -> cancelPreparation());
     }
 
     // ─── 러닝 모드 ViewPager2 설정: 자유 러닝 / 오늘의 목표 카드 구성 및 자동 슬라이드 ───
@@ -337,10 +365,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 return;
             }
             isCoachingRun = item.isCoaching;
-            layoutStartButtons.setVisibility(View.GONE);
-            layoutRunningControls.setVisibility(View.VISIBLE);
-            layoutCoachingGoals.setVisibility(isCoachingRun ? View.VISIBLE : View.GONE);
-            startTracking();
+            prepareToStart(); // 카운트다운 + GPS 워밍업 후 startTracking() 자동 호출
         }));
 
         // 2. 페이지 변경 콜백 설정 — plan 상태는 매번 storage에서 최신값 읽음 (handleGoalCompleted 후에도 대응)
@@ -533,9 +558,22 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
     // 서비스로부터 위치를 받아 처리 (화면 꺼져도 1초 단위 동작)
     private final LocationTrackingService.LocationListener serviceLocationListener = location -> {
-        if (!isRunning || isPaused || !isAdded()) return;
+        if (!isAdded()) return;
 
+        // 정확도 너무 낮으면 무시
         if (location.hasAccuracy() && location.getAccuracy() > MIN_ACCURACY_FILTER) return;
+
+        // 측정 시작 전(카운트다운/GPS 대기 중): 첫 유효 좌표를 기준점으로 캡처
+        if (isPreparingToStart) {
+            candidateStartLocation = location;
+            if (!isGpsAcquired) {
+                isGpsAcquired = true;
+                requireActivity().runOnUiThread(this::onGpsAcquiredDuringPreparation);
+            }
+            return;
+        }
+
+        if (!isRunning || isPaused) return;
 
         LatLng newPoint = new LatLng(location.getLatitude(), location.getLongitude());
         String timeStr = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(new Date());
@@ -676,15 +714,115 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     };
 
+    // ─── 러닝 시작 준비: GPS 워밍업 + 카운트다운(3-2-1) 동시 진행 ───
+    //  - layout_start_buttons 숨기고 카운트다운 오버레이 표시
+    //  - LocationTrackingService 미리 시작 → candidateStartLocation에 첫 좌표 캡처
+    //  - 카운트다운 끝나면 onCountdownFinished()에서 GPS 상태에 따라 분기
+    private void prepareToStart() {
+        if (isPreparingToStart || isRunning) return;
+        isPreparingToStart = true;
+        isGpsAcquired = false;
+        candidateStartLocation = null;
+
+        // UI: 시작 카드 숨기고 오버레이 표시
+        if (layoutStartButtons != null) layoutStartButtons.setVisibility(View.GONE);
+        if (layoutCoachingGoals != null) {
+            layoutCoachingGoals.setVisibility(isCoachingRun ? View.VISIBLE : View.GONE);
+        }
+        if (layoutCountdownOverlay != null) layoutCountdownOverlay.setVisibility(View.VISIBLE);
+        if (tvCountdownStatus != null) tvCountdownStatus.setText("준비...");
+
+        // GPS 서비스 미리 시작 — 카운트다운 중에도 좌표 들어옴 (serviceLocationListener의 isPreparingToStart 분기)
+        startLocationUpdates();
+
+        // 카운트다운 시작
+        countdownValue = COUNTDOWN_SECONDS;
+        if (tvCountdownNumber != null) tvCountdownNumber.setText(String.valueOf(countdownValue));
+        countdownRunnable = new Runnable() {
+            @Override
+            public void run() {
+                if (!isPreparingToStart || !isAdded()) return;
+                countdownValue--;
+                if (countdownValue > 0) {
+                    if (tvCountdownNumber != null) tvCountdownNumber.setText(String.valueOf(countdownValue));
+                    countdownHandler.postDelayed(this, 1000);
+                } else {
+                    if (tvCountdownNumber != null) tvCountdownNumber.setText("GO!");
+                    countdownHandler.postDelayed(() -> {
+                        if (isPreparingToStart) onCountdownFinished();
+                    }, 500); // GO! 0.5초 보여주고 분기
+                }
+            }
+        };
+        countdownHandler.postDelayed(countdownRunnable, 1000);
+    }
+
+    // ─── 카운트다운 중 첫 유효 GPS 좌표를 받으면 보조 라벨 갱신 (메인 스레드) ───
+    private void onGpsAcquiredDuringPreparation() {
+        if (!isAdded() || !isPreparingToStart) return;
+        if (tvCountdownStatus != null) tvCountdownStatus.setText("GPS 확보됨");
+    }
+
+    // ─── 카운트다운 종료: GPS 확보됐으면 측정 시작, 못 잡았으면 'GPS 찾는 중' 대기 ───
+    private void onCountdownFinished() {
+        if (!isAdded() || !isPreparingToStart) return;
+        if (isGpsAcquired) {
+            beginActualTracking();
+        } else {
+            // GPS 못 잡음 → 대기 모드로 전환. 좌표 들어오면 즉시 시작
+            if (tvCountdownNumber != null) tvCountdownNumber.setText("…");
+            if (tvCountdownStatus != null) tvCountdownStatus.setText("GPS 찾는 중...");
+            // serviceLocationListener에서 isPreparingToStart && !isGpsAcquired인 동안
+            // 첫 좌표 받으면 onGpsAcquiredDuringPreparation 호출되지만, 이미 카운트다운 끝났으므로
+            // 여기서 다시 폴링으로 체크
+            countdownHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (!isAdded() || !isPreparingToStart) return;
+                    if (isGpsAcquired) beginActualTracking();
+                    else countdownHandler.postDelayed(this, 500);
+                }
+            }, 500);
+        }
+    }
+
+    // ─── 실제 측정 시작: 오버레이 닫고 컨트롤 표시, startTracking 호출 ───
+    private void beginActualTracking() {
+        if (!isAdded() || !isPreparingToStart) return;
+        isPreparingToStart = false;
+        if (layoutCountdownOverlay != null) layoutCountdownOverlay.setVisibility(View.GONE);
+        if (layoutRunningControls != null) layoutRunningControls.setVisibility(View.VISIBLE);
+        startTracking();
+    }
+
+    // ─── 카운트다운/GPS 대기 취소: 오버레이 닫고 GPS 서비스 중지, 초기 화면 복귀 ───
+    private void cancelPreparation() {
+        if (!isPreparingToStart) return;
+        isPreparingToStart = false;
+        countdownHandler.removeCallbacksAndMessages(null);
+        stopLocationUpdates(); // 워밍업 GPS 종료
+        candidateStartLocation = null;
+        isGpsAcquired = false;
+        if (layoutCountdownOverlay != null) layoutCountdownOverlay.setVisibility(View.GONE);
+        if (layoutStartButtons != null) layoutStartButtons.setVisibility(View.VISIBLE);
+        if (layoutCoachingGoals != null) layoutCoachingGoals.setVisibility(View.GONE);
+    }
+
     // ─── 러닝 시작: 상태 초기화, 즉시 알림 표시, 타이머·GPS 시작 ───
+    //  카운트다운에서 확보한 candidateStartLocation을 lastLocation 기준점으로 사용 →
+    //  startTracking 직후 첫 콜백부터 distanceTo() 누적 가능 (초반 0m 공백 제거)
     private void startTracking() {
-        isRunning = true; isPaused = false; totalDistanceMeters = 0f; lastLocation = null;
+        isRunning = true; isPaused = false; totalDistanceMeters = 0f;
+        // 카운트다운 중 확보한 좌표가 있으면 기준점으로 사용 (없으면 null로 시작 — 기존 동작)
+        lastLocation = candidateStartLocation;
+        candidateStartLocation = null;
         routePoints.clear(); routeTimestamps.clear(); segmentPaces.clear();
         pausedDuration = 0; paceThresholdsSet = false;
         if (mMap != null) mMap.clear();
         startTime = SystemClock.elapsedRealtime();
         LocationTrackingService.postImmediateNotification(requireContext()); // 즉시 알림 표시
         timerHandler.post(timerRunnable);
+        // GPS 서비스는 prepareToStart에서 이미 시작됐을 수 있음 → startLocationUpdates는 idempotent하게 호출
         startLocationUpdates();
         btnStop.setVisibility(View.VISIBLE); btnPause.setVisibility(View.VISIBLE);
         tvElapsedTime.setText("00 : 00"); tvDistance.setText("0 m");
@@ -791,15 +929,29 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    // ─── 정지 전 검사: AI 코칭 중 목표 미달이면 경고창 표시, 아니면 바로 종료 ───
+    // ─── 정지 전 검사: 모드에 따라 다른 경고/확인 문구로 경고창 표시 ───
+    //  - 코칭 모드 + 목표 미달  → "코칭 중단 경고" (기록 저장 안 됨)
+    //  - 자유 러닝 또는 코칭 달성 → "측정 종료" (지금까지 기록은 저장됨)
     private void checkBeforeStop() {
-        // 코칭 모드인데 목표 거리를 다 못 채웠다면 경고창 띄우기
-        if (isCoachingRun && totalDistanceMeters < (targetDistanceKm * 1000)) {
-            if (!isPaused) togglePause(); // 잠시 일시정지
-            layoutStopWarning.setVisibility(View.VISIBLE); // "정말 그만둘까요?" 팝업
+        boolean isCoachingShortfall =
+                isCoachingRun && totalDistanceMeters < (targetDistanceKm * 1000);
+
+        if (isCoachingShortfall) {
+            // 코칭 미달 — 기존 경고 메시지 (기록 저장 X)
+            pendingShowResultOnStop = false;
+            if (tvWarningTitle != null) tvWarningTitle.setText("코칭 중단 경고");
+            if (tvWarningMessage != null) tvWarningMessage.setText(
+                    "목표 거리를 달성하지 못했습니다.\n지금 중단하면 오늘의 코칭 기록이\n저장되지 않습니다.");
         } else {
-            stopTracking(true); // 목표 달성했거나 자유 러닝이면 바로 결과창으로
+            // 자유 러닝 또는 코칭 달성 후 — 단순 종료 확인 (기록 저장 O)
+            pendingShowResultOnStop = true;
+            if (tvWarningTitle != null) tvWarningTitle.setText("측정 종료");
+            if (tvWarningMessage != null) tvWarningMessage.setText(
+                    "정말 측정을 종료하시겠습니까?\n지금까지의 기록은 저장됩니다.");
         }
+
+        if (!isPaused) togglePause();            // 경고창 띄우는 동안 잠시 정지
+        layoutStopWarning.setVisibility(View.VISIBLE);
     }
 
     // ─── AI 코칭 목표 달성 시 타이머·GPS 중지 후 완료 UI 표시 및 백엔드 전송 ───
@@ -906,12 +1058,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 // 완료된 코칭 카드 → 코칭 탭으로 이동
                 navigateToCoachingTab();
             } else {
-                // 자유 러닝 카드 → 자유 러닝 시작
+                // 자유 러닝 카드 → 카운트다운 후 측정 시작
                 isCoachingRun = false;
-                layoutStartButtons.setVisibility(View.GONE);
-                layoutRunningControls.setVisibility(View.VISIBLE);
-                layoutCoachingGoals.setVisibility(View.GONE);
-                startTracking();
+                prepareToStart();
             }
         }));
 
@@ -1108,5 +1257,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     public void onDestroyView() {
         super.onDestroyView();
         if (isRunning) { timerHandler.removeCallbacks(timerRunnable); stopLocationUpdates(); }
+        // 카운트다운 진행 중에 화면 떠나면 GPS 서비스도 같이 정리
+        if (isPreparingToStart) { stopLocationUpdates(); }
+        countdownHandler.removeCallbacksAndMessages(null);
+        isPreparingToStart = false;
     }
 }
