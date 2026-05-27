@@ -67,6 +67,7 @@
 
             <!-- 편집 아이콘 오버레이 (ic_add 자체가 원형 디자인) -->
             <ImageView
+                android:id="@+id/iv_edit_photo_icon"
                 android:layout_width="28dp"
                 android:layout_height="28dp"
                 android:layout_gravity="bottom|end"
