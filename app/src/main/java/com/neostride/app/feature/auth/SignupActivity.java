@@ -41,6 +41,7 @@ import retrofit2.Response;
 public class SignupActivity extends AppCompatActivity {
 
     private ImageView ivProfile;
+    private android.widget.ImageButton imgAdd;
     private EditText etEmail;
     private EditText etName;
     private EditText etPassword;
@@ -64,6 +65,7 @@ public class SignupActivity extends AppCompatActivity {
                         selectedCameraBitmap = bitmap;
                         selectedImageUri = null;
                         Glide.with(SignupActivity.this).load(bitmap).circleCrop().into(ivProfile);
+                        if (imgAdd != null) imgAdd.setVisibility(android.view.View.GONE);
                     }
                 }
             });
@@ -87,6 +89,7 @@ public class SignupActivity extends AppCompatActivity {
                         selectedImageUri = imageUri;
                         selectedCameraBitmap = null;
                         Glide.with(this).load(imageUri).circleCrop().into(ivProfile);
+                        if (imgAdd != null) imgAdd.setVisibility(android.view.View.GONE);
                     }
                 }
             });
@@ -97,6 +100,7 @@ public class SignupActivity extends AppCompatActivity {
         setContentView(R.layout.activity_signup);
 
         ivProfile         = findViewById(R.id.img_profile);
+        imgAdd            = findViewById(R.id.img_add);
         etEmail           = findViewById(R.id.et_email);
         etName            = findViewById(R.id.et_name);
         etPassword        = findViewById(R.id.et_pw);
@@ -280,6 +284,7 @@ public class SignupActivity extends AppCompatActivity {
             selectedImageUri = null;
             selectedCameraBitmap = null;
             ivProfile.setImageResource(R.drawable.ic_profile);
+            if (imgAdd != null) imgAdd.setVisibility(android.view.View.VISIBLE);
             dialog.dismiss();
         });
 

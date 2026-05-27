@@ -57,6 +57,7 @@ public class AccountActivity extends AppCompatActivity {
 
     // ── UI 뷰 ──
     private ShapeableImageView ivProfile;
+    private android.widget.ImageView ivEditPhotoIcon;
     private TextView tvEmailValue, tvNicknameValue;
 
     // ── 네트워크 ──
@@ -70,6 +71,7 @@ public class AccountActivity extends AppCompatActivity {
                     Bitmap bitmap = (Bitmap) result.getData().getExtras().get("data");
                     if (bitmap != null) {
                         Glide.with(AccountActivity.this).load(bitmap).circleCrop().into(ivProfile);
+                        if (ivEditPhotoIcon != null) ivEditPhotoIcon.setVisibility(android.view.View.GONE);
                         // 비트맵 → PNG 바이트 변환 후 서버에 업로드
                         ByteArrayOutputStream bos = new ByteArrayOutputStream();
                         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, bos);
@@ -96,6 +98,7 @@ public class AccountActivity extends AppCompatActivity {
                     Uri imageUri = result.getData().getData();
                     if (imageUri != null) {
                         Glide.with(this).load(imageUri).circleCrop().into(ivProfile);
+                        if (ivEditPhotoIcon != null) ivEditPhotoIcon.setVisibility(android.view.View.GONE);
                         // content:// URI → 바이트 배열로 읽어서 서버에 업로드
                         try {
                             InputStream is = getContentResolver().openInputStream(imageUri);
@@ -135,6 +138,7 @@ public class AccountActivity extends AppCompatActivity {
     // ─── 뷰 참조 초기화 및 클릭 리스너 등록 ───
     private void initViews() {
         ivProfile       = findViewById(R.id.iv_profile);
+        ivEditPhotoIcon = findViewById(R.id.iv_edit_photo_icon);
         tvEmailValue    = findViewById(R.id.tv_email_value);
         tvNicknameValue = findViewById(R.id.tv_nickname_value);
 
@@ -173,6 +177,9 @@ public class AccountActivity extends AppCompatActivity {
                                 .circleCrop()
                                 .placeholder(R.drawable.ic_profile)
                                 .into(ivProfile);
+                        if (ivEditPhotoIcon != null) ivEditPhotoIcon.setVisibility(View.GONE);
+                    } else {
+                        if (ivEditPhotoIcon != null) ivEditPhotoIcon.setVisibility(View.VISIBLE);
                     }
                 }
             }
@@ -223,6 +230,7 @@ public class AccountActivity extends AppCompatActivity {
 
         dialogView.findViewById(R.id.btn_default_image).setOnClickListener(v -> {
             ivProfile.setImageResource(R.drawable.ic_profile);
+            if (ivEditPhotoIcon != null) ivEditPhotoIcon.setVisibility(android.view.View.VISIBLE);
             dialog.dismiss();
         });
 

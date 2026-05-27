@@ -88,8 +88,7 @@ public class FriendActivity extends AppCompatActivity {
             Intent intent = new Intent(this, RunnerPageActivity.class);
             intent.putExtra("user_id", userId);
             intent.putExtra("nickname", nickname);
-            intent.putExtra("is_blocked", "blocked".equals(statusKeys[getCurrentTabIndex()]));
-            intent.putExtra("is_friend", "friends".equals(statusKeys[getCurrentTabIndex()]));
+            intent.putExtra("friendship_status", statusKeys[getCurrentTabIndex()]);
             startActivity(intent);
         });
         rvFriends.setAdapter(adapter);
@@ -118,7 +117,14 @@ public class FriendActivity extends AppCompatActivity {
     }
 
 
-     // 상단 탭 버튼들을 리스트에 담고 클릭 리스너를 설정합니다.
+     @Override
+    protected void onResume() {
+        super.onResume();
+        // RunnerPageActivity 등에서 친구 상태가 변경된 후 돌아올 때 현재 탭 갱신
+        loadData(statusKeys[currentTabIndex]);
+    }
+
+    // 상단 탭 버튼들을 리스트에 담고 클릭 리스너를 설정합니다.
     private void initTabs() {
         tabs.add(findViewById(R.id.tab_friend_list));
         tabs.add(findViewById(R.id.tab_sent_requests));

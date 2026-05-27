@@ -8,6 +8,7 @@ import retrofit2.Call;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.Header;
+import retrofit2.http.PATCH;
 import retrofit2.http.Path;
 
 /*
@@ -24,6 +25,15 @@ public interface NotificationApi {
      */
     @GET("api/notifications")
     Call<List<NotificationResponse>> getNotifications(
+            @Header("X-User-Id") Long userId
+    );
+
+    /*
+     * 알림 전체 읽음 처리 API임
+     * PATCH /api/notifications/read-all
+     */
+    @PATCH("api/notifications/read-all")
+    Call<okhttp3.ResponseBody> markAllRead(
             @Header("X-User-Id") Long userId
     );
 

@@ -553,10 +553,18 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
                                             .create(FriendApi.class));
                     FriendRequest req =
                             new FriendRequest(targetUserId, "block");
-                    friendRepo.updateStatus(req, success ->
-                            Toast.makeText(context,
-                                    success ? label + "을 차단했습니다." : "차단에 실패했습니다.",
-                                    Toast.LENGTH_SHORT).show());
+                    friendRepo.updateStatus(req, success -> {
+                        Toast.makeText(context,
+                                success ? label + "을 차단했습니다." : "차단에 실패했습니다.",
+                                Toast.LENGTH_SHORT).show();
+                        if (success) {
+                            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                                tipList.removeIf(i -> i.getWriterId() != null
+                                        && i.getWriterId().intValue() == targetUserId);
+                                notifyDataSetChanged();
+                            });
+                        }
+                    });
                 }
         );
     }

@@ -71,6 +71,11 @@ public class NotificationActivity extends AppCompatActivity {
         rv.setAdapter(adapter);
 
         repository = new NotificationRepository(this);
+        // 알림 화면 진입 시 전체 읽음 처리 → CommunityActivity 복귀 때 빨간 점 사라짐
+        repository.markAllRead(new NotificationRepository.RepositoryCallback<Boolean>() {
+            @Override public void onSuccess(Boolean data) { /* 읽음 처리 완료 */ }
+            @Override public void onError(String message) { /* 실패해도 목록 조회는 진행 */ }
+        });
         loadNotifications();
     }
 

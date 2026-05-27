@@ -89,10 +89,18 @@ public class RunnerPageActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_runner_page);
 
-        targetUserId     = getIntent().getIntExtra("user_id", -1);
-        isBlocked        = getIntent().getBooleanExtra("is_blocked", false);
-        isFriend         = getIntent().getBooleanExtra("is_friend", false);
-        friendshipStatus = isFriend ? "friends" : "none";
+        targetUserId = getIntent().getIntExtra("user_id", -1);
+        // friendship_status 문자열이 있으면 우선 사용, 없으면 기존 boolean 방식 fallback
+        String statusFromIntent = getIntent().getStringExtra("friendship_status");
+        if (statusFromIntent != null && !statusFromIntent.isEmpty()) {
+            friendshipStatus = statusFromIntent;
+            isFriend  = "friends".equals(friendshipStatus);
+            isBlocked = "blocked".equals(friendshipStatus);
+        } else {
+            isBlocked        = getIntent().getBooleanExtra("is_blocked", false);
+            isFriend         = getIntent().getBooleanExtra("is_friend", false);
+            friendshipStatus = isFriend ? "friends" : (isBlocked ? "blocked" : "none");
+        }
         String nicknameHint = getIntent().getStringExtra("nickname");
 
         repository       = new RunnerPageRepository();
