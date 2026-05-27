@@ -46,199 +46,234 @@
                     android:textStyle="bold" />
             </FrameLayout>
 
-            <!-- 달린 루트 보기 -->
-            <LinearLayout
-                android:id="@+id/layout_route_header"
+            <!-- 달린 루트 보기 카드 -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
-                android:layout_height="42dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:background="@drawable/bg_feed_detail_toggle"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp">
+                app:cardBackgroundColor="#1A1A1A"
+                app:cardCornerRadius="20dp"
+                app:strokeColor="#B8FF06"
+                app:strokeWidth="1dp">
 
-                <ImageView
-                    android:id="@+id/iv_route_gradient_icon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_marginEnd="10dp"
-                    android:src="@drawable/ic_chart" />
-
-                <TextView
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="달린 루트 보기"
-                    android:textColor="#B8FF06"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-                <ImageView
-                    android:id="@+id/iv_route_arrow"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_down"
-                    app:tint="#B8FF06" />
-            </LinearLayout>
+                    <!-- 토글 헤더 -->
+                    <LinearLayout
+                        android:id="@+id/layout_route_header"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-            <LinearLayout
-                android:id="@+id/layout_route_content"
+                        <ImageView
+                            android:id="@+id/iv_route_gradient_icon"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginEnd="10dp"
+                            android:src="@drawable/ic_chart" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="달린 루트 보기"
+                            android:textColor="#B8FF06"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:id="@+id/iv_route_arrow"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_arrow_down"
+                            app:tint="#B8FF06" />
+                    </LinearLayout>
+
+                    <!-- 펼쳐지는 콘텐츠: 지도 이미지 -->
+                    <LinearLayout
+                        android:id="@+id/layout_route_content"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginBottom="14dp"
+                            android:background="#2D2D2D" />
+
+                        <ImageView
+                            android:id="@+id/iv_detail_route_map"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:adjustViewBounds="true"
+                            android:background="#222222"
+                            android:scaleType="fitCenter" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 기록 정보 보기 카드 -->
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/bg_feed_detail_section"
-                android:orientation="vertical"
-                android:padding="10dp">
+                app:cardBackgroundColor="#1A1A1A"
+                app:cardCornerRadius="20dp"
+                app:strokeColor="#B8FF06"
+                app:strokeWidth="1dp">
 
-                <ImageView
-                    android:id="@+id/iv_detail_route_map"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:adjustViewBounds="true"
-                    android:background="#222222"
-                    android:scaleType="fitCenter" />
-            </LinearLayout>
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-            <!-- 기록 정보 보기 -->
-            <LinearLayout
-                android:id="@+id/layout_record_header"
-                android:layout_width="match_parent"
-                android:layout_height="42dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_feed_detail_toggle"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp">
-
-                <ImageView
-                    android:id="@+id/iv_record_gradient_icon"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_marginEnd="10dp"
-                    android:src="@drawable/ic_record_info"
-                    app:tint="#B8FF06" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="기록 정보 보기"
-                    android:textColor="#B8FF06"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:id="@+id/iv_record_arrow"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
-                    android:src="@drawable/ic_arrow_down"
-                    app:tint="#B8FF06" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/layout_record_content"
-                android:layout_width="match_parent"
-                android:layout_height="96dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/bg_feed_detail_section"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp">
-
-                <!-- 거리 -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tv_detail_distance"
-                        android:layout_width="wrap_content"
+                    <!-- 토글 헤더 -->
+                    <LinearLayout
+                        android:id="@+id/layout_record_header"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="3.25 km"
-                        android:textColor="#B8FF06"
-                        android:textSize="23sp"
-                        android:textStyle="bold" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
 
-                    <TextView
-                        android:layout_width="wrap_content"
+                        <ImageView
+                            android:id="@+id/iv_record_gradient_icon"
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_marginEnd="10dp"
+                            android:src="@drawable/ic_record_info"
+                            app:tint="#B8FF06" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="기록 정보 보기"
+                            android:textColor="#B8FF06"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:id="@+id/iv_record_arrow"
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/ic_arrow_down"
+                            app:tint="#B8FF06" />
+                    </LinearLayout>
+
+                    <!-- 펼쳐지는 콘텐츠: 기록 통계 -->
+                    <LinearLayout
+                        android:id="@+id/layout_record_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="DISTANCE"
-                        android:textColor="#888888"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
+                        android:layout_marginTop="14dp"
+                        android:orientation="vertical"
+                        android:visibility="gone">
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:layout_marginBottom="16dp"
+                            android:background="#2D2D2D" />
+
+                        <GridLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:columnCount="3"
+                            android:layout_marginBottom="4dp">
+
+                            <!-- 거리 -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_detail_distance"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="3.25 km"
+                                    android:textColor="#B8FF06"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="DISTANCE"
+                                    android:textColor="#AAAAAA"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- 시간 -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_detail_duration"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="18:42"
+                                    android:textColor="#B8FF06"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="TIME"
+                                    android:textColor="#AAAAAA"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+
+                            <!-- 페이스 -->
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_columnWeight="1"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:id="@+id/tv_detail_pace"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="5:45/km"
+                                    android:textColor="#B8FF06"
+                                    android:textSize="22sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="PACE"
+                                    android:textColor="#AAAAAA"
+                                    android:textSize="11sp"
+                                    android:textStyle="bold" />
+                            </LinearLayout>
+                        </GridLayout>
+                    </LinearLayout>
                 </LinearLayout>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="48dp"
-                    android:background="#333333" />
-
-                <!-- 시간 -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tv_detail_duration"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="18:42"
-                        android:textColor="#B8FF06"
-                        android:textSize="23sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="TIME"
-                        android:textColor="#888888"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="48dp"
-                    android:background="#333333" />
-
-                <!-- 페이스 -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/tv_detail_pace"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="5:45/km"
-                        android:textColor="#B8FF06"
-                        android:textSize="23sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="PACE"
-                        android:textColor="#888888"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- 피드 본문 카드 -->
             <LinearLayout

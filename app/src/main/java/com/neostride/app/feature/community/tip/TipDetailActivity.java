@@ -86,6 +86,9 @@ public class TipDetailActivity extends AppCompatActivity {
     // 댓글 목록을 동적으로 추가할 레이아웃임
     private LinearLayout layoutComments;
 
+    // GPS 코스 카드 전체 (gpsVisible에 따라 GONE/VISIBLE)
+    private View cardTipGps;
+
     // GPS 배너 전체 영역임
     private LinearLayout layoutGpsBanner;
 
@@ -186,6 +189,7 @@ public class TipDetailActivity extends AppCompatActivity {
 
         tvCourseToggle = findViewById(R.id.tv_tip_detail_course_toggle);
 
+        cardTipGps = findViewById(R.id.card_tip_gps);
         layoutComments = findViewById(R.id.layout_tip_detail_comments);
         layoutGpsBanner = findViewById(R.id.layout_tip_detail_gps_banner);
         layoutCourseMap = findViewById(R.id.layout_tip_detail_course_map);
@@ -308,14 +312,10 @@ public class TipDetailActivity extends AppCompatActivity {
         }
 
         /*
-         * GPS 코스 팁이면 상단 GPS 배너와 GPS 아이콘을 표시함
+         * GPS 코스 팁이면 GPS 카드 전체를 표시함
          */
-        if (layoutGpsBanner != null) {
-            layoutGpsBanner.setVisibility(response.isGpsVisible() ? View.VISIBLE : View.GONE);
-        }
-
-        if (ivGps != null) {
-            ivGps.setVisibility(response.isGpsVisible() ? View.VISIBLE : View.GONE);
+        if (cardTipGps != null) {
+            cardTipGps.setVisibility(response.isGpsVisible() ? View.VISIBLE : View.GONE);
         }
 
         /*
