@@ -85,7 +85,7 @@
             <LinearLayout
                 android:id="@+id/layout_route_content"
                 android:layout_width="match_parent"
-                android:layout_height="180dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:background="@drawable/bg_feed_detail_section"
                 android:orientation="vertical"
@@ -94,9 +94,10 @@
                 <ImageView
                     android:id="@+id/iv_detail_route_map"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
+                    android:adjustViewBounds="true"
                     android:background="#222222"
-                    android:scaleType="centerCrop" />
+                    android:scaleType="fitCenter" />
             </LinearLayout>
 
             <!-- 기록 정보 보기 -->
