@@ -160,6 +160,21 @@ public class MyPageActivity extends AppCompatActivity {
                 public void onFailure(Call<UserProfileResponse> call, Throwable t) {}
             });
         }
+
+        // 상세 페이지에서 좋아요/댓글/북마크 후 뒤로가기 시 게시물 목록 갱신
+        if (tabLayout != null) {
+            int selectedTab = tabLayout.getSelectedTabPosition();
+            if (selectedTab == 0) {
+                // 내가 쓴 글 탭
+                applyFilter(currentPostFilter);
+            } else if (selectedTab == 1) {
+                // 나를 태그한 피드 탭
+                loadFeeds("tagged");
+            } else if (selectedTab == 2 && isMenuItemSelected && currentActivityType != null) {
+                // 내 활동 탭 (댓글/좋아요/북마크 중 선택된 항목)
+                loadFeeds(currentActivityType);
+            }
+        }
     }
 
     // ─── 피드 타입(tagged/comments/likes/bookmarks)에 맞는 API를 호출하여 RecyclerView에 표시 ───
@@ -654,9 +669,14 @@ public class MyPageActivity extends AppCompatActivity {
         });
 
         // 기존 메시지를 불러와서 입력창에 넣고 커서를 맨 뒤로 보냅니다.
+        // "상태메세지가 없습니다."는 placeholder이므로 입력창은 빈 상태로 시작
         String currentStatus = tvStatusMessage.getText().toString();
-        etInput.setText(currentStatus);
-        etInput.setSelection(etInput.length());
+        if (currentStatus.equals("상태메세지가 없습니다.")) {
+            etInput.setText("");
+        } else {
+            etInput.setText(currentStatus);
+            etInput.setSelection(etInput.length());
+        }
 
         // 3. [다이얼로그 생성] AlertDialog 객체 빌드 및 스타일 설정
         android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)

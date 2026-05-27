@@ -372,7 +372,7 @@ public class RunnerPageActivity extends AppCompatActivity {
         root.addView(tvTitle);
 
         TextView tvMsg = new TextView(this);
-        tvMsg.setText("상대방의 피드와 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 " + runnerNickname + "님을 차단하시겠습니까?");
+        tvMsg.setText("차단하면 상대방의 글과 댓글이 나에게 보이지 않으며,\n상대방 글에 남긴 좋아요·북마크·댓글은 삭제됩니다.\n정말 " + runnerNickname + "님을 차단하시겠습니까?");
         tvMsg.setTextColor(0xFF888888);
         tvMsg.setTextSize(14);
         LinearLayout.LayoutParams msgP = new LinearLayout.LayoutParams(

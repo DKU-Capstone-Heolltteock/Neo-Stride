@@ -211,19 +211,12 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         holder.ivProfile.setOnClickListener(v -> openProfile(item));
         holder.tvNickname.setOnClickListener(v -> openProfile(item));
 
-        /*
-         * 좋아요 클릭 시 목록에서도 좋아요 API를 호출함
-         * 목서버 Map 상태가 바뀌므로 상세 화면과 상태를 공유할 수 있음
-         */
-        holder.ivLike.setOnClickListener(v -> {
-            if (holder.getBindingAdapterPosition() == RecyclerView.NO_POSITION) return;
-            toggleLikeFromList(item, holder);
-        });
-
-        holder.tvLikeCount.setOnClickListener(v -> {
-            if (holder.getBindingAdapterPosition() == RecyclerView.NO_POSITION) return;
-            toggleLikeFromList(item, holder);
-        });
+        // 미니뷰에서는 좋아요 비활성화 — 좋아요는 상세 페이지에서만 가능함
+        holder.ivLike.setClickable(false);
+        holder.ivLike.setEnabled(false);
+        holder.ivLike.setOnClickListener(null);
+        holder.tvLikeCount.setClickable(false);
+        holder.tvLikeCount.setOnClickListener(null);
 
         /*
          * 북마크 클릭 — 클릭 즉시 아이콘만 직접 갱신 (notifyItemChanged 없음 = 번쩍거림 방지)
@@ -330,23 +323,6 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
 
                 return;
             }
-        }
-
-        if (item.isGpsVisible()
-                && item.getRouteMapImageUrl() != null
-                && !item.getRouteMapImageUrl().trim().isEmpty()) {
-
-            holder.cardTipPhoto.setVisibility(View.VISIBLE);
-
-            holder.ivTipImage.setBackgroundColor(android.graphics.Color.BLACK);
-            Glide.with(context)
-                    .load(item.getRouteMapImageUrl())
-                    .placeholder(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK))
-                    .error(new android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK))
-                    .centerCrop()
-                    .into(holder.ivTipImage);
-
-            return;
         }
 
         holder.cardTipPhoto.setVisibility(View.GONE);
@@ -568,7 +544,7 @@ public class TipAdapter extends RecyclerView.Adapter<TipAdapter.TipViewHolder> {
         DangerConfirmDialog.show(
                 context,
                 "차단하기",
-                "상대방의 팁과 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 이 " + label + "을 차단하시겠습니까?",
+                "차단하면 상대방의 글과 댓글이 나에게 보이지 않으며,\n상대방 글에 남긴 좋아요·북마크·댓글은 삭제됩니다.\n정말 이 " + label + "을 차단하시겠습니까?",
                 "차단",
                 () -> {
                     FriendRepository friendRepo =

@@ -203,11 +203,29 @@ public class BadgeActivity extends AppCompatActivity {
             tvBadgeRecord.setVisibility(View.VISIBLE);
             tvBadgeDate.setVisibility(View.VISIBLE);
 
-            String record = String.format("%.2fkm  %s/km", response.distance, response.pace);
+            // pace: 초/km → "M'SS\"" 포맷 변환
+            String paceStr;
+            try {
+                int paceSec = Integer.parseInt(response.pace);
+                int pMin = paceSec / 60;
+                int pSec = paceSec % 60;
+                paceStr = String.format(java.util.Locale.getDefault(), "%d:%02d", pMin, pSec);
+            } catch (NumberFormatException e) {
+                paceStr = response.pace; // 파싱 실패 시 원본 그대로
+            }
+            String record = String.format(java.util.Locale.getDefault(), "%.2fkm  %s/km", response.distance, paceStr);
             tvBadgeRecord.setText(record);
             tvBadgeRecord.setTextColor(tier.getColor());
 
-            tvBadgeDate.setText("달성일자 : " + response.achievedAt);
+            // achievedAt: ISO 8601 "2026-05-23T22:25:17" → "2026-05-23 22:25:17"
+            String achievedAt = response.achievedAt != null ? response.achievedAt : "-";
+            if (achievedAt.contains("T")) {
+                achievedAt = achievedAt.replace("T", " ");
+            }
+            if (achievedAt.length() > 19) {
+                achievedAt = achievedAt.substring(0, 19); // 초까지만, 밀리초/타임존 제거
+            }
+            tvBadgeDate.setText("달성일자 : " + achievedAt);
             tvBadgeDate.setTextColor(tier.getColor());
         }
     }

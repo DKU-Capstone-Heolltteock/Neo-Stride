@@ -538,10 +538,13 @@ public class FeedUploadDialog {
 
     /*
      * 페이스 값을 m:ss/km 형식으로 변환하는 함수임
+     * 서버는 pace를 초/km 단위 정수로 내려줌 (예: 5분37초 = 337)
+     * 분/초로 분리 후 포맷해야 함
      */
     private String formatPace(double paceValue) {
-        int minute = (int) paceValue;
-        int second = (int) ((paceValue - minute) * 60);
+        int totalSeconds = (int) Math.round(paceValue);
+        int minute = totalSeconds / 60;
+        int second  = totalSeconds % 60;
 
         return String.format(
                 Locale.KOREA,

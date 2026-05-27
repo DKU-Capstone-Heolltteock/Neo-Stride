@@ -70,6 +70,9 @@ public class TipFragment extends Fragment {
     // 현재 RecyclerView에 표시된 아이템 수
     private int tipDisplayedCount = 0;
 
+    // 빈 목록 안내 문구
+    private TextView tvEmptyState;
+
     // 로딩 애니메이션
     private TextView tvLoading;
     private final Handler loadingHandler = new Handler(Looper.getMainLooper());
@@ -122,7 +125,8 @@ public class TipFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
 
         // 로딩 텍스트 뷰 연결
-        tvLoading = view.findViewById(R.id.tv_loading);
+        tvLoading    = view.findViewById(R.id.tv_loading);
+        tvEmptyState = view.findViewById(R.id.tv_empty_state);
 
         // Repository를 초기화함
         tipRepository = new TipRepository();
@@ -572,6 +576,20 @@ public class TipFragment extends Fragment {
 
         if (tipAdapter != null) {
             tipAdapter.notifyDataSetChanged();
+        }
+
+        // 빈 목록 안내
+        if (tvEmptyState != null) {
+            if (allFilteredTips.isEmpty()) {
+                if (tipList.isEmpty()) {
+                    tvEmptyState.setText("아직 작성된 팁이 없어요\n러닝 노하우를 공유해보세요");
+                } else {
+                    tvEmptyState.setText("이 카테고리에 작성된 팁이 없어요");
+                }
+                tvEmptyState.setVisibility(View.VISIBLE);
+            } else {
+                tvEmptyState.setVisibility(View.GONE);
+            }
         }
     }
 

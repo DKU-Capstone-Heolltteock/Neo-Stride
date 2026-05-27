@@ -65,6 +65,9 @@ public class FeedFragment extends Fragment {
     // 상태 API 3개가 모두 완료됐는지 여부
     private boolean feedStatesLoaded = false;
 
+    // 빈 목록 안내 문구
+    private TextView tvEmptyState;
+
     // 로딩 애니메이션
     private TextView tvLoading;
     private final Handler loadingHandler = new Handler(Looper.getMainLooper());
@@ -106,8 +109,9 @@ public class FeedFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        rvFeedList  = view.findViewById(R.id.rv_feed_list);
-        tvLoading   = view.findViewById(R.id.tv_loading);
+        rvFeedList    = view.findViewById(R.id.rv_feed_list);
+        tvLoading     = view.findViewById(R.id.tv_loading);
+        tvEmptyState  = view.findViewById(R.id.tv_empty_state);
         feedRepository = new FeedRepository(requireContext());
         feedItemList = new ArrayList<>();
         feedAdapter = new FeedAdapter(feedItemList);
@@ -233,6 +237,10 @@ public class FeedFragment extends Fragment {
                 }
                 displayedCount = count;
                 if (feedAdapter != null) feedAdapter.notifyDataSetChanged();
+                // 빈 목록 안내
+                if (tvEmptyState != null) {
+                    tvEmptyState.setVisibility(allFeedResponses.isEmpty() ? View.VISIBLE : View.GONE);
+                }
             }
             @Override
             public void onError(String message) {

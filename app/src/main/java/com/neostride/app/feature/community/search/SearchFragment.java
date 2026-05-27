@@ -86,6 +86,9 @@ public class SearchFragment extends Fragment {
 
     private SearchRepository searchRepository;
 
+    // 빈 목록 안내 문구
+    private TextView tvEmptyState;
+
     // 로딩 애니메이션
     private TextView tvLoading;
     private final Handler loadingHandler = new Handler(Looper.getMainLooper());
@@ -176,9 +179,10 @@ public class SearchFragment extends Fragment {
      * XML View들을 Java 코드와 연결하는 함수임
      */
     private void initViews(View view) {
-        etSearch  = view.findViewById(R.id.et_search);
-        rvSearch  = view.findViewById(R.id.rv_search);
-        tvLoading = view.findViewById(R.id.tv_loading);
+        etSearch     = view.findViewById(R.id.et_search);
+        rvSearch     = view.findViewById(R.id.rv_search);
+        tvLoading    = view.findViewById(R.id.tv_loading);
+        tvEmptyState = view.findViewById(R.id.tv_empty_state);
 
         tabFeed    = view.findViewById(R.id.tab_feed);
         tabTip     = view.findViewById(R.id.tab_tip);
@@ -410,6 +414,7 @@ public class SearchFragment extends Fragment {
         userAdapter = null;
 
         rvSearch.setAdapter(null);
+        if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
         startLoadingAnimation();
 
         loadPage();
@@ -466,6 +471,17 @@ public class SearchFragment extends Fragment {
 
                 hasMore   = newItems.size() >= PAGE_SIZE;
                 isLoading = false;
+
+                // 빈 목록 안내 (첫 페이지 로드 후 결과 없을 때만)
+                if (tvEmptyState != null && currentPage == 0 && feedItemList.isEmpty()) {
+                    String kw = keyword.trim();
+                    tvEmptyState.setText(kw.isEmpty()
+                            ? "아직 작성된 피드가 없어요"
+                            : "'" + kw + "'에 해당하는 피드가 없어요");
+                    tvEmptyState.setVisibility(View.VISIBLE);
+                } else if (tvEmptyState != null) {
+                    tvEmptyState.setVisibility(View.GONE);
+                }
             }
 
             @Override
@@ -508,6 +524,17 @@ public class SearchFragment extends Fragment {
 
                 hasMore   = newItems.size() >= PAGE_SIZE;
                 isLoading = false;
+
+                // 빈 목록 안내 (첫 페이지 로드 후 결과 없을 때만)
+                if (tvEmptyState != null && currentPage == 0 && tipItemList.isEmpty()) {
+                    String kw = keyword.trim();
+                    tvEmptyState.setText(kw.isEmpty()
+                            ? "아직 작성된 팁이 없어요"
+                            : "'" + kw + "'에 해당하는 팁이 없어요");
+                    tvEmptyState.setVisibility(View.VISIBLE);
+                } else if (tvEmptyState != null) {
+                    tvEmptyState.setVisibility(View.GONE);
+                }
             }
 
             @Override
@@ -539,6 +566,17 @@ public class SearchFragment extends Fragment {
 
                 hasMore   = userResponses.size() >= PAGE_SIZE;
                 isLoading = false;
+
+                // 빈 목록 안내 (검색어 있을 때만 — 키워드 없으면 본인 카드가 항상 노출되므로 불필요)
+                if (tvEmptyState != null) {
+                    String kw = keyword.trim();
+                    if (!kw.isEmpty() && currentPage == 0 && userItemList.isEmpty()) {
+                        tvEmptyState.setText("'" + kw + "'에 해당하는 프로필이 없어요");
+                        tvEmptyState.setVisibility(View.VISIBLE);
+                    } else {
+                        tvEmptyState.setVisibility(View.GONE);
+                    }
+                }
             }
 
             @Override
@@ -575,6 +613,19 @@ public class SearchFragment extends Fragment {
                  */
                 hasMore   = false;
                 isLoading = false;
+
+                // 빈 목록 안내
+                if (tvEmptyState != null) {
+                    if (userItemList.isEmpty()) {
+                        String kw = keyword.trim();
+                        tvEmptyState.setText(kw.isEmpty()
+                                ? "아직 친구가 없어요\n다른 러너를 찾아 친구 요청을 보내보세요"
+                                : "'" + kw + "'와 일치하는 친구가 없어요");
+                        tvEmptyState.setVisibility(View.VISIBLE);
+                    } else {
+                        tvEmptyState.setVisibility(View.GONE);
+                    }
+                }
             }
 
             @Override
@@ -667,6 +718,18 @@ public class SearchFragment extends Fragment {
     // ──────────────────────────────────────────────────
     // 유틸
     // ──────────────────────────────────────────────────
+
+    /*
+     * 상세 페이지에서 좋아요/댓글/북마크 후 뒤로가기 시 목록 상태를 갱신함
+     * 어댑터가 이미 있는 경우(= 최초 로드 후)에만 재조회함
+     */
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (feedAdapter != null || tipAdapter != null) {
+            resetAndLoad();
+        }
+    }
 
     @Override
     public void onDestroyView() {

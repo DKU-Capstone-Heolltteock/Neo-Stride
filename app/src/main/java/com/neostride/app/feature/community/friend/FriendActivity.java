@@ -75,8 +75,12 @@ public class FriendActivity extends AppCompatActivity {
             }
             repository.updateStatus(new FriendRequest(userId, action), success -> {
                 runOnUiThread(() -> {
-                    Toast.makeText(this, toastMsg, Toast.LENGTH_SHORT).show();
-                    if (success) loadData(statusKeys[getCurrentTabIndex()]);
+                    if (success) {
+                        Toast.makeText(this, toastMsg, Toast.LENGTH_SHORT).show();
+                        loadData(statusKeys[getCurrentTabIndex()]);
+                    } else {
+                        Toast.makeText(this, "처리에 실패했습니다. 다시 시도해주세요.", Toast.LENGTH_SHORT).show();
+                    }
                 });
             });
         });

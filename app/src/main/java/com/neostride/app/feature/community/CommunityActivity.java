@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -35,6 +37,17 @@ public class CommunityActivity extends AppCompatActivity {
     private ImageView btnMyPage; //마이페이지 변수 선언
     private View badgeNotification; //미확인 알림 빨간 점
 
+    // 포그라운드 폴링 — 15초마다 미확인 알림 체크
+    private final Handler pollingHandler = new Handler(Looper.getMainLooper());
+    private static final long POLLING_INTERVAL_MS = 15_000L;
+    private final Runnable pollingRunnable = new Runnable() {
+        @Override
+        public void run() {
+            checkUnreadNotifications();
+            pollingHandler.postDelayed(this, POLLING_INTERVAL_MS);
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -55,7 +68,16 @@ public class CommunityActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // 즉시 1회 체크 후 15초마다 반복 폴링 시작
         checkUnreadNotifications();
+        pollingHandler.postDelayed(pollingRunnable, POLLING_INTERVAL_MS);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // 백그라운드 진입 시 폴링 중단 (배터리/네트워크 낭비 방지)
+        pollingHandler.removeCallbacks(pollingRunnable);
     }
 
     private void initViews() {

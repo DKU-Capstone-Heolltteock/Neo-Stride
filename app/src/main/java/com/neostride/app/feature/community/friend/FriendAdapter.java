@@ -11,6 +11,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+import com.bumptech.glide.Glide;
 import com.neostride.app.R;
 import com.neostride.app.common.network.TokenManager;
 import com.neostride.app.feature.badge.model.BadgeTier;
@@ -80,6 +81,20 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
         // 1. 데이터 및 기본 UI 초기화 (정렬 및 잔상 제거)
         holder.tvNickname.setText(item.nickname);
         holder.tvFriendCount.setText("친구 " + item.friendCount);
+
+        // 프로필 이미지 로드
+        holder.ivProfile.setImageTintList(null);
+        if (item.profileImageUrl != null && !item.profileImageUrl.trim().isEmpty()) {
+            Glide.with(holder.itemView.getContext())
+                    .load(item.profileImageUrl)
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_profile)
+                    .error(R.drawable.ic_profile)
+                    .into(holder.ivProfile);
+        } else {
+            Glide.with(holder.itemView.getContext()).clear(holder.ivProfile);
+            holder.ivProfile.setImageResource(R.drawable.ic_profile);
+        }
 
         holder.btnAction.setIncludeFontPadding(false);
         holder.btnAction.setGravity(Gravity.CENTER);

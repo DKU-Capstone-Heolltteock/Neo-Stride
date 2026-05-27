@@ -1251,7 +1251,7 @@ public class FeedDetailActivity extends AppCompatActivity {
         DangerConfirmDialog.show(
                 this,
                 "차단하기",
-                "상대방의 피드와 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 " + name + "님을 차단하시겠습니까?",
+                "차단하면 상대방의 글과 댓글이 나에게 보이지 않으며,\n상대방 글에 남긴 좋아요·북마크·댓글은 삭제됩니다.\n정말 " + name + "님을 차단하시겠습니까?",
                 "차단",
                 () -> {
                     FriendRepository friendRepo =
@@ -1341,7 +1341,7 @@ public class FeedDetailActivity extends AppCompatActivity {
         DangerConfirmDialog.show(
                 this,
                 "차단하기",
-                "상대방의 피드와 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 이 " + label + "을 차단하시겠습니까?",
+                "차단하면 상대방의 글과 댓글이 나에게 보이지 않으며,\n상대방 글에 남긴 좋아요·북마크·댓글은 삭제됩니다.\n정말 이 " + label + "을 차단하시겠습니까?",
                 "차단",
                 () -> {
                     FriendRepository friendRepo =

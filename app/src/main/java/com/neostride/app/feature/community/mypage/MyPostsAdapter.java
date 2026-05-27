@@ -296,14 +296,18 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         // 러닝 통계
         if (h.tvDistance != null)
-            h.tvDistance.setText(String.format(Locale.getDefault(), "%.1fkm", item.totalDistance));
+            h.tvDistance.setText(String.format(Locale.getDefault(), "%.2f km", item.totalDistance));
         if (h.tvDuration != null) {
             int m = item.duration / 60, s = item.duration % 60;
-            h.tvDuration.setText(String.format(Locale.getDefault(), "%d:%02d", m, s));
+            h.tvDuration.setText(String.format(Locale.getDefault(), "%02d:%02d", m, s));
         }
         if (h.tvPace != null) {
-            int pm = item.pace / 60, ps = item.pace % 60;
-            h.tvPace.setText(String.format(Locale.getDefault(), "%d'%02d\"/km", pm, ps));
+            if (item.pace > 0) {
+                int pm = item.pace / 60, ps = item.pace % 60;
+                h.tvPace.setText(String.format(Locale.getDefault(), "%d:%02d/km", pm, ps));
+            } else {
+                h.tvPace.setText("-");
+            }
         }
 
         // 상호작용 카운트
@@ -319,32 +323,9 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (h.tvCommentCount != null) h.tvCommentCount.setTextColor(commentColor);
         if (h.ivComment != null)      h.ivComment.setColorFilter(commentColor);
 
-        // 좋아요 클릭 — 즉시 토글 + 카운트 업데이트, 서버 동기화 백그라운드
-        View.OnClickListener feedLikeClick = v -> {
-            boolean newLiked = !item.isLiked;
-            int newCount = Math.max(0, item.likeCount + (newLiked ? 1 : -1));
-            item.isLiked = newLiked;
-            item.likeCount = newCount;
-            int c = newLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
-            if (h.ivLike != null)      h.ivLike.setColorFilter(c);
-            if (h.tvLikeCount != null) { h.tvLikeCount.setTextColor(c); h.tvLikeCount.setText(String.valueOf(newCount)); }
-            new FeedRepository(context).toggleFeedLike((long) item.contentId,
-                new FeedRepository.RepositoryCallback<FeedLikeResponse>() {
-                    @Override public void onSuccess(FeedLikeResponse data) {
-                        // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
-                        item.isLiked = data.isLiked();
-                    }
-                    @Override public void onError(String msg) {
-                        item.isLiked = !newLiked;
-                        item.likeCount = Math.max(0, item.likeCount + (newLiked ? -1 : 1));
-                        int fc = item.isLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
-                        if (h.ivLike != null)      h.ivLike.setColorFilter(fc);
-                        if (h.tvLikeCount != null) { h.tvLikeCount.setTextColor(fc); h.tvLikeCount.setText(String.valueOf(item.likeCount)); }
-                    }
-                });
-        };
-        if (h.ivLike != null)      h.ivLike.setOnClickListener(feedLikeClick);
-        if (h.tvLikeCount != null) h.tvLikeCount.setOnClickListener(feedLikeClick);
+        // 미니뷰에서는 좋아요 비활성화 — 좋아요는 상세 페이지에서만 가능함
+        if (h.ivLike != null)      { h.ivLike.setClickable(false); h.ivLike.setEnabled(false); h.ivLike.setOnClickListener(null); }
+        if (h.tvLikeCount != null) { h.tvLikeCount.setClickable(false); h.tvLikeCount.setOnClickListener(null); }
 
         if (h.layoutTag != null) {
             android.graphics.drawable.GradientDrawable tagBg = new android.graphics.drawable.GradientDrawable();
@@ -451,7 +432,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             });
         }
 
-        // 이미지
+        // 이미지 (GPS 경로 지도는 미니뷰에서 표시하지 않음 — 상세 페이지에서만 표시)
         if (h.cardPhoto != null && h.ivImage != null) {
             List<String> urls = item.getImageUrls();
             android.graphics.drawable.ColorDrawable blackBg =
@@ -461,11 +442,6 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                 h.ivImage.setBackgroundColor(Color.BLACK);
                 Glide.with(h.itemView).load(urls.get(0))
                         .placeholder(blackBg).error(blackBg).centerCrop().into(h.ivImage);
-            } else if (item.getRouteMapImageUrl() != null && !item.getRouteMapImageUrl().isEmpty()) {
-                h.cardPhoto.setVisibility(View.VISIBLE);
-                h.ivImage.setBackgroundColor(Color.BLACK);
-                Glide.with(h.itemView).load(item.getRouteMapImageUrl())
-                        .placeholder(blackBg).error(blackBg).centerCrop().into(h.ivImage);
             } else {
                 h.cardPhoto.setVisibility(View.GONE);
             }
@@ -473,7 +449,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         // 제목 / 카테고리 / 내용
         if (h.tvTitle != null)    h.tvTitle.setText(item.getTitle() != null ? item.getTitle() : "");
-        if (h.tvCategory != null) h.tvCategory.setText(item.getCategory() != null ? item.getCategory() : "");
+        if (h.tvCategory != null) applyTipCategoryBadgeStyle(h.tvCategory, item.getCategory());
         if (h.tvContent != null)  h.tvContent.setText(item.getContent() != null ? item.getContent() : "");
 
         // GPS 아이콘
@@ -484,37 +460,16 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         if (h.tvLikeCount != null)    h.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
         if (h.tvCommentCount != null) h.tvCommentCount.setText(String.valueOf(item.getCommentCount()));
 
-        int likeColor = item.isLiked() ? Color.parseColor("#B8FF06") : Color.WHITE;
-        if (h.ivLike != null)      h.ivLike.setColorFilter(likeColor);
-        if (h.tvLikeCount != null) h.tvLikeCount.setTextColor(likeColor);
+        int likeColor    = item.isLiked()     ? Color.parseColor("#B8FF06") : Color.WHITE;
+        int commentColor = item.isCommented() ? Color.parseColor("#B8FF06") : Color.WHITE;
+        if (h.ivLike != null)         h.ivLike.setColorFilter(likeColor);
+        if (h.tvLikeCount != null)    h.tvLikeCount.setTextColor(likeColor);
+        if (h.ivComment != null)      h.ivComment.setColorFilter(commentColor);
+        if (h.tvCommentCount != null) h.tvCommentCount.setTextColor(commentColor);
 
-        // 좋아요 클릭 — 즉시 토글 + 카운트 업데이트, 서버 동기화 백그라운드
-        View.OnClickListener tipLikeClick = v -> {
-            if (item.getTipId() == null) return;
-            boolean newLiked = !item.isLiked();
-            int newCount = Math.max(0, item.getLikeCount() + (newLiked ? 1 : -1));
-            item.setLiked(newLiked);
-            item.setLikeCount(newCount);
-            int c = newLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
-            if (h.ivLike != null)      h.ivLike.setColorFilter(c);
-            if (h.tvLikeCount != null) { h.tvLikeCount.setTextColor(c); h.tvLikeCount.setText(String.valueOf(newCount)); }
-            new TipRepository().toggleTipLike(item.getTipId(),
-                new TipRepository.TipLikeCallback() {
-                    @Override public void onSuccess(TipLikeResponse data) {
-                        // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
-                        item.setLiked(data.isLiked());
-                    }
-                    @Override public void onFailure(String msg) {
-                        item.setLiked(!newLiked);
-                        item.setLikeCount(Math.max(0, item.getLikeCount() + (newLiked ? -1 : 1)));
-                        int fc = item.isLiked() ? Color.parseColor("#B8FF06") : Color.WHITE;
-                        if (h.ivLike != null)      h.ivLike.setColorFilter(fc);
-                        if (h.tvLikeCount != null) { h.tvLikeCount.setTextColor(fc); h.tvLikeCount.setText(String.valueOf(item.getLikeCount())); }
-                    }
-                });
-        };
-        if (h.ivLike != null)      h.ivLike.setOnClickListener(tipLikeClick);
-        if (h.tvLikeCount != null) h.tvLikeCount.setOnClickListener(tipLikeClick);
+        // 미니뷰에서는 좋아요 비활성화 — 좋아요는 상세 페이지에서만 가능함
+        if (h.ivLike != null)      { h.ivLike.setClickable(false); h.ivLike.setEnabled(false); h.ivLike.setOnClickListener(null); }
+        if (h.tvLikeCount != null) { h.tvLikeCount.setClickable(false); h.tvLikeCount.setOnClickListener(null); }
 
         // ── 카드 전체 클릭 → 팁 상세 ──
         if (item.getTipId() != null) {
@@ -665,11 +620,51 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         );
     }
 
+    // ── 팁 카테고리 배지 스타일 적용 ─────────────────────────────────────
+    private void applyTipCategoryBadgeStyle(TextView view, String category) {
+        if (view == null) return;
+        int color = android.graphics.Color.parseColor(tipCategoryColorCode(category));
+        view.setText(tipCategoryToKorean(category));
+        view.setTextColor(color);
+        view.setTypeface(null, android.graphics.Typeface.BOLD);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        bg.setColor(android.graphics.Color.TRANSPARENT);
+        bg.setStroke(dp(1), color);
+        bg.setCornerRadius(dp(14));
+        view.setBackground(bg);
+    }
+
+    private static String tipCategoryToKorean(String category) {
+        if (category == null) return "자유";
+        switch (category) {
+            case "FREE":     return "자유";
+            case "TRAINING": return "훈련";
+            case "COURSE":   return "코스";
+            case "GEAR":     return "장비";
+            default:         return category;
+        }
+    }
+
+    private static String tipCategoryColorCode(String category) {
+        switch (tipCategoryToKorean(category)) {
+            case "자유":  return "#00E5FF";
+            case "훈련":  return "#FF3DFF";
+            case "코스":  return "#FFB300";
+            case "장비":  return "#00FF85";
+            default:     return "#CCFF00";
+        }
+    }
+
+    private int dp(int value) {
+        return (int) (value * context.getResources().getDisplayMetrics().density + 0.5f);
+    }
+
     // ── 사용자 차단 확인 다이얼로그 ─────────────────────────────────────
     private void confirmAndBlockUser(int targetUserId, String label) {
         DangerConfirmDialog.show(
             context, "차단하기",
-            "상대방의 게시글과 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 이 " + label + "을 차단하시겠습니까?",
+            "차단하면 상대방의 글과 댓글이 나에게 보이지 않으며,\n상대방 글에 남긴 좋아요·북마크·댓글은 삭제됩니다.\n정말 이 " + label + "을 차단하시겠습니까?",
             "차단",
             () -> {
                 FriendRepository friendRepo =
@@ -739,7 +734,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     static class TipViewHolder extends RecyclerView.ViewHolder {
         TextView tvNickname, tvTime, tvTitle, tvCategory, tvContent, tvMore;
         TextView tvLikeCount, tvCommentCount;
-        ImageView ivProfile, ivBadge, ivBookmark, ivImage, ivGps, ivLike;
+        ImageView ivProfile, ivBadge, ivBookmark, ivImage, ivGps, ivLike, ivComment;
         CardView cardPhoto;
 
         TipViewHolder(@NonNull View v) {
@@ -759,6 +754,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             ivImage       = v.findViewById(R.id.iv_tip_image);
             ivGps         = v.findViewById(R.id.iv_tip_gps);
             ivLike        = v.findViewById(R.id.iv_tip_like);
+            ivComment     = v.findViewById(R.id.iv_tip_comment);
         }
     }
 }

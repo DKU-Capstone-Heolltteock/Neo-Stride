@@ -161,41 +161,12 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         holder.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
         holder.tvLikeCount.setTextColor(likeColor);
 
-        // 좋아요 클릭 — 즉시 토글 + 카운트 업데이트, 서버 동기화 백그라운드
-        holder.ivLike.setClickable(true);
-        holder.ivLike.setEnabled(true);
-        holder.ivLike.setOnClickListener(v -> {
-            boolean newLiked = !item.isLiked();
-            int newCount = Math.max(0, item.getLikeCount() + (newLiked ? 1 : -1));
-            // 즉시 로컬 모델 + UI 업데이트
-            item.setLiked(newLiked);
-            item.setLikeCount(newCount);
-            int newColor = newLiked ? Color.parseColor("#B8FF06") : Color.WHITE;
-            holder.ivLike.setImageTintList(ColorStateList.valueOf(newColor));
-            holder.tvLikeCount.setTextColor(newColor);
-            holder.tvLikeCount.setText(String.valueOf(newCount));
-            // 서버 동기화 — 응답값으로 최종 확정
-            if (feedId != null) {
-                new FeedRepository(context).toggleFeedLike(feedId,
-                    new FeedRepository.RepositoryCallback<FeedLikeResponse>() {
-                        @Override
-                        public void onSuccess(FeedLikeResponse data) {
-                            // UI는 이미 올바르게 업데이트됨 — 서버 응답 likeCount가 부정확할 수 있어 덮어쓰지 않음
-                            item.setLiked(data.isLiked());
-                        }
-                        @Override
-                        public void onError(String msg) {
-                            // 롤백
-                            item.setLiked(!newLiked);
-                            item.setLikeCount(item.getLikeCount() + (newLiked ? -1 : 1));
-                            int c = item.isLiked() ? Color.parseColor("#B8FF06") : Color.WHITE;
-                            holder.ivLike.setImageTintList(ColorStateList.valueOf(c));
-                            holder.tvLikeCount.setTextColor(c);
-                            holder.tvLikeCount.setText(String.valueOf(item.getLikeCount()));
-                        }
-                    });
-            }
-        });
+        // 미니뷰에서는 좋아요 비활성화 — 좋아요는 상세 페이지에서만 가능함
+        holder.ivLike.setClickable(false);
+        holder.ivLike.setEnabled(false);
+        holder.ivLike.setOnClickListener(null);
+        holder.tvLikeCount.setClickable(false);
+        holder.tvLikeCount.setOnClickListener(null);
 
         // 댓글 하이라이트 — item.isCommented() 기반
         int commentColor = item.isCommented() ? Color.parseColor("#B8FF06") : Color.WHITE;
@@ -375,7 +346,7 @@ public class FeedAdapter extends RecyclerView.Adapter<FeedAdapter.FeedViewHolder
         DangerConfirmDialog.show(
                 context,
                 "차단하기",
-                "상대방의 피드와 댓글을 볼 수 없으며 친구 요청도 불가합니다.\n정말 이 " + label + "을 차단하시겠습니까?",
+                "차단하면 상대방의 글과 댓글이 나에게 보이지 않으며,\n상대방 글에 남긴 좋아요·북마크·댓글은 삭제됩니다.\n정말 이 " + label + "을 차단하시겠습니까?",
                 "차단",
                 () -> {
                     FriendRepository friendRepo =
