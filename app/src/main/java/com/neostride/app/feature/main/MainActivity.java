@@ -58,6 +58,12 @@ public class MainActivity extends AppCompatActivity {
     private View badgeNotification;
     private MyPageRepository myPageRepository;
 
+    // ── 다중 선택 모드 액션 바 ──
+    private View mainNavBar;
+    private View selectionActionBar;
+    private TextView tvSelectionCount;
+    private TextView tvDeleteSelected;
+
     // ── 보존된 Fragment 인스턴스 (탭 전환 시 hide/show로 재사용) ──
     //  - 측정 중 다른 탭 갔다 와도 RunningFragment 인스턴스·view·상태가 살아있도록 함
     //  - CommunityActivity는 별도 Activity라 해당 사항 없음
@@ -168,6 +174,37 @@ public class MainActivity extends AppCompatActivity {
         btnNotification = findViewById(R.id.btn_notification);
         btnProfile = findViewById(R.id.btn_profile);
         badgeNotification = findViewById(R.id.badge_notification);
+
+        mainNavBar       = findViewById(R.id.main_nav_bar);
+        selectionActionBar = findViewById(R.id.selection_action_bar);
+        tvSelectionCount = findViewById(R.id.tv_selection_count);
+        tvDeleteSelected = findViewById(R.id.tv_delete_selected);
+
+        // 삭제 버튼 빨강 둥근 배경
+        GradientDrawable deleteBg = new GradientDrawable();
+        deleteBg.setColor(0xFFFF3B30);
+        deleteBg.setCornerRadius(TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, 20, getResources().getDisplayMetrics()));
+        tvDeleteSelected.setBackground(deleteBg);
+    }
+
+    // ─── 다중 선택 모드: 탭바 숨기고 선택 액션 바 표시 ───
+    public void showSelectionBar(Runnable onDelete) {
+        mainNavBar.setVisibility(View.GONE);
+        updateSelectionCount(0);
+        tvDeleteSelected.setOnClickListener(v -> onDelete.run());
+        selectionActionBar.setVisibility(View.VISIBLE);
+    }
+
+    // ─── 선택 수 업데이트 ───
+    public void updateSelectionCount(int count) {
+        if (tvSelectionCount != null) tvSelectionCount.setText(count + "개 선택됨");
+    }
+
+    // ─── 선택 모드 종료: 액션 바 숨기고 탭바 복원 ───
+    public void hideSelectionBar() {
+        selectionActionBar.setVisibility(View.GONE);
+        mainNavBar.setVisibility(View.VISIBLE);
     }
 
     private void setTabListeners() {

@@ -149,8 +149,6 @@
         android:layout_height="22dp"
         android:layout_gravity="top|start"
         android:layout_margin="8dp"
-        android:src="@drawable/ic_just_circle"
-        app:tint="#CCFF00"
         android:visibility="gone" />
 
 </androidx.cardview.widget.CardView>

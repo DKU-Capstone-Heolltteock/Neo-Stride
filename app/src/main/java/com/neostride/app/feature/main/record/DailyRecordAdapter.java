@@ -1,6 +1,10 @@
 package com.neostride.app.feature.main.record;
 
-import android.graphics.PorterDuff;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,7 +23,7 @@ import java.util.Set;
 //  <p>
 //  - AI 코칭 기록은 플랜 상태에 따른 색상 강조 바와 라벨을 표시한다.
 //  - 일반 기록은 기본 형광색 강조 바만 표시한다.
-//  - 다중 선택 모드에서는 각 카드 좌상단에 선택 원이 표시된다.
+//  - 다중 선택 모드에서는 각 카드 좌상단에 진한 회색 선택 원이 표시된다.
 
 public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.ViewHolder> {
     private List<RunningRecordItem> records;
@@ -29,6 +33,11 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
     private boolean isSelectionMode = false;
     private final Set<Long> selectedIds = new HashSet<>();
     private OnSelectionChangeListener selectionListener;
+
+    // ── 선택 원 색상 (진한 회색) ──
+    private static final int CIRCLE_COLOR = 0xFF666666;
+    private static final int CIRCLE_STROKE_DP = 2;
+    private static final int CIRCLE_INSET_DP  = 5;
 
     // 기록 항목 클릭 콜백
     public interface OnRecordClickListener {
@@ -91,13 +100,12 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
             holder.accentBar.setBackgroundColor(0xFFCCFF00);
         }
 
-        // ── 다중 선택 모드 원형 체크 표시 ──
+        // ── 다중 선택 모드: 진한 회색 원 (빈원 / 채워진 원) ──
         if (isSelectionMode) {
             holder.ivSelectCircle.setVisibility(View.VISIBLE);
             boolean selected = selectedIds.contains(record.getId());
-            holder.ivSelectCircle.setImageResource(
-                    selected ? R.drawable.ic_check_circle : R.drawable.ic_just_circle);
-            holder.ivSelectCircle.setColorFilter(0xFFCCFF00, PorterDuff.Mode.SRC_IN);
+            holder.ivSelectCircle.setImageDrawable(
+                    selected ? makeFilledCircle(holder.itemView) : makeEmptyCircle(holder.itemView));
         } else {
             holder.ivSelectCircle.setVisibility(View.GONE);
         }
@@ -128,14 +136,12 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
         notifyDataSetChanged();
     }
 
-    // ── 다중 선택 모드 진입 ──
     public void enterSelectionMode() {
         isSelectionMode = true;
         selectedIds.clear();
         notifyDataSetChanged();
     }
 
-    // ── 다중 선택 모드 종료 ──
     public void exitSelectionMode() {
         isSelectionMode = false;
         selectedIds.clear();
@@ -143,10 +149,36 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
     }
 
     public boolean isSelectionMode() { return isSelectionMode; }
-
     public Set<Long> getSelectedIds() { return new HashSet<>(selectedIds); }
-
     public int getSelectedCount() { return selectedIds.size(); }
+
+    // ── 빈 원 (선택 전): 진한 회색 테두리, 내부 투명 ──
+    private static Drawable makeEmptyCircle(View v) {
+        GradientDrawable ring = new GradientDrawable();
+        ring.setShape(GradientDrawable.OVAL);
+        ring.setColor(Color.TRANSPARENT);
+        ring.setStroke(dp(v, CIRCLE_STROKE_DP), CIRCLE_COLOR);
+        return ring;
+    }
+
+    // ── 채워진 원 (선택 후): 진한 회색 테두리 + 더 작은 흰색 원이 안에 채워짐 ──
+    private static Drawable makeFilledCircle(View v) {
+        GradientDrawable ring = new GradientDrawable();
+        ring.setShape(GradientDrawable.OVAL);
+        ring.setColor(Color.TRANSPARENT);
+        ring.setStroke(dp(v, CIRCLE_STROKE_DP), CIRCLE_COLOR);
+
+        GradientDrawable fill = new GradientDrawable();
+        fill.setShape(GradientDrawable.OVAL);
+        fill.setColor(Color.WHITE);
+
+        InsetDrawable insetFill = new InsetDrawable(fill, dp(v, CIRCLE_INSET_DP));
+        return new LayerDrawable(new Drawable[]{ring, insetFill});
+    }
+
+    private static int dp(View v, int value) {
+        return Math.round(value * v.getResources().getDisplayMetrics().density);
+    }
 
     static class ViewHolder extends RecyclerView.ViewHolder {
         TextView tvDistance, tvTime, tvPace, tvCalories, tvAiLabel;

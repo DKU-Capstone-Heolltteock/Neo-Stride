@@ -306,39 +306,5 @@
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
-    <!-- 다중 선택 모드 하단 액션 바 -->
-    <LinearLayout
-        android:id="@+id/layout_selection_bottom_bar"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_gravity="bottom"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="20dp"
-        android:background="#1A1A1A"
-        android:elevation="8dp"
-        android:visibility="gone">
-
-        <TextView
-            android:id="@+id/tv_selection_count"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="0개 선택됨"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tv_delete_selected"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="삭제하기"
-            android:textColor="#000000"
-            android:textStyle="bold"
-            android:paddingVertical="10dp"
-            android:paddingHorizontal="20dp" />
-
-    </LinearLayout>
 
 </FrameLayout>
