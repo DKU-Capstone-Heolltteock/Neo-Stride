@@ -1,281 +1,344 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:overScrollMode="never">
+    android:layout_height="match_parent">
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rv_calendar"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingHorizontal="12dp"
-            android:layout_marginBottom="16dp" />
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:overScrollMode="never">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="20dp"
-            android:paddingBottom="120dp">
+            android:orientation="vertical">
 
-            <!-- 🌟 AI 목표 달성도 섹션 (CardView 바로 위에 삽입) -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_calendar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="12dp"
+                android:layout_marginBottom="16dp" />
+
             <LinearLayout
-                android:id="@+id/layout_ai_goal_achievement"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:layout_marginBottom="5dp"
-                android:background="@drawable/bg_detail_btn"
-                android:visibility="visible">
+                android:paddingHorizontal="20dp"
+                android:paddingBottom="120dp">
 
-                <!-- 헤더: 클릭 시 접고 펴기 -->
+                <!-- 🌟 AI 목표 달성도 섹션 (CardView 바로 위에 삽입) -->
                 <LinearLayout
-                    android:id="@+id/btn_toggle_ai_graph"
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingHorizontal="16dp"
-                    android:clickable="true"
-                    android:focusable="true">
-
-                    <ImageView
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:src="@drawable/ic_chart"
-                        app:tint="#CCFF00"
-                        android:layout_marginEnd="10dp" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="AI 목표 달성도"
-                        android:textColor="#CCFF00"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-
-                    <ImageView
-                        android:id="@+id/iv_ai_graph_arrow"
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:src="@drawable/ic_arrow_up"
-                        app:tint="#CCFF00" />
-                </LinearLayout>
-
-                <!-- 내용: 그래프 영역 -->
-                <LinearLayout
-                    android:id="@+id/layout_ai_graph_content"
+                    android:id="@+id/layout_ai_goal_achievement"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingHorizontal="16dp"
-                    android:paddingBottom="20dp"
-                    android:visibility="gone">
+                    android:layout_marginBottom="5dp"
+                    android:background="@drawable/bg_detail_btn"
+                    android:visibility="visible">
 
-                    <TextView
-                        android:id="@+id/tv_graph_goal_info"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="• 설정한 목표 거리 : 5km"
-                        android:textColor="#CCFF00"
-                        android:textSize="12sp"
-                        android:layout_marginBottom="16dp" />
-
-                    <!-- 기존 ai_pace_chart_view 대신 사용할 그래프 레이아웃 -->
-                    <RelativeLayout
-                        android:id="@+id/layout_chart_container"
+                    <!-- 헤더: 클릭 시 접고 펴기 -->
+                    <LinearLayout
+                        android:id="@+id/btn_toggle_ai_graph"
                         android:layout_width="match_parent"
-                        android:layout_height="180dp"
-                        android:background="#121212">
+                        android:layout_height="52dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:paddingHorizontal="16dp"
+                        android:clickable="true"
+                        android:focusable="true">
 
-                        <com.neostride.app.feature.main.record.AiLineChartView
-                            android:id="@+id/ai_line_chart"
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:src="@drawable/ic_chart"
+                            app:tint="#CCFF00"
+                            android:layout_marginEnd="10dp" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="AI 목표 달성도"
+                            android:textColor="#CCFF00"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <ImageView
+                            android:id="@+id/iv_ai_graph_arrow"
+                            android:layout_width="20dp"
+                            android:layout_height="20dp"
+                            android:src="@drawable/ic_arrow_up"
+                            app:tint="#CCFF00" />
+                    </LinearLayout>
+
+                    <!-- 내용: 그래프 영역 -->
+                    <LinearLayout
+                        android:id="@+id/layout_ai_graph_content"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="16dp"
+                        android:paddingBottom="20dp"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tv_graph_goal_info"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="• 설정한 목표 거리 : 5km"
+                            android:textColor="#CCFF00"
+                            android:textSize="12sp"
+                            android:layout_marginBottom="16dp" />
+
+                        <RelativeLayout
+                            android:id="@+id/layout_chart_container"
                             android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:layout_marginHorizontal="0dp" />
+                            android:layout_height="180dp"
+                            android:background="#121212">
 
-                    </RelativeLayout>
+                            <com.neostride.app.feature.main.record.AiLineChartView
+                                android:id="@+id/ai_line_chart"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:layout_marginHorizontal="0dp" />
+
+                        </RelativeLayout>
+                    </LinearLayout>
                 </LinearLayout>
-            </LinearLayout>
 
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                app:cardBackgroundColor="#1A1A1A"
-                app:cardCornerRadius="24dp"
-                app:cardElevation="0dp"
-                android:layout_marginBottom="24dp">
-
-                <LinearLayout
+                <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <View android:layout_width="match_parent" android:layout_height="3dp" android:background="#CCFF00" />
+                    app:cardBackgroundColor="#1A1A1A"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="0dp"
+                    android:layout_marginBottom="24dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="20dp">
+                        android:orientation="vertical">
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="MONTHLY PERFORMANCE"
-                            android:textColor="#CCFF00"
-                            android:textSize="11sp"
-                            android:textStyle="bold"
-                            android:letterSpacing="0.2"
-                            android:layout_marginBottom="16dp" />
+                        <View android:layout_width="match_parent" android:layout_height="3dp" android:background="#CCFF00" />
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="bottom">
+                            android:orientation="vertical"
+                            android:padding="20dp">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="MONTHLY PERFORMANCE"
+                                android:textColor="#CCFF00"
+                                android:textSize="11sp"
+                                android:textStyle="bold"
+                                android:letterSpacing="0.2"
+                                android:layout_marginBottom="16dp" />
 
                             <LinearLayout
-                                android:layout_width="0dp"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_weight="1.3"
-                                android:orientation="vertical">
+                                android:orientation="horizontal"
+                                android:gravity="bottom">
+
                                 <LinearLayout
-                                    android:layout_width="wrap_content"
+                                    android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:orientation="horizontal"
-                                    android:gravity="bottom">
-                                    <TextView
-                                        android:id="@+id/tv_stat_distance"
+                                    android:layout_weight="1.3"
+                                    android:orientation="vertical">
+                                    <LinearLayout
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="0.0 km"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="32sp"
-                                        android:textStyle="bold"
-                                        android:includeFontPadding="false" />
-                                    <ImageView
-                                        android:id="@+id/iv_compare_distance"
-                                        android:layout_width="32dp"
-                                        android:layout_height="32dp"
-                                        android:layout_marginStart="4dp"
-                                        android:layout_marginBottom="4dp"
-                                        android:visibility="gone"
-                                        android:src="@drawable/ic_double_arrow_down" />
-                                </LinearLayout>
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="TOTAL DISTANCE"
-                                    android:textColor="#666666"
-                                    android:textSize="10sp"
-                                    android:layout_marginTop="4dp" />
-                            </LinearLayout>
-
-                            <View android:layout_width="1dp" android:layout_height="45dp" android:background="#333333" android:layout_marginHorizontal="10dp" />
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1.1"
-                                android:orientation="vertical">
-                                <LinearLayout
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:orientation="horizontal"
-                                    android:gravity="center_vertical"
-                                    android:layout_marginBottom="10dp">
+                                        android:orientation="horizontal"
+                                        android:gravity="bottom">
+                                        <TextView
+                                            android:id="@+id/tv_stat_distance"
+                                            android:layout_width="wrap_content"
+                                            android:layout_height="wrap_content"
+                                            android:text="0.0 km"
+                                            android:textColor="#FFFFFF"
+                                            android:textSize="32sp"
+                                            android:textStyle="bold"
+                                            android:includeFontPadding="false" />
+                                        <ImageView
+                                            android:id="@+id/iv_compare_distance"
+                                            android:layout_width="32dp"
+                                            android:layout_height="32dp"
+                                            android:layout_marginStart="4dp"
+                                            android:layout_marginBottom="4dp"
+                                            android:visibility="gone"
+                                            android:src="@drawable/ic_double_arrow_down" />
+                                    </LinearLayout>
                                     <TextView
-                                        android:id="@+id/tv_stat_pace"
-                                        android:layout_width="0dp"
+                                        android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:layout_weight="1"
-                                        android:text="--:--/km"
-                                        android:textColor="#CCFF00"
-                                        android:textSize="14sp"
-                                        android:textStyle="bold" />
-                                    <ImageView
-                                        android:id="@+id/iv_compare_pace"
-                                        android:layout_width="20dp"
-                                        android:layout_height="20dp"
-                                        android:layout_marginHorizontal="6dp"
-                                        android:visibility="gone"
-                                        android:src="@drawable/ic_double_arrow_up" />
-                                    <TextView
-                                        android:layout_width="35dp"
-                                        android:layout_height="wrap_content"
-                                        android:text="PACE"
+                                        android:text="TOTAL DISTANCE"
                                         android:textColor="#666666"
-                                        android:textSize="9sp" />
+                                        android:textSize="10sp"
+                                        android:layout_marginTop="4dp" />
                                 </LinearLayout>
 
+                                <View android:layout_width="1dp" android:layout_height="45dp" android:background="#333333" android:layout_marginHorizontal="10dp" />
+
                                 <LinearLayout
-                                    android:layout_width="match_parent"
+                                    android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:orientation="horizontal"
-                                    android:gravity="center_vertical">
-                                    <TextView
-                                        android:id="@+id/tv_stat_calories"
-                                        android:layout_width="0dp"
+                                    android:layout_weight="1.1"
+                                    android:orientation="vertical">
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
-                                        android:layout_weight="1"
-                                        android:text="0 kcal"
-                                        android:textColor="#CCFF00"
-                                        android:textSize="14sp"
-                                        android:textStyle="bold" />
-                                    <ImageView
-                                        android:id="@+id/iv_compare_calories"
-                                        android:layout_width="20dp"
-                                        android:layout_height="20dp"
-                                        android:layout_marginHorizontal="6dp"
-                                        android:visibility="gone"
-                                        android:src="@drawable/ic_double_arrow_up" />
-                                    <TextView
-                                        android:layout_width="35dp"
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical"
+                                        android:layout_marginBottom="10dp">
+                                        <TextView
+                                            android:id="@+id/tv_stat_pace"
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:text="--:--/km"
+                                            android:textColor="#CCFF00"
+                                            android:textSize="14sp"
+                                            android:textStyle="bold" />
+                                        <ImageView
+                                            android:id="@+id/iv_compare_pace"
+                                            android:layout_width="20dp"
+                                            android:layout_height="20dp"
+                                            android:layout_marginHorizontal="6dp"
+                                            android:visibility="gone"
+                                            android:src="@drawable/ic_double_arrow_up" />
+                                        <TextView
+                                            android:layout_width="35dp"
+                                            android:layout_height="wrap_content"
+                                            android:text="PACE"
+                                            android:textColor="#666666"
+                                            android:textSize="9sp" />
+                                    </LinearLayout>
+
+                                    <LinearLayout
+                                        android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
-                                        android:text="CALS"
-                                        android:textColor="#666666"
-                                        android:textSize="9sp" />
+                                        android:orientation="horizontal"
+                                        android:gravity="center_vertical">
+                                        <TextView
+                                            android:id="@+id/tv_stat_calories"
+                                            android:layout_width="0dp"
+                                            android:layout_height="wrap_content"
+                                            android:layout_weight="1"
+                                            android:text="0 kcal"
+                                            android:textColor="#CCFF00"
+                                            android:textSize="14sp"
+                                            android:textStyle="bold" />
+                                        <ImageView
+                                            android:id="@+id/iv_compare_calories"
+                                            android:layout_width="20dp"
+                                            android:layout_height="20dp"
+                                            android:layout_marginHorizontal="6dp"
+                                            android:visibility="gone"
+                                            android:src="@drawable/ic_double_arrow_up" />
+                                        <TextView
+                                            android:layout_width="35dp"
+                                            android:layout_height="wrap_content"
+                                            android:text="CALS"
+                                            android:textColor="#666666"
+                                            android:textSize="9sp" />
+                                    </LinearLayout>
                                 </LinearLayout>
                             </LinearLayout>
                         </LinearLayout>
                     </LinearLayout>
+                </androidx.cardview.widget.CardView>
+
+                <!-- 날짜 헤더 행: 날짜 텍스트 + ··· 버튼 (날짜 선택 전까지 gone) -->
+                <LinearLayout
+                    android:id="@+id/layout_date_header"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tv_selected_date"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_more_options"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="···"
+                        android:textColor="#888888"
+                        android:textSize="20sp"
+                        android:padding="8dp"
+                        android:clickable="true"
+                        android:focusable="true" />
+
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
 
-            <TextView
-                android:id="@+id/tv_selected_date"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="12dp" />
+                <TextView
+                    android:id="@+id/tv_no_record"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="이 날짜에 러닝 기록이 없습니다"
+                    android:textColor="#666666"
+                    android:gravity="center"
+                    android:paddingTop="20dp"
+                    android:visibility="gone" />
 
-            <TextView
-                android:id="@+id/tv_no_record"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="이 날짜에 러닝 기록이 없습니다"
-                android:textColor="#666666"
-                android:gravity="center"
-                android:paddingTop="20dp"
-                android:visibility="gone" />
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_daily_records"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_daily_records"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:nestedScrollingEnabled="false" />
-
+            </LinearLayout>
         </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- 다중 선택 모드 하단 액션 바 -->
+    <LinearLayout
+        android:id="@+id/layout_selection_bottom_bar"
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="20dp"
+        android:background="#1A1A1A"
+        android:elevation="8dp"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/tv_selection_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="0개 선택됨"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_delete_selected"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="삭제하기"
+            android:textColor="#000000"
+            android:textStyle="bold"
+            android:paddingVertical="10dp"
+            android:paddingHorizontal="20dp" />
+
     </LinearLayout>
-</androidx.core.widget.NestedScrollView>
+
+</FrameLayout>

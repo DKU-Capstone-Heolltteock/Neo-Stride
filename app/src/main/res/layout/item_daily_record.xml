@@ -141,4 +141,16 @@
             app:tint="#333333" />
 
     </LinearLayout>
+
+    <!-- 다중 선택 모드 원형 체크 (좌상단 오버레이, 기본 gone) -->
+    <ImageView
+        android:id="@+id/iv_select_circle"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="8dp"
+        android:src="@drawable/ic_just_circle"
+        app:tint="#CCFF00"
+        android:visibility="gone" />
+
 </androidx.cardview.widget.CardView>

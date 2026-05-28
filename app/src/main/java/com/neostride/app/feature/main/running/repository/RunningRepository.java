@@ -146,4 +146,28 @@ public class RunningRepository {
             }
         });
     }
+
+    // 특정 러닝 기록을 삭제하고 결과를 OnResultListener로 반환한다
+    public void deleteRecord(long recordId, OnResultListener<Void> listener) {
+        runningApi.deleteRecord(recordId).enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "기록 삭제 성공! ID: " + recordId);
+                    if (listener != null) listener.onSuccess(null);
+                } else {
+                    String msg = "삭제 실패: " + response.code();
+                    Log.e(TAG, msg);
+                    if (listener != null) listener.onError(msg);
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                String msg = "네트워크 에러: " + t.getMessage();
+                Log.e(TAG, msg, t);
+                if (listener != null) listener.onError(msg);
+            }
+        });
+    }
 }
