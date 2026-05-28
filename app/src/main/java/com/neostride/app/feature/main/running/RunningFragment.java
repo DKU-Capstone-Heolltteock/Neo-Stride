@@ -979,6 +979,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             timerHandler.removeCallbacks(timerRunnable);
             // 멈췄을 때는 '재생' 아이콘으로
             ivPausePlay.setImageResource(R.drawable.ic_play);
+            // 페이스 조작 방지: 일시정지 동안 이동한 거리가 재개 시 lastLocation과의 거리 차이로 누적되는 걸 막는다.
+            //  → lastLocation을 비워두면 재개 후 첫 좌표는 거리 계산 없이 새 기준점으로만 잡힌다(serviceLocationListener의 else 분기).
+            lastLocation = null;
         }
     }
 
