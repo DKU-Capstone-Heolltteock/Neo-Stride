@@ -35,6 +35,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -446,26 +447,52 @@ public class MonthPageFragment extends Fragment {
         Set<Long> idsToDelete = dailyAdapter.getSelectedIds();
         if (idsToDelete.isEmpty()) return;
 
+        // 삭제될 record와 연결된 코칭 plan_day_id 수집
+        //  → 삭제 성공 후 GoalStorage의 해당 plan status를 "completed" → "pending"으로 복원
+        //    (record가 사라졌으니 더 이상 완료 상태가 아님 — 코칭/러닝 탭에도 즉시 반영되어야 함)
+        final Set<Integer> affectedPlanIds = new HashSet<>();
+        for (RunningRecordResponse res : allServerRecords) {
+            if (idsToDelete.contains((long) res.getRunRecordId()) && res.getPlanId() != null) {
+                affectedPlanIds.add(res.getPlanId());
+            }
+        }
+
         final int[] remaining = {idsToDelete.size()};
         for (long recordId : idsToDelete) {
             recordRepository.deleteRecord(recordId, new RunningRepository.OnResultListener<Void>() {
                 @Override
                 public void onSuccess(Void data) {
                     remaining[0]--;
-                    if (remaining[0] == 0) onAllDeleted();
+                    if (remaining[0] == 0) onAllDeleted(affectedPlanIds);
                 }
                 @Override
                 public void onError(String message) {
                     Log.e("NeoStride", "삭제 실패: " + message);
                     remaining[0]--;
-                    if (remaining[0] == 0) onAllDeleted();
+                    if (remaining[0] == 0) onAllDeleted(affectedPlanIds);
                 }
             });
         }
     }
 
-    private void onAllDeleted() {
+    private void onAllDeleted(Set<Integer> affectedPlanIds) {
         if (getActivity() == null) return;
+
+        // 영향받은 plan_day의 status를 GoalStorage에서 "pending"으로 복원
+        //  + AI 피드백, 완료 시간 등 완료 관련 메타데이터도 초기화
+        if (affectedPlanIds != null && !affectedPlanIds.isEmpty() && getContext() != null) {
+            Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+            for (Map.Entry<String, GoalStorage.PlanData> entry : allPlans.entrySet()) {
+                GoalStorage.PlanData plan = entry.getValue();
+                if (plan != null && plan.planId > 0 && affectedPlanIds.contains(plan.planId)) {
+                    plan.status = "pending";
+                    plan.aiFeedbackComment = null;
+                    plan.completedElapsedSec = 0;
+                    GoalStorage.savePlan(requireContext(), entry.getKey(), plan);
+                }
+            }
+        }
+
         getActivity().runOnUiThread(() -> {
             exitSelectionMode();
             fetchMonthDataFromServer();
