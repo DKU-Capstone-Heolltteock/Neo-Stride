@@ -5,6 +5,7 @@ import com.neostride.app.feature.main.running.model.RunningRecordResponse;
 
 import retrofit2.Call;
 import retrofit2.http.Body;
+import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
 import retrofit2.http.Path;
@@ -36,4 +37,8 @@ public interface RunningApi {
     // 특정 기록 ID의 상세 정보 조회
     @GET("/api/running/records/{record_id}")
     Call<RunningRecordResponse> getRecordDetail(@Path("record_id") int recordId);
+
+    // 특정 기록 ID 삭제
+    @DELETE("/api/running/records/{record_id}")
+    Call<Void> deleteRecord(@Path("record_id") long recordId);
 }

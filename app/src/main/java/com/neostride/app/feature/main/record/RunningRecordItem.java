@@ -8,6 +8,7 @@ import java.io.Serializable;
 //  - 날짜·거리·시간·페이스·칼로리와 AI 코칭 여부를 담는다.
 
 public class RunningRecordItem implements Serializable {
+    private long id;
     private String date;
     private String distance;
     private String time;
@@ -17,6 +18,7 @@ public class RunningRecordItem implements Serializable {
     private boolean aiCoaching;
 
     public RunningRecordItem(String date, String distance, String time, String pace, String calories) {
+        this.id = 0;
         this.date = date;
         this.distance = distance;
         this.time = time;
@@ -25,6 +27,8 @@ public class RunningRecordItem implements Serializable {
         this.aiCoaching = false;
     }
 
+    public long getId() { return id; }
+    public void setId(long id) { this.id = id; }
     public String getDate() { return date; }
     public String getDistance() { return distance; }
     public String getTime() { return time; }
