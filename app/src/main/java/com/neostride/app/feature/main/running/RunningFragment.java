@@ -1,7 +1,10 @@
 package com.neostride.app.feature.main.running;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -475,6 +478,17 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         );
 
         Log.d("NeoStride_Backend", "=== 서버 데이터 전송 요청 (등급: " + currentBadge + ") ===");
+        Log.d("NeoStride_Backend", "요청 데이터: user_id=" + currentUserId + ", plan_id=" + planId
+                + ", distance=" + (totalDistanceMeters / 1000f) + "km, duration=" + durationSeconds + "s");
+
+        // 다이얼로그용으로 요청 정보를 effectively final 변수로 캡쳐
+        final int dbgUserId = currentUserId;
+        final Integer dbgPlanId = planId;
+        final float dbgDistanceKm = totalDistanceMeters / 1000f;
+        final int dbgDurationSec = durationSeconds;
+        final boolean dbgIsCoachingRun = isCoachingRun;
+        final Integer dbgTodayPlanServerId = todayPlanServerId;
+
         if (runningRepository != null) {
             runningRepository.saveRunningRecord(request, new RunningRepository.OnResultListener<RunningRecordResponse>() {
                 @Override
@@ -484,9 +498,32 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 @Override
                 public void onError(String message) {
                     Log.e("NeoStride_Backend", "기록 저장 실패: " + message);
-                    if (isAdded()) {
-                        Toast.makeText(requireContext(), "기록 저장 실패: " + message, Toast.LENGTH_LONG).show();
-                    }
+                    if (!isAdded()) return;
+                    // 토스트는 한국어 응답이 길면 잘려서 진단을 못 함 → 다이얼로그로 전체 표시 + 복사 버튼
+                    // 백엔드에 보낼 진단용으로 요청 정보(user_id, plan_id)도 같이 표시
+                    String detail =
+                            "── 서버 응답 ──\n" + message + "\n\n" +
+                            "── 클라이언트가 보낸 요청 ──\n" +
+                            "user_id: " + dbgUserId + "\n" +
+                            "plan_id: " + dbgPlanId + (dbgPlanId == null ? "  (자유 러닝)" : "  (코칭 러닝)") + "\n" +
+                            "isCoachingRun: " + dbgIsCoachingRun + "\n" +
+                            "todayPlanServerId (필드값): " + dbgTodayPlanServerId + "\n" +
+                            "distance: " + String.format(java.util.Locale.KOREA, "%.3fkm", dbgDistanceKm) + "\n" +
+                            "duration: " + dbgDurationSec + "s";
+
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("저장 실패 (디버그)")
+                            .setMessage(detail)
+                            .setPositiveButton("복사", (d, w) -> {
+                                ClipboardManager cm = (ClipboardManager)
+                                        requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                                if (cm != null) {
+                                    cm.setPrimaryClip(ClipData.newPlainText("neo_stride_error", detail));
+                                    Toast.makeText(requireContext(), "복사됨", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .setNegativeButton("닫기", null)
+                            .show();
                 }
             });
         }
@@ -1253,7 +1290,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     public void onHiddenChanged(boolean hidden) {
         super.onHiddenChanged(hidden);
         if (!hidden && !isRunning && !isPreparingToStart && getView() != null) {
-            setupViewPager(getView());
+            setupViewPager(getView( ));
         }
     }
 

@@ -17,6 +17,8 @@ public class GoalStorage {
     private static final String PREF_NAME = "neo_stride_goals";
     private static final String KEY_PLANS = "plans";
     private static final String KEY_HISTORY = "history";
+    // 과거 목표 목록에 일일 plan_day 값이 잘못 저장되던 버그(distanceKm/paceStr 혼동) 정리용 1회성 플래그
+    private static final String KEY_HISTORY_MIGRATION_V1 = "history_migration_v1_done";
     private static Gson gson = new Gson();
 
     private static SharedPreferences getPrefs(Context context) { return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE); }
@@ -48,11 +50,33 @@ public class GoalStorage {
 
     public static void clearAllPlans(Context context) { getPrefs(context).edit().putString(KEY_PLANS, "{}").apply(); }
 
-    // 히스토리 목록 맨 앞에 항목을 추가한다.
+    // 히스토리 목록 맨 앞에 항목을 추가한다. 같은 goalId가 이미 있으면 result만 갱신(중복 방지).
     public static void addHistory(Context context, HistoryItem item) {
         List<HistoryItem> history = getHistory(context);
+        // 동일 goalId 중복 체크 — 있으면 새 result/timestamp로 갱신, 새로 추가하지 않음
+        if (item.goalId != null) {
+            for (int i = 0; i < history.size(); i++) {
+                HistoryItem existing = history.get(i);
+                if (existing != null && item.goalId.equals(existing.goalId)) {
+                    history.set(i, item);
+                    getPrefs(context).edit().putString(KEY_HISTORY, gson.toJson(history)).apply();
+                    return;
+                }
+            }
+        }
         history.add(0, item);
         getPrefs(context).edit().putString(KEY_HISTORY, gson.toJson(history)).apply();
+    }
+
+    // 1회성 마이그레이션: 잘못된 일일 plan_day 값이 박힌 history를 모두 비운다. 새 데이터부터 정상화.
+    //  앱 시작 시(예: CoachingFragment.onCreate) 한 번만 호출하면 된다.
+    public static void migrateHistoryV1IfNeeded(Context context) {
+        SharedPreferences prefs = getPrefs(context);
+        if (prefs.getBoolean(KEY_HISTORY_MIGRATION_V1, false)) return;
+        prefs.edit()
+                .putString(KEY_HISTORY, "[]")
+                .putBoolean(KEY_HISTORY_MIGRATION_V1, true)
+                .apply();
     }
 
     public static List<HistoryItem> getHistory(Context context) {
