@@ -92,6 +92,11 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private FusedLocationProviderClient fusedLocationClient;
     private ActivityResultLauncher<String> locationPermissionLauncher;
 
+    // ── GPS 준비 상태 ──
+    private boolean isGpsReady = false;
+    private List<RunningModeItem> runningModes = new ArrayList<>();
+    private RunningModeAdapter runningModeAdapter;
+
     // ── 레포지터리 ──
     private RunningRepository runningRepository;
     private BadgeRepository badgeRepository;
@@ -108,7 +113,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private LinearLayout layoutResult, layoutRunningControls, layoutCoachingGoals, layoutStopWarning;
     private FrameLayout layoutStartButtons;
     private TextView tvElapsedTime, tvDistance;
-    private TextView tvWarningTitle, tvWarningMessage;
+    private TextView tvWarningTitle, tvWarningMessage, tvWarningStopLabel;
     private ImageView ivPausePlay;
     private TextView tvResultDistance, tvResultTime, tvResultPace;
     private TextView tvGoalDistanceLabel, tvGoalTimeLabel;
@@ -203,7 +208,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                     }
                     // mMap이 아직 null이면 onMapReady()에서 자동 처리됨
 
-                    // 위치 권한 허용 직후 → 배터리 최적화 제외 요청 (한 번만)
+                    // 위치 권한 허용 직후 → GPS 준비 확인 및 배터리 최적화 제외 요청 (한 번만)
+                    startGpsReadinessCheck();
                     requestBatteryOptimizationExemptionOnce();
                 }
         );
@@ -291,7 +297,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         tvDistance = v.findViewById(R.id.tv_distance);
         tvWarningTitle = v.findViewById(R.id.tv_warning_title);
         tvWarningMessage = v.findViewById(R.id.tv_warning_message);
-        ivPausePlay = v.findViewById(R.id.iv_pause_play); // 🌟 새로운 ID와 연결
+        tvWarningStopLabel = v.findViewById(R.id.tv_warning_stop_label);
+        ivPausePlay = v.findViewById(R.id.iv_pause_play);
         tvResultDistance = v.findViewById(R.id.tv_result_distance);
         tvResultTime = v.findViewById(R.id.tv_result_time);
         tvResultPace = v.findViewById(R.id.tv_result_pace);
@@ -339,8 +346,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             runningModePageCallback = null;
         }
 
-        List<RunningModeItem> modes = new ArrayList<>();
-        modes.add(new RunningModeItem("측정 시작", "자유 러닝", 0xFFCCFF00, false));
+        runningModes = new ArrayList<>();
+        // 시작 카드는 GPS 준비 전까지 비활성(회색) 상태로 생성
+        runningModes.add(new RunningModeItem("측정 시작", "자유 러닝", 0xFFCCFF00, false, isGpsReady));
 
         // 오늘 날짜 코칭 목표 확인
         Calendar today = Calendar.getInstance();
@@ -360,18 +368,18 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             }
 
             isCompletedPlan = "completed".equals(plan.status);
-            // 완료 상태면 카드 내용을 "목표 완료 / 코칭 탭에서 확인" 으로 (형광 초록)
-            // 미완료면 기본 "측정 시작 / 오늘의 목표" (오렌지)
+            // 완료 상태면 카드 내용을 "목표 완료 / 코칭 탭에서 확인" 으로 (항상 활성)
+            // 미완료면 기본 "측정 시작 / 오늘의 목표" (GPS 준비 전까지 비활성)
             if (isCompletedPlan) {
-                modes.add(new RunningModeItem("목표 완료", "코칭 탭에서 확인", 0xFFCCFF00, true));
+                runningModes.add(new RunningModeItem("목표 완료", "코칭 탭에서 확인", 0xFFCCFF00, true, true));
             } else {
-                modes.add(new RunningModeItem("측정 시작", "오늘의 목표", 0xFFFF9500, true));
+                runningModes.add(new RunningModeItem("측정 시작", "오늘의 목표", 0xFFFF9500, true, isGpsReady));
             }
         }
 
         // 1. 어댑터 설정 — 완료된 플랜이어도 ViewPager는 살아있어야 좌우 슬라이드 가능
         final boolean planCompleted = isCompletedPlan;
-        viewPagerRunningMode.setAdapter(new RunningModeAdapter(modes, (item, position) -> {
+        runningModeAdapter = new RunningModeAdapter(runningModes, (item, position) -> {
             if (viewPagerRunningMode.getCurrentItem() != position) return;
             // 완료된 코칭 카드(1번)를 누르면 코칭 탭으로 이동
             if (planCompleted && item.isCoaching) {
@@ -380,12 +388,13 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             }
             isCoachingRun = item.isCoaching;
             prepareToStart(); // 카운트다운 + GPS 워밍업 후 startTracking() 자동 호출
-        }));
+        });
+        viewPagerRunningMode.setAdapter(runningModeAdapter);
 
         // 2. 페이지 변경 콜백 설정 — plan 상태는 매번 storage에서 최신값 읽음 (handleGoalCompleted 후에도 대응)
         runningModePageCallback = new ViewPager2.OnPageChangeCallback() {
             @Override public void onPageSelected(int position) {
-                if (modes.get(position).isCoaching) {
+                if (runningModes.get(position).isCoaching) {
                     layoutCoachingGoals.setVisibility(View.VISIBLE);
                     GoalStorage.PlanData currentPlan = todayPlanKey.isEmpty() ? null
                             : GoalStorage.getPlan(requireContext(), todayPlanKey);
@@ -503,13 +512,13 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                     // 백엔드에 보낼 진단용으로 요청 정보(user_id, plan_id)도 같이 표시
                     String detail =
                             "── 서버 응답 ──\n" + message + "\n\n" +
-                            "── 클라이언트가 보낸 요청 ──\n" +
-                            "user_id: " + dbgUserId + "\n" +
-                            "plan_id: " + dbgPlanId + (dbgPlanId == null ? "  (자유 러닝)" : "  (코칭 러닝)") + "\n" +
-                            "isCoachingRun: " + dbgIsCoachingRun + "\n" +
-                            "todayPlanServerId (필드값): " + dbgTodayPlanServerId + "\n" +
-                            "distance: " + String.format(java.util.Locale.KOREA, "%.3fkm", dbgDistanceKm) + "\n" +
-                            "duration: " + dbgDurationSec + "s";
+                                    "── 클라이언트가 보낸 요청 ──\n" +
+                                    "user_id: " + dbgUserId + "\n" +
+                                    "plan_id: " + dbgPlanId + (dbgPlanId == null ? "  (자유 러닝)" : "  (코칭 러닝)") + "\n" +
+                                    "isCoachingRun: " + dbgIsCoachingRun + "\n" +
+                                    "todayPlanServerId (필드값): " + dbgTodayPlanServerId + "\n" +
+                                    "distance: " + String.format(java.util.Locale.KOREA, "%.3fkm", dbgDistanceKm) + "\n" +
+                                    "duration: " + dbgDurationSec + "s";
 
                     new AlertDialog.Builder(requireContext())
                             .setTitle("저장 실패 (디버그)")
@@ -773,7 +782,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private void prepareToStart() {
         if (isPreparingToStart || isRunning) return;
         isPreparingToStart = true;
-        isGpsAcquired = false;
+        // 버튼 활성화 전 GPS 확보가 이미 됐으므로 카운트다운 종료 직후 바로 시작
+        isGpsAcquired = isGpsReady;
         candidateStartLocation = null;
 
         // UI: 시작 카드 숨기고 오버레이 표시
@@ -861,13 +871,12 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     }
 
     // ─── 러닝 시작: 상태 초기화, 즉시 알림 표시, 타이머·GPS 시작 ───
-    //  카운트다운에서 확보한 candidateStartLocation을 lastLocation 기준점으로 사용 →
-    //  startTracking 직후 첫 콜백부터 distanceTo() 누적 가능 (초반 0m 공백 제거)
     private void startTracking() {
         isRunning = true; isPaused = false; totalDistanceMeters = 0f;
         alreadySentToBackend = false; // 새 측정 시작 → 전송 플래그 초기화
-        // 카운트다운 중 확보한 좌표가 있으면 기준점으로 사용 (없으면 null로 시작 — 기존 동작)
-        lastLocation = candidateStartLocation;
+        // 기준점은 null로 시작 — 화면이 보인 이후 첫 GPS 수신 시점을 기준점으로 삼아
+        // 카운트다운 중 GPS 오차(jitter)가 거리로 잡히는 문제를 방지
+        lastLocation = null;
         candidateStartLocation = null;
         routePoints.clear(); routeTimestamps.clear(); segmentPaces.clear();
         pausedDuration = 0; paceThresholdsSet = false;
@@ -998,12 +1007,14 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             if (tvWarningTitle != null) tvWarningTitle.setText("코칭 중단 경고");
             if (tvWarningMessage != null) tvWarningMessage.setText(
                     "목표 거리를 달성하지 못했습니다.\n지금 중단하면 오늘의 코칭 기록이\n저장되지 않습니다.");
+            if (tvWarningStopLabel != null) tvWarningStopLabel.setText("중단");
         } else {
             // 자유 러닝 또는 코칭 달성 후 — 단순 종료 확인 (기록 저장 O)
             pendingShowResultOnStop = true;
             if (tvWarningTitle != null) tvWarningTitle.setText("측정 종료");
             if (tvWarningMessage != null) tvWarningMessage.setText(
-                    "정말 측정을 종료하시겠습니까?\n지금까지의 기록은 저장됩니다.");
+                    "정말 측정을 종료하시겠습니까?");
+            if (tvWarningStopLabel != null) tvWarningStopLabel.setText("종료");
         }
 
         if (!isPaused) togglePause();            // 경고창 띄우는 동안 잠시 정지
@@ -1178,6 +1189,11 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
         // 10m 미만이면 결과 화면 없이 바로 초기화
         if (totalDistanceMeters < 10f) {
+            if (isAdded()) {
+                Toast.makeText(requireContext(),
+                        "이동 거리가 10m 미만이라 기록이 저장되지 않았습니다.",
+                        Toast.LENGTH_SHORT).show();
+            }
             resetToReady();
             return;
         }
@@ -1268,9 +1284,58 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 try { mMap.setMyLocationEnabled(true); } catch (SecurityException ignored) {}
                 moveToCurrentLocation(false);
             }
+            startGpsReadinessCheck();
         }
         // 권한 없을 때는 onCreateView()의 locationPermissionLauncher가 이미 요청함
         // → 허용되면 런처 콜백에서 즉시 지도 갱신
+    }
+
+    // ─── GPS 신호 수신 여부를 확인해 버튼 활성화 ───
+    // 캐시된 위치가 있으면 즉시 활성화, 없으면 첫 좌표가 올 때까지 대기
+    @SuppressWarnings("MissingPermission")
+    private void startGpsReadinessCheck() {
+        if (isGpsReady || !isAdded()) return;
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) return;
+
+        // 1차: 캐시된 마지막 위치로 즉시 확인
+        fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
+            if (!isAdded()) return;
+            if (location != null) {
+                onGpsReady();
+            } else {
+                // 2차: 실시간 업데이트 요청 — 첫 좌표 수신 시 활성화
+                com.google.android.gms.location.LocationRequest request =
+                        new com.google.android.gms.location.LocationRequest.Builder(
+                                Priority.PRIORITY_HIGH_ACCURACY, 1000)
+                                .setMinUpdateIntervalMillis(500)
+                                .setMaxUpdates(1)
+                                .build();
+                fusedLocationClient.requestLocationUpdates(request,
+                        new com.google.android.gms.location.LocationCallback() {
+                            @Override
+                            public void onLocationResult(
+                                    @NonNull com.google.android.gms.location.LocationResult result) {
+                                if (result.getLastLocation() != null && isAdded()) {
+                                    requireActivity().runOnUiThread(() -> onGpsReady());
+                                }
+                            }
+                        }, android.os.Looper.getMainLooper());
+            }
+        });
+    }
+
+    // ─── GPS 확보 완료: 모든 시작 카드 활성화 ───
+    private void onGpsReady() {
+        if (isGpsReady || !isAdded()) return;
+        isGpsReady = true;
+        for (RunningModeItem mode : runningModes) {
+            // 완료된 코칭 카드("목표 완료")는 항상 활성이므로 건드리지 않음
+            if (!("목표 완료".equals(mode.title))) {
+                mode.isEnabled = true;
+            }
+        }
+        if (runningModeAdapter != null) runningModeAdapter.notifyDataSetChanged();
     }
 
     // ─── 현재 위치를 1회 조회해 지도 카메라를 이동 (isAnimate=true이면 애니메이션) ───
@@ -1293,7 +1358,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     public void onHiddenChanged(boolean hidden) {
         super.onHiddenChanged(hidden);
         if (!hidden && !isRunning && !isPreparingToStart && getView() != null) {
-            setupViewPager(getView( ));
+            setupViewPager(getView());
         }
     }
 

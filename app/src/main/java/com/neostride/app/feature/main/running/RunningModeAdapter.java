@@ -39,9 +39,20 @@ public class RunningModeAdapter extends RecyclerView.Adapter<RunningModeAdapter.
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         RunningModeItem item = items.get(position);
         holder.tvTitle.setText(item.title);
-        holder.tvSubtitle.setText(item.subtitle);
-        holder.cardMode.setCardBackgroundColor(item.bgColor);
-        holder.cardMode.setOnClickListener(v -> listener.onItemClick(item, position));
+
+        if (item.isEnabled) {
+            holder.tvSubtitle.setText(item.subtitle);
+            holder.cardMode.setCardBackgroundColor(item.bgColor);
+            holder.tvTitle.setTextColor(0xFF000000);
+            holder.tvSubtitle.setTextColor(0xFF000000);
+            holder.cardMode.setOnClickListener(v -> listener.onItemClick(item, position));
+        } else {
+            holder.tvSubtitle.setText("GPS 확인 중...");
+            holder.cardMode.setCardBackgroundColor(0xFF3A3A3A);
+            holder.tvTitle.setTextColor(0xFF888888);
+            holder.tvSubtitle.setTextColor(0xFF666666);
+            holder.cardMode.setOnClickListener(null);
+        }
     }
 
     @Override
