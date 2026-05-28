@@ -450,12 +450,14 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         if (alreadySentToBackend) return;
         alreadySentToBackend = true;
 
-        // 1. GpsTraceRequest 리스트 조립
+        // 1. GpsTraceRequest 리스트 조립 — 일시정지 마커(null)는 서버 전송에서 제외
         List<GpsTraceRequest> traces = new ArrayList<>();
         for (int i = 0; i < routePoints.size(); i++) {
+            LatLng p = routePoints.get(i);
+            if (p == null) continue; // 일시정지 단절 마커
             traces.add(new GpsTraceRequest(
-                    routePoints.get(i).latitude,
-                    routePoints.get(i).longitude,
+                    p.latitude,
+                    p.longitude,
                     routeTimestamps.get(i)
             ));
         }
@@ -704,11 +706,13 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     }
 
     // ─── 지도를 초기화하고 구간별 페이스 색상 폴리라인을 전체 재그림 ───
+    //  null은 일시정지 마커이므로 해당 구간은 polyline을 그리지 않는다 (세그먼트 단절).
     private void drawColoredRoute() {
         if (mMap == null || routePoints.size() < 2) return;
         mMap.clear();
         for (int i = 0; i < routePoints.size() - 1; i++) {
             LatLng from = routePoints.get(i); LatLng to = routePoints.get(i + 1);
+            if (from == null || to == null) continue; // 일시정지 구간은 단절 — polyline 안 그림
             int color = (i < segmentPaces.size()) ? getPaceColor(segmentPaces.get(i)) : COLOR_NORMAL;
             mMap.addPolyline(new PolylineOptions()
                     .add(from, to)
@@ -991,6 +995,11 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
             // 페이스 조작 방지: 일시정지 동안 이동한 거리가 재개 시 lastLocation과의 거리 차이로 누적되는 걸 막는다.
             //  → lastLocation을 비워두면 재개 후 첫 좌표는 거리 계산 없이 새 기준점으로만 잡힌다(serviceLocationListener의 else 분기).
             lastLocation = null;
+            // polyline 세그먼트 단절 마커: drawColoredRoute / sendDataToBackend 의 traces 모두 null을 skip하여
+            //  일시정지 전 마지막 좌표와 재개 후 첫 좌표가 직선으로 연결되지 않게 한다.
+            routePoints.add(null);
+            routeTimestamps.add(null);
+            if (mMap != null) drawColoredRoute(); // 일시정지 즉시 시각화에 단절 반영
         }
     }
 

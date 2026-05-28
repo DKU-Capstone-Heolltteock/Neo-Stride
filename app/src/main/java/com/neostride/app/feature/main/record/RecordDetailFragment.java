@@ -288,6 +288,9 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
     }
 
     // ─── GPS 포인트 쌍마다 페이스를 계산해 페이스 색상 폴리라인을 지도에 그림 ───
+    //  연속된 두 좌표의 시간 차가 PAUSE_GAP_MS를 초과하면 일시정지로 보고 polyline을 끊는다
+    //  (서버에는 일시정지 마커가 따로 저장되지 않아 시간 갭으로 추정).
+    private static final long PAUSE_GAP_MS = 10_000L; // 10초 이상 갭이면 일시정지로 간주
     private void drawFullRoute(List<GpsTraceRequest> path) {
         if (path.size() < 2) return;
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
@@ -296,8 +299,16 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
             GpsTraceRequest p2 = path.get(i + 1);
             LatLng from = new LatLng(p1.getLatitude(), p1.getLongitude());
             LatLng to   = new LatLng(p2.getLatitude(), p2.getLongitude());
+
+            long timeMs = parseIsoTime(p2.getTime()) - parseIsoTime(p1.getTime());
+            // 일시정지 추정 구간: polyline은 안 그리지만 카메라 범위에는 포함시켜 양쪽 경로 모두 보이게 함
+            if (timeMs > PAUSE_GAP_MS) {
+                builder.include(from); builder.include(to);
+                continue;
+            }
+
             double dist = distanceBetween(p1.getLatitude(), p1.getLongitude(), p2.getLatitude(), p2.getLongitude());
-            long   time = (parseIsoTime(p2.getTime()) - parseIsoTime(p1.getTime())) / 1000;
+            long time = timeMs / 1000;
             int color = COLOR_NORMAL;
             if (dist > 0 && time > 0) color = getPaceColor((float) ((time / 60.0) / dist));
             mMap.addPolyline(new PolylineOptions().add(from, to).width(14f).color(color).geodesic(true).jointType(JointType.ROUND));

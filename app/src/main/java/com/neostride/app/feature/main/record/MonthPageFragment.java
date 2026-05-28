@@ -65,6 +65,8 @@ public class MonthPageFragment extends Fragment {
     // ── AI 달성도 그래프 섹션 뷰 ──
     private LinearLayout layoutAiGoalAchievement, layoutAiGraphContent;
     private TextView tvGraphGoalInfo;
+    private TextView tvNoAiGoal;
+    private TextView tvNoTodayRecord;
     private ImageView ivAiGraphArrow;
     private View btnToggleAiGraph;
 
@@ -102,6 +104,8 @@ public class MonthPageFragment extends Fragment {
         layoutAiGoalAchievement = view.findViewById(R.id.layout_ai_goal_achievement);
         layoutAiGraphContent    = view.findViewById(R.id.layout_ai_graph_content);
         tvGraphGoalInfo         = view.findViewById(R.id.tv_graph_goal_info);
+        tvNoAiGoal              = view.findViewById(R.id.tv_no_ai_goal);
+        tvNoTodayRecord         = view.findViewById(R.id.tv_no_today_record);
         ivAiGraphArrow          = view.findViewById(R.id.iv_ai_graph_arrow);
         btnToggleAiGraph        = view.findViewById(R.id.btn_toggle_ai_graph);
         ivAiGraphArrow.setRotation(180f);
@@ -311,13 +315,18 @@ public class MonthPageFragment extends Fragment {
         Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
         if (allPlans != null && !allPlans.isEmpty()) {
             layoutAiGoalAchievement.setVisibility(View.VISIBLE);
+            if (tvNoAiGoal != null) tvNoAiGoal.setVisibility(View.GONE);
             GoalStorage.PlanData baseGoal = allPlans.values().iterator().next();
             // 전체 코칭 기간의 최종 목표 거리 표시 (고정값)
             tvGraphGoalInfo.setText(String.format(Locale.KOREA, "• 설정한 목표 거리 : %.2fkm", baseGoal.totalGoalDistanceKm));
             setupPaceChart(baseGoal.totalGoalPaceStr);
-            if (!allServerRecords.isEmpty()) updateLineChart(allServerRecords);
+            // records가 비어도 호출 — 그래프에 점선만 그리고 "금일 달린 기록이 없습니다" 안내 토글
+            updateLineChart(allServerRecords);
         } else {
+            // 활성 코칭 목표 없음 → 그래프 영역 + 안내 카드 모두 숨김 (사용자 요청 — 빈 안내 카드 제거)
             layoutAiGoalAchievement.setVisibility(View.GONE);
+            if (tvNoAiGoal != null) tvNoAiGoal.setVisibility(View.GONE);
+            // "금일 달린 기록이 없습니다" 안내는 그래프 영역 안쪽에 있으므로 같이 숨겨짐.
         }
     }
 
@@ -391,6 +400,16 @@ public class MonthPageFragment extends Fragment {
             finalGoalDist = allPlans.values().iterator().next().totalGoalDistanceKm;
         }
 
+        // 현재 활성 goal의 plan_day_id 집합 — 이걸로 record를 정확히 매칭 (날짜만으로는 부족)
+        //  예: 이전 goal에서 같은 날짜에 측정한 record는 dateKey가 활성 plan과 겹쳐서 통과해버림.
+        //  record.getPlanId()로 활성 goal의 plan_day_id 중 하나와 정확히 매칭되는 경우만 그래프에 포함.
+        java.util.Set<Integer> activePlanDayIds = new java.util.HashSet<>();
+        if (allPlans != null) {
+            for (GoalStorage.PlanData p : allPlans.values()) {
+                if (p != null && p.planId > 0) activePlanDayIds.add(p.planId);
+            }
+        }
+
         // 날짜별로 그룹화 — 하루에 점 1개 (달성한 기록 우선, 없으면 마지막 기록)
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
         java.util.LinkedHashMap<String, RunningRecordResponse> dailyBestMap = new java.util.LinkedHashMap<>();
@@ -398,14 +417,18 @@ public class MonthPageFragment extends Fragment {
 
         for (RunningRecordResponse res : records) {
             if (res.getPlanId() == null) continue;
+            // record의 plan_id가 현재 활성 goal의 plan_day_id 중 하나와 일치해야 함 (이전 goal record 제외)
+            if (!activePlanDayIds.contains(res.getPlanId())) continue;
             try {
                 LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).toLocalDate();
                 if (!YearMonth.from(resDate).equals(displayMonth)) continue;
                 String dateKey = resDate.getYear() + "-" + resDate.getMonthValue() + "-" + resDate.getDayOfMonth();
 
                 GoalStorage.PlanData plan = allPlans != null ? allPlans.get(dateKey) : null;
-                float dailyTarget = plan != null ? plan.distanceKm : 0f;
-                int dailyPaceSec = plan != null ? plan.paceSecPerKm : 0;
+                // 이중 안전망: dateKey 기준으로도 활성 plan이 있어야 함 (위 plan_id 매칭으로 보통 충족됨)
+                if (plan == null) continue;
+                float dailyTarget = plan.distanceKm;
+                int dailyPaceSec = plan.paceSecPerKm;
 
                 // 이미 달성한 기록이 있으면 덮어쓰지 않음, 없으면 최신 기록으로 업데이트
                 boolean alreadyAchieved = false;
@@ -432,6 +455,23 @@ public class MonthPageFragment extends Fragment {
         if (chartView != null) {
             chartView.setFinalGoalDistance(finalGoalDist);
             chartView.setData(coachingRecords, targetList);
+        }
+
+        // 그래프 하단 "아직 뛴 기록이 없습니다" 안내 토글
+        //  - 활성 goal이 있는데 그 goal에 대한 measurement record가 한 건도 없을 때만 표시 (첫날/시작 직후)
+        //  - record가 하나라도 쌓이면 — 보고 있는 월에 기록이 없어도 — 메시지 표시 안 함
+        if (tvNoTodayRecord != null) {
+            boolean hasActiveGoal = allPlans != null && !allPlans.isEmpty();
+            boolean hasAnyRecordForActiveGoal = false;
+            if (hasActiveGoal) {
+                for (RunningRecordResponse r : records) {
+                    if (r.getPlanId() != null && activePlanDayIds.contains(r.getPlanId())) {
+                        hasAnyRecordForActiveGoal = true;
+                        break;
+                    }
+                }
+            }
+            tvNoTodayRecord.setVisibility((hasActiveGoal && !hasAnyRecordForActiveGoal) ? View.VISIBLE : View.GONE);
         }
     }
 }

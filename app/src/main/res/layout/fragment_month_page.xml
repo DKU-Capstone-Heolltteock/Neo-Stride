@@ -103,8 +103,35 @@
                             android:layout_marginHorizontal="0dp" />
 
                     </RelativeLayout>
+
+                    <!-- 활성 goal에 대한 측정 기록이 하나도 없을 때 그래프 하단에 표시되는 안내 -->
+                    <TextView
+                        android:id="@+id/tv_no_today_record"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:gravity="center"
+                        android:text="아직 뛴 기록이 없습니다"
+                        android:textColor="#888888"
+                        android:textSize="12sp"
+                        android:visibility="gone" />
                 </LinearLayout>
             </LinearLayout>
+
+            <!-- 활성 코칭 목표가 없을 때 표시되는 안내 카드 (위 layout_ai_goal_achievement와 토글) -->
+            <TextView
+                android:id="@+id/tv_no_ai_goal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="5dp"
+                android:background="@drawable/bg_detail_btn"
+                android:gravity="center"
+                android:paddingVertical="20dp"
+                android:paddingHorizontal="16dp"
+                android:text="AI 목표가 없습니다"
+                android:textColor="#888888"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
