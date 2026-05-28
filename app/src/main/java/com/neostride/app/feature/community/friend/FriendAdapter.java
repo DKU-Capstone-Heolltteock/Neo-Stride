@@ -34,7 +34,7 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
 
     // 항목 전체 클릭 콜백 (러너 페이지 이동용)
     public interface OnItemClickListener {
-        void onItemClick(int userId, String nickname);
+        void onItemClick(int userId, String nickname, String status);
     }
 
     private List<FriendResponse> friendList = new ArrayList<>();
@@ -255,7 +255,7 @@ public class FriendAdapter extends RecyclerView.Adapter<FriendAdapter.FriendView
 
         // 5. 아이템 전체 클릭 → 러너 페이지
         holder.itemView.setOnClickListener(v -> {
-            if (itemClickListener != null) itemClickListener.onItemClick(item.userId, item.nickname);
+            if (itemClickListener != null) itemClickListener.onItemClick(item.userId, item.nickname, resolvedStatus);
         });
 
         // 6. 버튼 클릭 리스너 (버튼은 별도 처리, 이벤트 전파 차단)

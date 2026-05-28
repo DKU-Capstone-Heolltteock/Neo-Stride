@@ -9,16 +9,27 @@ public class TokenManager {
     private static final String KEY_REFRESH_TOKEN = "refresh_token";
     private static final String KEY_USER_ID = "user_id";
     private static final String KEY_NICKNAME = "nickname";
+    private static final String KEY_KEEP_LOGIN = "keep_login";
 
     private static SharedPreferences getPrefs(Context context) {
         return context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
     }
 
-    // ── 토큰 저장 (로그인 성공 시 호출) ──
+    // ── 토큰 저장 (로그인 유지 체크 시 호출 — refreshToken + keep_login 플래그 포함) ──
     public static void saveTokens(Context context, String accessToken, String refreshToken) {
         getPrefs(context).edit()
                 .putString(KEY_ACCESS_TOKEN, accessToken)
                 .putString(KEY_REFRESH_TOKEN, refreshToken)
+                .putBoolean(KEY_KEEP_LOGIN, true)
+                .apply();
+    }
+
+    // ── 세션 토큰만 저장 (로그인 유지 미체크 시 — refreshToken은 저장하지 않음) ──
+    public static void saveSessionToken(Context context, String accessToken) {
+        getPrefs(context).edit()
+                .putString(KEY_ACCESS_TOKEN, accessToken)
+                .remove(KEY_REFRESH_TOKEN)
+                .putBoolean(KEY_KEEP_LOGIN, false)
                 .apply();
     }
 
@@ -28,6 +39,11 @@ public class TokenManager {
                 .putLong(KEY_USER_ID, userId)
                 .putString(KEY_NICKNAME, nickname)
                 .apply();
+    }
+
+    // ── 로그인 유지 여부 ──
+    public static boolean isKeepLogin(Context context) {
+        return getPrefs(context).getBoolean(KEY_KEEP_LOGIN, false);
     }
 
     // ── 조회 ──

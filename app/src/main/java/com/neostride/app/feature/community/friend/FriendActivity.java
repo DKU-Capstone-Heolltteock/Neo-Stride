@@ -84,11 +84,11 @@ public class FriendActivity extends AppCompatActivity {
                 });
             });
         });
-        adapter.setOnItemClickListener((userId, nickname) -> {
+        adapter.setOnItemClickListener((userId, nickname, status) -> {
             Intent intent = new Intent(this, RunnerPageActivity.class);
             intent.putExtra("user_id", userId);
             intent.putExtra("nickname", nickname);
-            intent.putExtra("friendship_status", statusKeys[getCurrentTabIndex()]);
+            intent.putExtra("friendship_status", status);
             startActivity(intent);
         });
         rvFriends.setAdapter(adapter);

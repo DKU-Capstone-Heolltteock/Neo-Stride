@@ -179,10 +179,11 @@ public class RunnerFriendListActivity extends AppCompatActivity {
         // 친구인 경우: 상대방의 친구 목록 로드
         rvRunnerFriends.setLayoutManager(new LinearLayoutManager(this));
         adapter = new FriendAdapter();
-        adapter.setOnItemClickListener((userId, nick) -> {
+        adapter.setOnItemClickListener((userId, nick, status) -> {
             Intent intent = new Intent(this, RunnerPageActivity.class);
             intent.putExtra("user_id", userId);
             intent.putExtra("nickname", nick);
+            intent.putExtra("friendship_status", status);
             startActivity(intent);
         });
         // 액션 버튼 표시 없이 순수 목록만 (친구목록 탭 스타일)
@@ -198,8 +199,12 @@ public class RunnerFriendListActivity extends AppCompatActivity {
             }
             friendRepository.updateStatus(new FriendRequest(userId, action), success -> {
                 runOnUiThread(() -> {
-                    Toast.makeText(this, toastMsg, Toast.LENGTH_SHORT).show();
-                    if (success) adapter.updateItemStatus(userId, newStatus);
+                    if (success) {
+                        adapter.updateItemStatus(userId, newStatus);
+                        Toast.makeText(this, toastMsg, Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "처리에 실패했습니다.", Toast.LENGTH_SHORT).show();
+                    }
                 });
             });
         });

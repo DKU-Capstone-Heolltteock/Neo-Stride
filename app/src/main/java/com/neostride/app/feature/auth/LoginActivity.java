@@ -44,10 +44,8 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 로그인 유지 상태라면 로그인 화면을 건너뛰고 메인 화면으로 이동함
-        String accessToken = TokenManager.getAccessToken(this);
-
-        if (accessToken != null && !accessToken.isEmpty()) {
+        // 로그인 유지 체크 상태에서만 자동 로그인
+        if (TokenManager.isKeepLogin(this) && !TokenManager.getAccessToken(this).isEmpty()) {
             Intent intent = new Intent(LoginActivity.this, MainActivity.class);
             startActivity(intent);
             finish();
@@ -130,22 +128,28 @@ public class LoginActivity extends AppCompatActivity {
                     Log.d("LOGIN", "로그인 성공");
                     Log.d("LOGIN", "User ID: " + loginResponse.getUserId());
 
-                    // 로그인 유지 체크 시에만 토큰과 유저 정보를 저장함
+                    // 유저 정보와 accessToken은 항상 저장 (현재 세션 API 호출에 필요)
+                    // refreshToken은 로그인 유지 체크 시에만 저장 (다음 앱 실행 자동 로그인용)
                     if (keepLogin) {
                         TokenManager.saveTokens(
                                 LoginActivity.this,
                                 loginResponse.getAccessToken(),
                                 loginResponse.getRefreshToken()
                         );
-
-                        TokenManager.saveUserInfo(
+                    } else {
+                        TokenManager.saveSessionToken(
                                 LoginActivity.this,
-                                loginResponse.getUserId(),
-                                loginResponse.getNickname()
+                                loginResponse.getAccessToken()
                         );
-
-                        Log.d("LOGIN", "TokenManager 저장 완료");
                     }
+
+                    TokenManager.saveUserInfo(
+                            LoginActivity.this,
+                            loginResponse.getUserId(),
+                            loginResponse.getNickname()
+                    );
+
+                    Log.d("LOGIN", "TokenManager 저장 완료");
 
                     Toast.makeText(LoginActivity.this, "로그인 성공", Toast.LENGTH_SHORT).show();
 
