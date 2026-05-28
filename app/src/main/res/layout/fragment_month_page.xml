@@ -278,14 +278,37 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <TextView
-                android:id="@+id/tv_selected_date"
-                android:layout_width="wrap_content"
+            <!-- 날짜 헤더 + ··· 버튼 (다중 선택 모드 진입) -->
+            <LinearLayout
+                android:id="@+id/layout_date_header"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginBottom="12dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tv_selected_date"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_more_options"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="···"
+                    android:textColor="#888888"
+                    android:textSize="20sp"
+                    android:padding="8dp"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/tv_no_record"
