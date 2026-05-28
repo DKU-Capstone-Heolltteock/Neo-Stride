@@ -19,11 +19,14 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
 import com.bumptech.glide.Glide;
 import com.neostride.app.BuildConfig;
@@ -55,6 +58,17 @@ public class MainActivity extends AppCompatActivity {
     private View badgeNotification;
     private MyPageRepository myPageRepository;
 
+    // ── 보존된 Fragment 인스턴스 (탭 전환 시 hide/show로 재사용) ──
+    //  - 측정 중 다른 탭 갔다 와도 RunningFragment 인스턴스·view·상태가 살아있도록 함
+    //  - CommunityActivity는 별도 Activity라 해당 사항 없음
+    private RunningFragment runningFragment;
+    private RecordFragment recordFragment;
+    private CoachingFragment coachingFragment;
+    private Fragment activeFragment;
+    private static final String TAG_RUNNING  = "f_running";
+    private static final String TAG_RECORD   = "f_record";
+    private static final String TAG_COACHING = "f_coaching";
+
     // 알림 권한 요청 런처임
     private final ActivityResultLauncher<String> notificationPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
@@ -81,22 +95,42 @@ public class MainActivity extends AppCompatActivity {
             String moveTo = getIntent().getStringExtra("move_to");
             String recordMode = getIntent().getStringExtra("record_mode");
 
-            if ("record".equals(moveTo)) {
-                RecordFragment recordFragment = new RecordFragment();
-
-                Bundle bundle = new Bundle();
-                bundle.putString("record_mode", recordMode);
-                recordFragment.setArguments(bundle);
-
-                replaceFragment(recordFragment);
-                updateTabUI("record");
-            } else {
-                replaceFragment(new RunningFragment());
+            // 모든 Fragment를 한 번에 add + hide 후 초기 탭만 show
+            setupFragments("record".equals(moveTo) ? "record" : "running", recordMode);
+            updateTabUI("record".equals(moveTo) ? "record" : "running");
+        } else {
+            // 시스템 재생성 시 — FragmentManager가 자동 복원한 인스턴스 재참조
+            FragmentManager fm = getSupportFragmentManager();
+            runningFragment  = (RunningFragment)  fm.findFragmentByTag(TAG_RUNNING);
+            recordFragment   = (RecordFragment)   fm.findFragmentByTag(TAG_RECORD);
+            coachingFragment = (CoachingFragment) fm.findFragmentByTag(TAG_COACHING);
+            // 복원이 어떤 이유로든 실패하면 새로 만들어 폴백
+            if (runningFragment == null || recordFragment == null || coachingFragment == null) {
+                setupFragments("running", null);
                 updateTabUI("running");
+            } else {
+                // 보이고 있던 fragment를 activeFragment로 재설정
+                if (recordFragment.isVisible())        activeFragment = recordFragment;
+                else if (coachingFragment.isVisible()) activeFragment = coachingFragment;
+                else                                   activeFragment = runningFragment;
             }
         }
 
         setTabListeners();
+
+        // 뒤로가기 인터셉트 — 종료 확인 다이얼로그 표시 (측정 중이면 경고 문구 포함)
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // 상세 화면 등 백스택에 쌓인 fragment가 있으면 먼저 pop, 그 다음에 종료 다이얼로그
+                FragmentManager fm = getSupportFragmentManager();
+                if (fm.getBackStackEntryCount() > 0) {
+                    fm.popBackStack();
+                    return;
+                }
+                showExitConfirmDialog();
+            }
+        });
     }
 
     @Override
@@ -138,17 +172,17 @@ public class MainActivity extends AppCompatActivity {
 
     private void setTabListeners() {
         tabRunning.setOnClickListener(v -> {
-            replaceFragment(new RunningFragment());
+            showFragment(runningFragment);
             updateTabUI("running");
         });
 
         tabRecord.setOnClickListener(v -> {
-            replaceFragment(new RecordFragment());
+            showFragment(recordFragment);
             updateTabUI("record");
         });
 
         tabCoaching.setOnClickListener(v -> {
-            replaceFragment(new CoachingFragment());
+            showFragment(coachingFragment);
             updateTabUI("coaching");
         });
 
@@ -206,6 +240,115 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, MyPageActivity.class);
             startActivity(intent);
         });
+    }
+
+    // ─── 앱 종료 확인 다이얼로그 (뒤로가기 시 호출) ───
+    //  측정/카운트다운 진행 중이면 추가 경고 문구 표시
+    private void showExitConfirmDialog() {
+        boolean tracking = runningFragment != null && runningFragment.hasActiveTracking();
+
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+
+        int p = dp(24);
+        root.setPadding(p, p, p, dp(20));
+        root.setBackgroundResource(R.drawable.bg_popup_red_border);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText("앱 종료");
+        tvTitle.setTextColor(0xFFFF3B30);
+        tvTitle.setTextSize(18);
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        root.addView(tvTitle);
+
+        TextView tvMsg = new TextView(this);
+        if (tracking) {
+            tvMsg.setText("측정 중인 기록이 있습니다.\n지금 종료하면 측정 기록이 삭제됩니다.\n정말 종료하시겠습니까?");
+        } else {
+            tvMsg.setText("정말 앱을 종료하시겠습니까?");
+        }
+        tvMsg.setTextColor(0xFF888888);
+        tvMsg.setTextSize(15);
+        tvMsg.setLineSpacing(dp(4), 1f);
+
+        LinearLayout.LayoutParams msgP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        msgP.topMargin = dp(16);
+        tvMsg.setLayoutParams(msgP);
+        root.addView(tvMsg);
+
+        View divider = new View(this);
+        divider.setBackgroundColor(0xFF333333);
+
+        LinearLayout.LayoutParams divP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(1)
+        );
+        divP.topMargin = dp(20);
+        divider.setLayoutParams(divP);
+        root.addView(divider);
+
+        LinearLayout btnRow = new LinearLayout(this);
+        btnRow.setOrientation(LinearLayout.HORIZONTAL);
+        btnRow.setGravity(Gravity.END);
+
+        LinearLayout.LayoutParams brP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        brP.topMargin = dp(16);
+        btnRow.setLayoutParams(brP);
+
+        TextView btnCancel = new TextView(this);
+        btnCancel.setText("취소");
+        btnCancel.setTextColor(0xFF888888);
+        btnCancel.setPadding(dp(16), dp(10), dp(16), dp(10));
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+        btnRow.addView(btnCancel);
+
+        TextView btnConfirm = new TextView(this);
+        btnConfirm.setText("종료");
+        btnConfirm.setTextColor(Color.BLACK);
+        btnConfirm.setTypeface(null, android.graphics.Typeface.BOLD);
+        btnConfirm.setPadding(dp(20), dp(10), dp(20), dp(10));
+
+        GradientDrawable confirmBg = new GradientDrawable();
+        confirmBg.setCornerRadius(dp(20));
+        confirmBg.setColor(0xFFFF3B30);
+        btnConfirm.setBackground(confirmBg);
+
+        LinearLayout.LayoutParams confirmP = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        confirmP.setMarginStart(dp(8));
+        btnConfirm.setLayoutParams(confirmP);
+
+        btnConfirm.setOnClickListener(v -> {
+            dialog.dismiss();
+            finish(); // 액티비티 종료 — 측정 중이었다면 onDestroy 흐름으로 서비스도 정리됨
+        });
+
+        btnRow.addView(btnConfirm);
+        root.addView(btnRow);
+
+        dialog.setContentView(root);
+
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            window.setLayout(
+                    (int) (getResources().getDisplayMetrics().widthPixels * 0.85),
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+        }
+
+        dialog.show();
     }
 
     private void showLogoutConfirmDialog() {
@@ -384,12 +527,12 @@ public class MainActivity extends AppCompatActivity {
 
                 final String finalUrl = photo;
                 runOnUiThread(() ->
-                    Glide.with(MainActivity.this)
-                            .load(finalUrl)
-                            .circleCrop()
-                            .placeholder(R.drawable.ic_profile)
-                            .error(R.drawable.ic_profile)
-                            .into(btnProfile)
+                        Glide.with(MainActivity.this)
+                                .load(finalUrl)
+                                .circleCrop()
+                                .placeholder(R.drawable.ic_profile)
+                                .error(R.drawable.ic_profile)
+                                .into(btnProfile)
                 );
             }
 
@@ -400,11 +543,57 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void replaceFragment(Fragment fragment) {
-        getSupportFragmentManager()
-                .beginTransaction()
-                .replace(R.id.fragment_container, fragment)
-                .commit();
+    // ─── 모든 Fragment를 컨테이너에 add + hide 후 초기 탭만 show (최초 onCreate에서 1회) ───
+    //  - initialTab: "running" | "record" | "coaching"
+    //  - recordMode: 외부 인텐트로 record 탭으로 진입할 때 전달되는 부가 정보 (없으면 null)
+    private void setupFragments(String initialTab, String recordMode) {
+        runningFragment  = new RunningFragment();
+        recordFragment   = new RecordFragment();
+        coachingFragment = new CoachingFragment();
+
+        // RecordFragment 초기 진입 시 record_mode 전달
+        if ("record".equals(initialTab) && recordMode != null) {
+            Bundle bundle = new Bundle();
+            bundle.putString("record_mode", recordMode);
+            recordFragment.setArguments(bundle);
+        }
+
+        FragmentTransaction tx = getSupportFragmentManager().beginTransaction();
+        tx.add(R.id.fragment_container, runningFragment,  TAG_RUNNING).hide(runningFragment);
+        tx.add(R.id.fragment_container, recordFragment,   TAG_RECORD).hide(recordFragment);
+        tx.add(R.id.fragment_container, coachingFragment, TAG_COACHING).hide(coachingFragment);
+
+        // 초기 탭만 show
+        Fragment initial;
+        switch (initialTab) {
+            case "record":   initial = recordFragment;   break;
+            case "coaching": initial = coachingFragment; break;
+            default:         initial = runningFragment;  break;
+        }
+        tx.show(initial);
+        tx.commit();
+        activeFragment = initial;
+    }
+
+    // ─── 탭 전환: 현재 보이는 fragment를 hide하고 target을 show (인스턴스·view·상태 보존) ───
+    private void showFragment(Fragment target) {
+        if (target == null) return;
+
+        // 상세 화면(replace + addToBackStack)이 떠 있으면 보존 fragment들이 detach 상태이므로
+        //  탭 전환 전에 백스택을 모두 정리해 hidden 상태를 복원시킨다.
+        FragmentManager fm = getSupportFragmentManager();
+        if (fm.getBackStackEntryCount() > 0) {
+            fm.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            fm.executePendingTransactions();
+        }
+
+        if (target == activeFragment) return;
+
+        FragmentTransaction tx = fm.beginTransaction();
+        if (activeFragment != null) tx.hide(activeFragment);
+        tx.show(target);
+        tx.commit();
+        activeFragment = target;
     }
 
     private void updateTabUI(String selectedTab) {

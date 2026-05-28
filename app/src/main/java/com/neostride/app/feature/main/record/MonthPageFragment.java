@@ -151,6 +151,14 @@ public class MonthPageFragment extends Fragment {
         updateAiGoalSection(LocalDate.now());
     }
 
+    // ─── 외부 트리거용: 새 측정 기록이 추가됐을 수 있으니 서버 데이터를 다시 가져와 UI 갱신 ───
+    //  (RecordFragment.onHiddenChanged에서 호출 — add/hide/show 패턴 하에서 onResume이 안 불리는 케이스 보완)
+    public void refresh() {
+        if (!isAdded() || getContext() == null) return;
+        fetchMonthDataFromServer();
+        updateAiGoalSection(LocalDate.now());
+    }
+
     // ─── 캘린더 어댑터 초기화 후 서버 데이터 요청 ───
     private void setupPage() {
         currentDays = generateDaysList(displayMonth);

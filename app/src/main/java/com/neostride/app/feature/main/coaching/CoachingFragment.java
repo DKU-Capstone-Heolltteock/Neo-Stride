@@ -95,6 +95,9 @@ public class CoachingFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_coaching, container, false);
 
+        // 1회성 정리: 잘못된 일일 plan_day 값이 박힌 과거 history를 비움 (이미 실행됐다면 무시)
+        GoalStorage.migrateHistoryV1IfNeeded(requireContext());
+
         tvWeekLabel = view.findViewById(R.id.tv_week_label);
         tvNoPlan = view.findViewById(R.id.tv_no_plan);
         vpWeek = view.findViewById(R.id.vp_week);
@@ -551,9 +554,10 @@ public class CoachingFragment extends Fragment {
                 tvAiFeedback.setTextColor(0xFF888888);
             }
 
-            // 상세기록 버튼 클릭 리스너 (기존 로직 보존)
+            // 상세기록 버튼 클릭 리스너 — plan_day_id로 정확히 매칭, 못 찾으면 같은 날 코칭 record, 그것도 없으면 같은 날 첫 번째
             TextView btnViewDetail = layoutPlanDetail.findViewById(R.id.btn_view_detail);
             if (btnViewDetail != null) {
+                final int targetPlanId = plan.planId; // effectively final 캡쳐
                 btnViewDetail.setOnClickListener(v -> {
                     String dateStr = String.format("%d-%02d-%02d", selectedYear, selectedMonth, selectedDay);
                     RunningRepository repo = new RunningRepository();
@@ -561,18 +565,35 @@ public class CoachingFragment extends Fragment {
                         @Override
                         public void onSuccess(java.util.List<RunningRecordResponse> records) {
                             if (!isAdded()) return;
+
+                            RunningRecordResponse exactMatch = null;       // 1순위: plan_day_id 일치
+                            RunningRecordResponse coachingFallback = null; // 2순위: 같은 날 + 코칭(planId != null)
+                            RunningRecordResponse dateFallback = null;     // 3순위: 같은 날 첫 record
+
                             for (RunningRecordResponse r : records) {
-                                if (r.getCreatedAt() != null && r.getCreatedAt().startsWith(dateStr)) {
-                                    requireActivity().runOnUiThread(() -> {
-                                        RecordDetailFragment detailFragment = new RecordDetailFragment();
-                                        Bundle args = new Bundle();
-                                        args.putSerializable("record_data", r);
-                                        detailFragment.setArguments(args);
-                                        getParentFragmentManager().beginTransaction().replace(R.id.fragment_container, detailFragment).addToBackStack(null).commit();
-                                    });
-                                    break;
+                                if (r.getCreatedAt() == null || !r.getCreatedAt().startsWith(dateStr)) continue;
+                                if (dateFallback == null) dateFallback = r;
+                                if (r.getPlanId() != null) {
+                                    if (coachingFallback == null) coachingFallback = r;
+                                    if (targetPlanId > 0 && r.getPlanId() == targetPlanId) {
+                                        exactMatch = r;
+                                        break;
+                                    }
                                 }
                             }
+
+                            final RunningRecordResponse target =
+                                    exactMatch != null ? exactMatch
+                                            : (coachingFallback != null ? coachingFallback : dateFallback);
+                            if (target == null) return;
+
+                            requireActivity().runOnUiThread(() -> {
+                                RecordDetailFragment detailFragment = new RecordDetailFragment();
+                                Bundle args = new Bundle();
+                                args.putSerializable("record_data", target);
+                                detailFragment.setArguments(args);
+                                getParentFragmentManager().beginTransaction().replace(R.id.fragment_container, detailFragment).addToBackStack(null).commit();
+                            });
                         }
                         @Override public void onError(String message) { requireActivity().runOnUiThread(() -> android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_SHORT).show()); }
                     });
@@ -807,7 +828,11 @@ public class CoachingFragment extends Fragment {
                         }
                     }
                 }
-                requireActivity().runOnUiThread(() -> refreshWeekPages());
+                requireActivity().runOnUiThread(() -> {
+                    refreshWeekPages();
+                    // GoalStorage가 갱신됐으므로 history adapter의 canRestore(=활성 목표 없음) 판정도 다시 그려야 함
+                    if (historyExpanded) loadHistory();
+                });
             }
 
             @Override
@@ -893,8 +918,23 @@ public class CoachingFragment extends Fragment {
                             if (!isAdded()) return;
                             // 히스토리에 결과 기록 후 로컬 플랜 초기화
                             requireActivity().runOnUiThread(() -> {
+                                // 플랜에서 한 항목을 골라 최종 목표값을 history에 저장 (모든 plan_day가 동일한 totalGoal 보유)
+                                Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+                                if (!allPlans.isEmpty()) {
+                                    GoalStorage.PlanData anyPlan = allPlans.values().iterator().next();
+                                    GoalStorage.HistoryItem hi = new GoalStorage.HistoryItem();
+                                    hi.goalId          = anyPlan.goalId;
+                                    hi.distanceKm      = anyPlan.totalGoalDistanceKm;
+                                    hi.paceStr         = anyPlan.totalGoalPaceStr;
+                                    hi.durationWeeks   = anyPlan.durationWeeks;
+                                    hi.runningDaysStr  = daysListToKorean(anyPlan.runningDays);
+                                    hi.result          = isAchieved ? "completed" : "deleted";
+                                    hi.timestamp       = System.currentTimeMillis();
+                                    GoalStorage.addHistory(requireContext(), hi);
+                                }
                                 GoalStorage.clearAllPlans(requireContext());
                                 refreshWeekPages();
+                                if (historyExpanded) loadHistory();
                                 if (isAdded()) btnAddGoal.setVisibility(View.VISIBLE);
                                 Toast.makeText(requireContext(),
                                         isAchieved ? "목표가 달성 처리되었습니다." : "목표가 종료 처리되었습니다.",
@@ -963,7 +1003,10 @@ public class CoachingFragment extends Fragment {
         }
         @Override public void onBindViewHolder(@NonNull VH h, int pos) {
             GoalStorage.HistoryItem item = items.get(pos);
-            h.tvTitle.setText(String.format("%.0fkm · %s", item.distanceKm, item.paceStr));
+            // 거리는 소수점 2자리(0.05km 같은 작은 목표도 정확히 표시), 페이스 문자열은 그대로
+            h.tvTitle.setText(String.format("%.2fkm · %s",
+                    item.distanceKm,
+                    item.paceStr != null ? item.paceStr : "-:--/km"));
             h.tvPeriod.setText(String.format("%d주 · %s", item.durationWeeks, item.runningDaysStr));
 
             boolean isCompleted = "completed".equals(item.result);
@@ -1021,23 +1064,72 @@ public class CoachingFragment extends Fragment {
                     () -> { GoalStorage.removeHistory(requireContext(), pos); loadHistory(); }
             ));
 
-            // 복원 클릭 → 팝업
-            h.btnRestore.setOnClickListener(v -> showHistoryDialog(
+            // 복원 클릭 → 활성 목표 가드 후 팝업 (adapter 갱신 늦은 경우 안전망)
+            h.btnRestore.setOnClickListener(v -> {
+                if (!GoalStorage.getAllPlans(requireContext()).isEmpty()) {
+                    Toast.makeText(requireContext(),
+                            "이미 활성 목표가 있습니다.\n현재 목표를 먼저 삭제하거나 완료해 주세요.",
+                            Toast.LENGTH_LONG).show();
+                    if (historyExpanded) loadHistory(); // 복원 버튼 visibility 갱신
+                    return;
+                }
+                showHistoryDialog(
                     "목표 복원",
                     "이 목표를 다시 활성화합니다.\n이전 설정 그대로 새 플랜이 생성됩니다.",
                     "복원",
                     0xFFCCFF00,
                     () -> {
+                        // 복원도 신규 생성과 동일한 흐름: 서버에 createGoal 호출 후 서버가 만든 plan_days를 받아옴
+                        //  (로컬에만 saveGoalToPlanDays하면 다음 fetchActiveGoal 시 서버에 활성 goal이 없어 로컬 plan이 다 삭제됨)
                         GoalStorage.GoalInputData gi = new GoalStorage.GoalInputData();
                         gi.durationWeeks = item.durationWeeks;
                         gi.distanceKm = item.distanceKm;
                         gi.paceSecPerKm = parsePaceToSec(item.paceStr);
                         gi.runningDays = parseDaysFromKorean(item.runningDaysStr);
-                        GoalStorage.saveGoalToPlanDays(requireContext(), gi);
-                        GoalStorage.removeHistory(requireContext(), pos);
-                        refreshWeekPages(); loadHistory();
+
+                        int userId = com.neostride.app.common.network.TokenManager.getUserId(requireContext());
+                        String startDate = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+                                .format(new java.util.Date());
+                        String periodType;
+                        switch (gi.durationWeeks) {
+                            case 4:  periodType = "1month";  break;
+                            case 12: periodType = "3month";  break;
+                            case 24: periodType = "6month";  break;
+                            case 52: periodType = "1year";   break;
+                            default: periodType = "custom";  break;
+                        }
+                        GoalRequest request = new GoalRequest(
+                                userId, periodType, gi.durationWeeks,
+                                gi.runningDays, gi.distanceKm,
+                                gi.paceSecPerKm, startDate);
+
+                        // 복원할 history index를 캡쳐 — 비동기 콜백에서 사용
+                        final int restorePos = pos;
+                        new CoachingRepository().createGoal(request, new CoachingRepository.OnResultListener<GoalResponse>() {
+                            @Override
+                            public void onSuccess(GoalResponse data) {
+                                if (!isAdded()) return;
+                                requireActivity().runOnUiThread(() -> {
+                                    if (!isAdded()) return;
+                                    GoalStorage.clearAllPlans(requireContext());
+                                    GoalStorage.removeHistory(requireContext(), restorePos);
+                                    fetchActiveGoalFromServer(); // 서버에서 plan_days 가져와 GoalStorage 채우고 UI 갱신
+                                    if (historyExpanded) loadHistory();
+                                });
+                            }
+                            @Override
+                            public void onError(String message) {
+                                android.util.Log.e("CoachingFragment", "목표 복원 실패: " + message);
+                                if (!isAdded()) return;
+                                requireActivity().runOnUiThread(() -> {
+                                    if (!isAdded()) return;
+                                    Toast.makeText(requireContext(), "목표 복원 실패: " + message, Toast.LENGTH_SHORT).show();
+                                });
+                            }
+                        });
                     }
-            ));
+                );
+            });
         }
 
         @Override public int getItemCount() { return items.size(); }
@@ -1130,11 +1222,11 @@ public class CoachingFragment extends Fragment {
             final int finalNumericGoalId = numericGoalId;
 
             Runnable doDeleteLocally = () -> {
-                // 히스토리에 '삭제됨' 상태로 기록
+                // 히스토리에 '삭제됨' 상태로 기록 — 최종 목표(Your Setting)값을 사용 (일일 plan_day 값 X)
                 GoalStorage.HistoryItem history = new GoalStorage.HistoryItem();
                 history.goalId = plan.goalId;
-                history.distanceKm = plan.distanceKm;
-                history.paceStr = plan.paceStr;
+                history.distanceKm = plan.totalGoalDistanceKm;
+                history.paceStr = plan.totalGoalPaceStr;
                 history.durationWeeks = plan.durationWeeks;
                 history.runningDaysStr = daysListToKorean(plan.runningDays);
                 history.result = "deleted";

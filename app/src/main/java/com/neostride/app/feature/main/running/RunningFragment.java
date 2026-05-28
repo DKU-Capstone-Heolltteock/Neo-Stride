@@ -1,7 +1,10 @@
 package com.neostride.app.feature.main.running;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -101,6 +104,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
     // ── UI 뷰 ──
     private ViewPager2 viewPagerRunningMode;
+    // setupViewPager 재호출 시 콜백 누적 방지를 위해 등록한 콜백을 보관
+    private ViewPager2.OnPageChangeCallback runningModePageCallback;
     private CardView btnStop, btnPause, btnMyLocation, btnResultConfirm;
     private CardView btnGoalCompleted;
     private CardView btnWarningStop;
@@ -122,6 +127,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private Handler timerHandler = new Handler(Looper.getMainLooper());
     private long startTime = 0, pausedDuration = 0, pauseStartTime = 0, elapsedMillis = 0;
     private boolean isRunning = false, isPaused = false, isCoachingRun = false;
+    // 한 번의 측정에 대해 sendDataToBackend가 중복 호출되어 409 충돌을 일으키지 않도록 보호하는 플래그
+    //  (코칭 모드는 handleGoalCompleted, 자유 러닝은 btnResultConfirm 클릭에서 호출되는데 분기에 따라 둘 다 트리거될 수 있음)
+    private boolean alreadySentToBackend = false;
 
     // ── 카운트다운 / GPS 확보 대기 상태 ──
     private Handler countdownHandler = new Handler(Looper.getMainLooper());
@@ -290,7 +298,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         tvWarningTitle = v.findViewById(R.id.tv_warning_title);
         tvWarningMessage = v.findViewById(R.id.tv_warning_message);
         tvWarningStopLabel = v.findViewById(R.id.tv_warning_stop_label);
-        ivPausePlay = v.findViewById(R.id.iv_pause_play); // 🌟 새로운 ID와 연결
+        ivPausePlay = v.findViewById(R.id.iv_pause_play);
         tvResultDistance = v.findViewById(R.id.tv_result_distance);
         tvResultTime = v.findViewById(R.id.tv_result_time);
         tvResultPace = v.findViewById(R.id.tv_result_pace);
@@ -332,6 +340,12 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
 
     // ─── 러닝 모드 ViewPager2 설정: 자유 러닝 / 오늘의 목표 카드 구성 및 자동 슬라이드 ───
     private void setupViewPager(View v) {
+        // 재호출(onHiddenChanged 등) 시 기존 콜백이 누적되지 않도록 먼저 해제
+        if (runningModePageCallback != null) {
+            viewPagerRunningMode.unregisterOnPageChangeCallback(runningModePageCallback);
+            runningModePageCallback = null;
+        }
+
         runningModes = new ArrayList<>();
         // 시작 카드는 GPS 준비 전까지 비활성(회색) 상태로 생성
         runningModes.add(new RunningModeItem("측정 시작", "자유 러닝", 0xFFCCFF00, false, isGpsReady));
@@ -378,7 +392,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         viewPagerRunningMode.setAdapter(runningModeAdapter);
 
         // 2. 페이지 변경 콜백 설정 — plan 상태는 매번 storage에서 최신값 읽음 (handleGoalCompleted 후에도 대응)
-        viewPagerRunningMode.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
+        runningModePageCallback = new ViewPager2.OnPageChangeCallback() {
             @Override public void onPageSelected(int position) {
                 if (runningModes.get(position).isCoaching) {
                     layoutCoachingGoals.setVisibility(View.VISIBLE);
@@ -405,7 +419,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                     layoutCoachingGoals.setVisibility(View.GONE);
                 }
             }
-        });
+        };
+        viewPagerRunningMode.registerOnPageChangeCallback(runningModePageCallback);
 
         // 3. 카드 디자인 효과 (PageTransformer)
         float p = 55 * getResources().getDisplayMetrics().density;
@@ -431,6 +446,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private void sendDataToBackend() {
         // 10m(0.01km) 미만은 저장하지 않음
         if (totalDistanceMeters < 10f) return;
+        // 같은 측정에서 이미 전송했다면 차단 (코칭 모드에서 plan_day_id 중복 저장으로 409 발생 방지)
+        if (alreadySentToBackend) return;
+        alreadySentToBackend = true;
 
         // 1. GpsTraceRequest 리스트 조립
         List<GpsTraceRequest> traces = new ArrayList<>();
@@ -469,6 +487,17 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         );
 
         Log.d("NeoStride_Backend", "=== 서버 데이터 전송 요청 (등급: " + currentBadge + ") ===");
+        Log.d("NeoStride_Backend", "요청 데이터: user_id=" + currentUserId + ", plan_id=" + planId
+                + ", distance=" + (totalDistanceMeters / 1000f) + "km, duration=" + durationSeconds + "s");
+
+        // 다이얼로그용으로 요청 정보를 effectively final 변수로 캡쳐
+        final int dbgUserId = currentUserId;
+        final Integer dbgPlanId = planId;
+        final float dbgDistanceKm = totalDistanceMeters / 1000f;
+        final int dbgDurationSec = durationSeconds;
+        final boolean dbgIsCoachingRun = isCoachingRun;
+        final Integer dbgTodayPlanServerId = todayPlanServerId;
+
         if (runningRepository != null) {
             runningRepository.saveRunningRecord(request, new RunningRepository.OnResultListener<RunningRecordResponse>() {
                 @Override
@@ -478,9 +507,32 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 @Override
                 public void onError(String message) {
                     Log.e("NeoStride_Backend", "기록 저장 실패: " + message);
-                    if (isAdded()) {
-                        Toast.makeText(requireContext(), "기록 저장 실패: " + message, Toast.LENGTH_LONG).show();
-                    }
+                    if (!isAdded()) return;
+                    // 토스트는 한국어 응답이 길면 잘려서 진단을 못 함 → 다이얼로그로 전체 표시 + 복사 버튼
+                    // 백엔드에 보낼 진단용으로 요청 정보(user_id, plan_id)도 같이 표시
+                    String detail =
+                            "── 서버 응답 ──\n" + message + "\n\n" +
+                                    "── 클라이언트가 보낸 요청 ──\n" +
+                                    "user_id: " + dbgUserId + "\n" +
+                                    "plan_id: " + dbgPlanId + (dbgPlanId == null ? "  (자유 러닝)" : "  (코칭 러닝)") + "\n" +
+                                    "isCoachingRun: " + dbgIsCoachingRun + "\n" +
+                                    "todayPlanServerId (필드값): " + dbgTodayPlanServerId + "\n" +
+                                    "distance: " + String.format(java.util.Locale.KOREA, "%.3fkm", dbgDistanceKm) + "\n" +
+                                    "duration: " + dbgDurationSec + "s";
+
+                    new AlertDialog.Builder(requireContext())
+                            .setTitle("저장 실패 (디버그)")
+                            .setMessage(detail)
+                            .setPositiveButton("복사", (d, w) -> {
+                                ClipboardManager cm = (ClipboardManager)
+                                        requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
+                                if (cm != null) {
+                                    cm.setPrimaryClip(ClipData.newPlainText("neo_stride_error", detail));
+                                    Toast.makeText(requireContext(), "복사됨", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .setNegativeButton("닫기", null)
+                            .show();
                 }
             });
         }
@@ -819,10 +871,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     }
 
     // ─── 러닝 시작: 상태 초기화, 즉시 알림 표시, 타이머·GPS 시작 ───
-    //  카운트다운에서 확보한 candidateStartLocation을 lastLocation 기준점으로 사용 →
-    //  startTracking 직후 첫 콜백부터 distanceTo() 누적 가능 (초반 0m 공백 제거)
     private void startTracking() {
         isRunning = true; isPaused = false; totalDistanceMeters = 0f;
+        alreadySentToBackend = false; // 새 측정 시작 → 전송 플래그 초기화
         // 기준점은 null로 시작 — 화면이 보인 이후 첫 GPS 수신 시점을 기준점으로 삼아
         // 카운트다운 중 GPS 오차(jitter)가 거리로 잡히는 문제를 방지
         lastLocation = null;
@@ -1108,6 +1159,11 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
+    // ─── 측정/카운트다운 진행 중인지 (MainActivity 종료 다이얼로그에서 사용) ───
+    public boolean hasActiveTracking() {
+        return isRunning || isPreparingToStart;
+    }
+
     // ─── 러닝 종료: 페이스·칼로리 계산 후 showResult=true이면 결과 화면, false이면 초기화 ───
     private void stopTracking(boolean showResult) {
         isRunning = false;
@@ -1290,6 +1346,17 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                         else mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 16f));
                     }
                 });
+    }
+
+    // MainActivity가 add()+hide()/show() 패턴으로 fragment를 보존하므로,
+    // 코칭 탭에서 plan을 저장/삭제한 뒤 러닝 탭으로 돌아와도 onResume이 호출되지 않는다.
+    // 다시 보일 때 측정 중이 아니면 ViewPager를 재구성해 최신 코칭 카드 상태를 반영한다.
+    @Override
+    public void onHiddenChanged(boolean hidden) {
+        super.onHiddenChanged(hidden);
+        if (!hidden && !isRunning && !isPreparingToStart && getView() != null) {
+            setupViewPager(getView());
+        }
     }
 
     @Override
