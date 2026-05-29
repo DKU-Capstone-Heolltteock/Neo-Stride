@@ -46,10 +46,16 @@ public class LoginActivity extends AppCompatActivity {
 
         // 로그인 유지 체크 상태에서만 자동 로그인
         if (TokenManager.isKeepLogin(this) && !TokenManager.getAccessToken(this).isEmpty()) {
-            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-            startActivity(intent);
-            finish();
-            return;
+            if (TokenManager.getUserId(this) > 0) {
+                // userId가 정상적으로 저장된 경우에만 자동 로그인
+                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                startActivity(intent);
+                finish();
+                return;
+            } else {
+                // userId가 0이면 데이터 손실 — 토큰 초기화 후 수동 로그인 유도
+                TokenManager.clearTokens(this);
+            }
         }
 
         setContentView(R.layout.activity_login);

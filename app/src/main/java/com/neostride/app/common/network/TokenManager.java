@@ -36,7 +36,7 @@ public class TokenManager {
     // ── 유저 정보 저장 ──
     public static void saveUserInfo(Context context, int userId, String nickname) {
         getPrefs(context).edit()
-                .putLong(KEY_USER_ID, userId)
+                .putInt(KEY_USER_ID, userId)   // putInt: getUserId의 getInt와 타입 통일
                 .putString(KEY_NICKNAME, nickname)
                 .apply();
     }
@@ -56,7 +56,12 @@ public class TokenManager {
     }
 
     public static int getUserId(Context context) {
-        return (int) getPrefs(context).getLong(KEY_USER_ID, 1);
+        // getInt로 읽기 (saveUserInfo의 putInt와 타입 통일)
+        // 구버전 앱이 putLong으로 저장했을 경우를 위해 getLong으로 fallback
+        int fromInt = getPrefs(context).getInt(KEY_USER_ID, 0);
+        if (fromInt > 0) return fromInt;
+        long fromLong = getPrefs(context).getLong(KEY_USER_ID, 0L);
+        return (int) fromLong;
     }
 
     public static String getNickname(Context context) {

@@ -88,6 +88,10 @@ public class ApiClient {
                             if (refreshResponse.isSuccessful() && refreshResponse.body() != null) {
                                 LoginResponse body = refreshResponse.body();
                                 TokenManager.saveTokens(appContext, body.getAccessToken(), body.getRefreshToken());
+                                // 토큰 갱신 시 userId/nickname도 함께 갱신 (기기 저장값 최신화)
+                                if (body.getUserId() > 0) {
+                                    TokenManager.saveUserInfo(appContext, body.getUserId(), body.getNickname());
+                                }
                                 return response.request().newBuilder()
                                         .header("Authorization", "Bearer " + body.getAccessToken())
                                         .build();

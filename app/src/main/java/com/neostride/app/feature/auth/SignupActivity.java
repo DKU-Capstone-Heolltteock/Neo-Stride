@@ -228,7 +228,16 @@ public class SignupActivity extends AppCompatActivity {
                     finish();
 
                 } else if (response.code() == 409) {
-                    Toast.makeText(SignupActivity.this, "이미 가입된 이메일입니다.", Toast.LENGTH_SHORT).show();
+                    // 백엔드 응답 body의 message 필드를 그대로 표시
+                    String msg = "이미 가입된 이메일입니다.";
+                    try {
+                        if (response.errorBody() != null) {
+                            String errorBody = response.errorBody().string();
+                            org.json.JSONObject json = new org.json.JSONObject(errorBody);
+                            if (json.has("message")) msg = json.getString("message");
+                        }
+                    } catch (Exception ignored) {}
+                    Toast.makeText(SignupActivity.this, msg, Toast.LENGTH_SHORT).show();
 
                 } else if (response.code() == 400) {
                     Toast.makeText(SignupActivity.this, "입력값을 확인해주세요.", Toast.LENGTH_SHORT).show();

@@ -288,14 +288,18 @@ public class AccountActivity extends AppCompatActivity {
                 @Override
                 public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
                     runOnUiThread(() -> {
-                        dialog.dismiss();
                         if (response.isSuccessful()) {
+                            dialog.dismiss();
                             currentNickname = newNick;
                             tvNicknameValue.setText(newNick);
                             TokenManager.saveUserInfo(AccountActivity.this,
                                     TokenManager.getUserId(AccountActivity.this), newNick);
                             Toast.makeText(AccountActivity.this, "닉네임이 변경되었습니다.", Toast.LENGTH_SHORT).show();
+                        } else if (response.code() == 409) {
+                            // 다이얼로그 유지 — 사용자가 바로 다른 닉네임으로 수정 가능
+                            Toast.makeText(AccountActivity.this, "이미 사용 중인 닉네임입니다.", Toast.LENGTH_SHORT).show();
                         } else {
+                            dialog.dismiss();
                             Toast.makeText(AccountActivity.this, "닉네임 변경에 실패했습니다.", Toast.LENGTH_SHORT).show();
                         }
                     });
