@@ -9,6 +9,8 @@ import com.neostride.app.feature.auth.api.AuthApi;
 import com.neostride.app.feature.auth.model.LoginResponse;
 import com.neostride.app.feature.auth.model.RefreshRequest;
 
+import android.util.Log;
+
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
@@ -25,6 +27,8 @@ public class ApiClient {
     private static final String BASE_URL = BuildConfig.BASE_URL;
     private static Retrofit retrofit = null;
     private static Context appContext = null;
+    // 동시 다발 401 → 중복 refresh 방지용 락
+    private static final Object REFRESH_LOCK = new Object();
 
     // 앱 시작 시 한 번 호출 (MainActivity onCreate에서)
     public static void init(Context context) {
@@ -68,39 +72,69 @@ public class ApiClient {
 
                         if (appContext == null) return null;
 
-                        String refreshToken = TokenManager.getRefreshToken(appContext);
-                        if (refreshToken == null || refreshToken.isEmpty()) {
-                            redirectToLogin();
-                            return null;
-                        }
-
-                        try {
-                            AuthApi authApi = new Retrofit.Builder()
-                                    .baseUrl(BASE_URL)
-                                    .client(new OkHttpClient())
-                                    .addConverterFactory(GsonConverterFactory.create())
-                                    .build()
-                                    .create(AuthApi.class);
-
-                            Response<LoginResponse> refreshResponse =
-                                    authApi.refresh(new RefreshRequest(refreshToken)).execute();
-
-                            if (refreshResponse.isSuccessful() && refreshResponse.body() != null) {
-                                LoginResponse body = refreshResponse.body();
-                                TokenManager.saveTokens(appContext, body.getAccessToken(), body.getRefreshToken());
-                                // 토큰 갱신 시 userId/nickname도 함께 갱신 (기기 저장값 최신화)
-                                if (body.getUserId() > 0) {
-                                    TokenManager.saveUserInfo(appContext, body.getUserId(), body.getNickname());
-                                }
+                        synchronized (REFRESH_LOCK) {
+                            // 이미 다른 스레드가 refresh를 완료했는지 확인
+                            // → 실패한 요청에 쓴 token과 현재 저장된 token이 다르면 이미 갱신된 것
+                            String currentAccessToken = TokenManager.getAccessToken(appContext);
+                            String requestAuthHeader = response.request().header("Authorization");
+                            if (requestAuthHeader != null
+                                    && !currentAccessToken.isEmpty()
+                                    && !requestAuthHeader.equals("Bearer " + currentAccessToken)) {
+                                Log.d("ApiClient", "[AUTH] 이미 다른 스레드가 refresh 완료 → 새 token으로 재시도");
                                 return response.request().newBuilder()
-                                        .header("Authorization", "Bearer " + body.getAccessToken())
+                                        .header("Authorization", "Bearer " + currentAccessToken)
                                         .build();
-                            } else {
+                            }
+
+                            Log.d("ApiClient", "[AUTH] 401 발생 URL: " + response.request().url());
+
+                            String refreshToken = TokenManager.getRefreshToken(appContext);
+                            if (refreshToken == null || refreshToken.isEmpty()) {
+                                Log.e("ApiClient", "[AUTH] refresh token 없음 → redirectToLogin");
                                 redirectToLogin();
                                 return null;
                             }
-                        } catch (IOException e) {
-                            return null;
+
+                            Log.d("ApiClient", "[AUTH] refresh 시도...");
+
+                            try {
+                                AuthApi authApi = new Retrofit.Builder()
+                                        .baseUrl(BASE_URL)
+                                        .client(new OkHttpClient())
+                                        .addConverterFactory(GsonConverterFactory.create())
+                                        .build()
+                                        .create(AuthApi.class);
+
+                                Response<LoginResponse> refreshResponse =
+                                        authApi.refresh(new RefreshRequest(refreshToken)).execute();
+
+                                Log.d("ApiClient", "[AUTH] refresh 응답 코드: " + refreshResponse.code());
+
+                                if (refreshResponse.isSuccessful() && refreshResponse.body() != null) {
+                                    LoginResponse body = refreshResponse.body();
+                                    TokenManager.saveTokens(appContext, body.getAccessToken(), body.getRefreshToken());
+                                    // 토큰 갱신 시 userId/nickname도 함께 갱신 (기기 저장값 최신화)
+                                    if (body.getUserId() > 0) {
+                                        TokenManager.saveUserInfo(appContext, body.getUserId(), body.getNickname());
+                                    }
+                                    Log.d("ApiClient", "[AUTH] refresh 성공 → 원래 요청 재시도");
+                                    return response.request().newBuilder()
+                                            .header("Authorization", "Bearer " + body.getAccessToken())
+                                            .build();
+                                } else {
+                                    // 401/403: refresh 토큰 자체가 무효 → 로그아웃
+                                    // 5xx 등 서버 일시 장애: 강제 로그아웃하지 않고 요청만 실패 처리
+                                    int code = refreshResponse.code();
+                                    Log.e("ApiClient", "[AUTH] refresh 실패 코드=" + code + (code == 401 || code == 403 ? " → redirectToLogin" : " → 요청만 실패"));
+                                    if (code == 401 || code == 403) {
+                                        redirectToLogin();
+                                    }
+                                    return null;
+                                }
+                            } catch (IOException e) {
+                                Log.e("ApiClient", "[AUTH] refresh 네트워크 오류: " + e.getMessage());
+                                return null;
+                            }
                         }
                     })
                     .addInterceptor(logging)

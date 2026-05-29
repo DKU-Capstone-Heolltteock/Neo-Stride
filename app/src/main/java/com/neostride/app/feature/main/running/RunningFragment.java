@@ -270,9 +270,12 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         initViews(view);           // 모든 버튼, 텍스트뷰, 프로그레스바 연결
         setupViewPager(view);      // 자유 러닝 / 오늘의 목표 모드 선택 설정
 
-        // 4. 지도 설정
+        // 4. 지도 설정 — view.post()로 첫 레이아웃 이후에 초기화해 앱 시작 시 프레임 드롭 방지
         SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager().findFragmentById(R.id.map);
-        if (mapFragment != null) mapFragment.getMapAsync(this);
+        if (mapFragment != null) {
+            final SupportMapFragment finalMapFrag = mapFragment;
+            view.post(() -> { if (isAdded()) finalMapFrag.getMapAsync(this); });
+        }
 
         return view;
     }
@@ -387,7 +390,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 return;
             }
             isCoachingRun = item.isCoaching;
-            prepareToStart(); // 카운트다운 + GPS 워밍업 후 startTracking() 자동 호출
+            checkBatteryOptimizationBeforeStart(this::prepareToStart);
         });
         viewPagerRunningMode.setAdapter(runningModeAdapter);
 
@@ -775,6 +778,34 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         }
     };
 
+    // ─── 러닝 시작 전 배터리 최적화 제외 여부 확인 (매번 확인 — 제외 안 됐으면 경고) ───
+    private void checkBatteryOptimizationBeforeStart(Runnable onConfirmed) {
+        if (!isAdded() || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            onConfirmed.run();
+            return;
+        }
+        PowerManager pm = (PowerManager) requireContext().getSystemService(Context.POWER_SERVICE);
+        if (pm == null || pm.isIgnoringBatteryOptimizations(requireContext().getPackageName())) {
+            onConfirmed.run(); // 이미 제외됨 → 바로 시작
+            return;
+        }
+        // 제외 안 됨 → 경고창 표시 (기록 손실 위험 안내)
+        new AlertDialog.Builder(requireContext())
+                .setTitle("⚠️ 배터리 최적화 제외 필요")
+                .setMessage("배터리 최적화가 켜져 있으면 화면을 끄고 달릴 때\n앱이 강제 종료되어 기록이 사라질 수 있습니다.\n\n'설정하기'를 눌러 배터리 최적화에서 제외해주세요.")
+                .setPositiveButton("설정하기", (d, w) -> {
+                    try {
+                        Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:" + requireContext().getPackageName()));
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                })
+                .setNegativeButton("그냥 시작", (d, w) -> onConfirmed.run())
+                .show();
+    }
+
     // ─── 러닝 시작 준비: GPS 워밍업 + 카운트다운(3-2-1) 동시 진행 ───
     //  - layout_start_buttons 숨기고 카운트다운 오버레이 표시
     //  - LocationTrackingService 미리 시작 → candidateStartLocation에 첫 좌표 캡처
@@ -1122,9 +1153,9 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
                 // 완료된 코칭 카드 → 코칭 탭으로 이동
                 navigateToCoachingTab();
             } else {
-                // 자유 러닝 카드 → 카운트다운 후 측정 시작
+                // 자유 러닝 카드 → 배터리 최적화 확인 후 카운트다운 시작
                 isCoachingRun = false;
-                prepareToStart();
+                checkBatteryOptimizationBeforeStart(this::prepareToStart);
             }
         }));
 

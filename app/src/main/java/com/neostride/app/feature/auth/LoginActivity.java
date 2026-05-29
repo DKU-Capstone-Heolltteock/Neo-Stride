@@ -44,18 +44,25 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 로그인 유지 체크 상태에서만 자동 로그인
-        if (TokenManager.isKeepLogin(this) && !TokenManager.getAccessToken(this).isEmpty()) {
+        // 자동 로그인 조건:
+        //  ① keep_login=true 플래그가 있거나
+        //  ② refresh token이 남아있으면
+        boolean hasToken = !TokenManager.getAccessToken(this).isEmpty();
+        boolean keepLogin = TokenManager.isKeepLogin(this);
+        boolean hasRefreshToken = !TokenManager.getRefreshToken(this).isEmpty();
+
+        if (hasToken && (keepLogin || hasRefreshToken)) {
             if (TokenManager.getUserId(this) > 0) {
-                // userId가 정상적으로 저장된 경우에만 자동 로그인
+                // userId까지 정상이면 바로 메인으로
                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);
                 startActivity(intent);
                 finish();
                 return;
-            } else {
-                // userId가 0이면 데이터 손실 — 토큰 초기화 후 수동 로그인 유도
-                TokenManager.clearTokens(this);
             }
+            // userId가 0이면: 기존 토큰은 그대로 두고 로그인 화면만 표시
+            // → 재로그인 시 saveUserInfo()가 올바른 userId를 저장하고 덮어씀
+            // clearTokens()를 호출하면 refresh 토큰까지 날아가서
+            // 재로그인 시 체크박스 안 누르면 1시간짜리 세션이 되는 문제 방지
         }
 
         setContentView(R.layout.activity_login);
