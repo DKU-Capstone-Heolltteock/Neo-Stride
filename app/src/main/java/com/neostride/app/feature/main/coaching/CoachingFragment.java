@@ -978,7 +978,21 @@ public class CoachingFragment extends Fragment {
     }
 
     // ─── "분:초" 형식 페이스 문자열을 총 초(int)로 변환 (파싱 실패 시 360초 반환) ───
-    private int parsePaceToSec(String ps) { try { String[] p = ps.split(":"); return Integer.parseInt(p[0]) * 60 + Integer.parseInt(p[1]); } catch (Exception e) { return 360; } }
+    // 페이스 문자열("3:00/km" 또는 "3:00") → 초 단위로 변환
+    //  주의: split(":")만 하면 "00/km"가 남아 parseInt 실패 → 기본값(360)으로 떨어지는 버그가 있었음
+    private int parsePaceToSec(String ps) {
+        if (ps == null) return 360;
+        try {
+            // "/km" 등 단위 표기 제거 후 ':' 기준 분리
+            String cleaned = ps.replace("/km", "").replace(" ", "").trim();
+            String[] p = cleaned.split(":");
+            int minutes = Integer.parseInt(p[0]);
+            int seconds = p.length > 1 ? Integer.parseInt(p[1]) : 0;
+            return minutes * 60 + seconds;
+        } catch (Exception e) {
+            return 360;
+        }
+    }
     // ─── 한글 요일 문자열에서 영문 요일 키 목록을 파싱 (빈 결과면 월·수·금 기본값) ───
     private java.util.List<String> parseDaysFromKorean(String ds) {
         java.util.List<String> r = new java.util.ArrayList<>();
