@@ -35,6 +35,7 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -83,6 +84,8 @@ public class MonthPageFragment extends Fragment {
     // ── AI 달성도 그래프 섹션 뷰 ──
     private LinearLayout layoutAiGoalAchievement, layoutAiGraphContent;
     private TextView tvGraphGoalInfo;
+    private TextView tvNoAiGoal;
+    private TextView tvNoTodayRecord;
     private ImageView ivAiGraphArrow;
     private View btnToggleAiGraph;
 
@@ -120,6 +123,8 @@ public class MonthPageFragment extends Fragment {
         layoutAiGoalAchievement = view.findViewById(R.id.layout_ai_goal_achievement);
         layoutAiGraphContent    = view.findViewById(R.id.layout_ai_graph_content);
         tvGraphGoalInfo         = view.findViewById(R.id.tv_graph_goal_info);
+        tvNoAiGoal              = view.findViewById(R.id.tv_no_ai_goal);
+        tvNoTodayRecord         = view.findViewById(R.id.tv_no_today_record);
         ivAiGraphArrow          = view.findViewById(R.id.iv_ai_graph_arrow);
         btnToggleAiGraph        = view.findViewById(R.id.btn_toggle_ai_graph);
         layoutDateHeader        = view.findViewById(R.id.layout_date_header);
@@ -442,26 +447,52 @@ public class MonthPageFragment extends Fragment {
         Set<Long> idsToDelete = dailyAdapter.getSelectedIds();
         if (idsToDelete.isEmpty()) return;
 
+        // 삭제될 record와 연결된 코칭 plan_day_id 수집
+        //  → 삭제 성공 후 GoalStorage의 해당 plan status를 "completed" → "pending"으로 복원
+        //    (record가 사라졌으니 더 이상 완료 상태가 아님 — 코칭/러닝 탭에도 즉시 반영되어야 함)
+        final Set<Integer> affectedPlanIds = new HashSet<>();
+        for (RunningRecordResponse res : allServerRecords) {
+            if (idsToDelete.contains((long) res.getRunRecordId()) && res.getPlanId() != null) {
+                affectedPlanIds.add(res.getPlanId());
+            }
+        }
+
         final int[] remaining = {idsToDelete.size()};
         for (long recordId : idsToDelete) {
             recordRepository.deleteRecord(recordId, new RunningRepository.OnResultListener<Void>() {
                 @Override
                 public void onSuccess(Void data) {
                     remaining[0]--;
-                    if (remaining[0] == 0) onAllDeleted();
+                    if (remaining[0] == 0) onAllDeleted(affectedPlanIds);
                 }
                 @Override
                 public void onError(String message) {
                     Log.e("NeoStride", "삭제 실패: " + message);
                     remaining[0]--;
-                    if (remaining[0] == 0) onAllDeleted();
+                    if (remaining[0] == 0) onAllDeleted(affectedPlanIds);
                 }
             });
         }
     }
 
-    private void onAllDeleted() {
+    private void onAllDeleted(Set<Integer> affectedPlanIds) {
         if (getActivity() == null) return;
+
+        // 영향받은 plan_day의 status를 GoalStorage에서 "pending"으로 복원
+        //  + AI 피드백, 완료 시간 등 완료 관련 메타데이터도 초기화
+        if (affectedPlanIds != null && !affectedPlanIds.isEmpty() && getContext() != null) {
+            Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
+            for (Map.Entry<String, GoalStorage.PlanData> entry : allPlans.entrySet()) {
+                GoalStorage.PlanData plan = entry.getValue();
+                if (plan != null && plan.planId > 0 && affectedPlanIds.contains(plan.planId)) {
+                    plan.status = "pending";
+                    plan.aiFeedbackComment = null;
+                    plan.completedElapsedSec = 0;
+                    GoalStorage.savePlan(requireContext(), entry.getKey(), plan);
+                }
+            }
+        }
+
         getActivity().runOnUiThread(() -> {
             exitSelectionMode();
             fetchMonthDataFromServer();
@@ -472,12 +503,17 @@ public class MonthPageFragment extends Fragment {
         Map<String, GoalStorage.PlanData> allPlans = GoalStorage.getAllPlans(requireContext());
         if (allPlans != null && !allPlans.isEmpty()) {
             layoutAiGoalAchievement.setVisibility(View.VISIBLE);
+            if (tvNoAiGoal != null) tvNoAiGoal.setVisibility(View.GONE);
             GoalStorage.PlanData baseGoal = allPlans.values().iterator().next();
             tvGraphGoalInfo.setText(String.format(Locale.KOREA, "• 설정한 목표 거리 : %.2fkm", baseGoal.totalGoalDistanceKm));
             setupPaceChart(baseGoal.totalGoalPaceStr);
-            if (!allServerRecords.isEmpty()) updateLineChart(allServerRecords);
+            // records가 비어도 호출 — 그래프에 점선만 그리고 "금일 달린 기록이 없습니다" 안내 토글
+            updateLineChart(allServerRecords);
         } else {
+            // 활성 코칭 목표 없음 → 그래프 영역 + 안내 카드 모두 숨김 (사용자 요청 — 빈 안내 카드 제거)
             layoutAiGoalAchievement.setVisibility(View.GONE);
+            if (tvNoAiGoal != null) tvNoAiGoal.setVisibility(View.GONE);
+            // "금일 달린 기록이 없습니다" 안내는 그래프 영역 안쪽에 있으므로 같이 숨겨짐.
         }
     }
 
@@ -547,20 +583,35 @@ public class MonthPageFragment extends Fragment {
             finalGoalDist = allPlans.values().iterator().next().totalGoalDistanceKm;
         }
 
+        // 현재 활성 goal의 plan_day_id 집합 — 이걸로 record를 정확히 매칭 (날짜만으로는 부족)
+        //  예: 이전 goal에서 같은 날짜에 측정한 record는 dateKey가 활성 plan과 겹쳐서 통과해버림.
+        //  record.getPlanId()로 활성 goal의 plan_day_id 중 하나와 정확히 매칭되는 경우만 그래프에 포함.
+        java.util.Set<Integer> activePlanDayIds = new java.util.HashSet<>();
+        if (allPlans != null) {
+            for (GoalStorage.PlanData p : allPlans.values()) {
+                if (p != null && p.planId > 0) activePlanDayIds.add(p.planId);
+            }
+        }
+
+        // 날짜별로 그룹화 — 하루에 점 1개 (달성한 기록 우선, 없으면 마지막 기록)
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
         java.util.LinkedHashMap<String, RunningRecordResponse> dailyBestMap = new java.util.LinkedHashMap<>();
         java.util.HashMap<String, Float> dailyTargetMap = new java.util.HashMap<>();
 
         for (RunningRecordResponse res : records) {
             if (res.getPlanId() == null) continue;
+            // record의 plan_id가 현재 활성 goal의 plan_day_id 중 하나와 일치해야 함 (이전 goal record 제외)
+            if (!activePlanDayIds.contains(res.getPlanId())) continue;
             try {
                 LocalDate resDate = LocalDateTime.parse(res.getCreatedAt(), formatter).toLocalDate();
                 if (!YearMonth.from(resDate).equals(displayMonth)) continue;
                 String dateKey = resDate.getYear() + "-" + resDate.getMonthValue() + "-" + resDate.getDayOfMonth();
 
                 GoalStorage.PlanData plan = allPlans != null ? allPlans.get(dateKey) : null;
-                float dailyTarget = plan != null ? plan.distanceKm : 0f;
-                int dailyPaceSec = plan != null ? plan.paceSecPerKm : 0;
+                // 이중 안전망: dateKey 기준으로도 활성 plan이 있어야 함 (위 plan_id 매칭으로 보통 충족됨)
+                if (plan == null) continue;
+                float dailyTarget = plan.distanceKm;
+                int dailyPaceSec = plan.paceSecPerKm;
 
                 boolean alreadyAchieved = false;
                 if (dailyBestMap.containsKey(dateKey)) {
@@ -586,6 +637,23 @@ public class MonthPageFragment extends Fragment {
         if (chartView != null) {
             chartView.setFinalGoalDistance(finalGoalDist);
             chartView.setData(coachingRecords, targetList);
+        }
+
+        // 그래프 하단 "아직 뛴 기록이 없습니다" 안내 토글
+        //  - 활성 goal이 있는데 그 goal에 대한 measurement record가 한 건도 없을 때만 표시 (첫날/시작 직후)
+        //  - record가 하나라도 쌓이면 — 보고 있는 월에 기록이 없어도 — 메시지 표시 안 함
+        if (tvNoTodayRecord != null) {
+            boolean hasActiveGoal = allPlans != null && !allPlans.isEmpty();
+            boolean hasAnyRecordForActiveGoal = false;
+            if (hasActiveGoal) {
+                for (RunningRecordResponse r : records) {
+                    if (r.getPlanId() != null && activePlanDayIds.contains(r.getPlanId())) {
+                        hasAnyRecordForActiveGoal = true;
+                        break;
+                    }
+                }
+            }
+            tvNoTodayRecord.setVisibility((hasActiveGoal && !hasAnyRecordForActiveGoal) ? View.VISIBLE : View.GONE);
         }
     }
 }

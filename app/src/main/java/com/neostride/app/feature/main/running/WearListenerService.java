@@ -26,6 +26,8 @@ import android.net.Uri;
 import com.google.android.gms.wearable.Wearable;
 import com.neostride.app.feature.main.coaching.GoalStorage;
 import com.neostride.app.feature.main.coaching.repository.CoachingRepository;
+import com.neostride.app.feature.main.coaching.model.FeedbackRequest;
+import com.neostride.app.feature.main.coaching.model.FeedbackResponse;
 import com.neostride.app.feature.main.coaching.model.GoalStatusUpdateRequest;
 import java.util.Calendar;
 
@@ -111,9 +113,24 @@ public class WearListenerService extends WearableListenerService {
             int userId = TokenManager.getUserId(this);
             Log.d(TAG, "userId = " + userId);
 
+            // 코칭 record라면 오늘 plan_day의 서버 planId를 가져와 같이 전송
+            //  → 서버가 코칭 기록으로 인식하고, AI 피드백 요청도 정상 처리됨
+            Integer planIdForRecord = null;
+            if (isCoaching) {
+                Calendar today = Calendar.getInstance();
+                String todayKey = today.get(Calendar.YEAR) + "-"
+                        + (today.get(Calendar.MONTH) + 1) + "-"
+                        + today.get(Calendar.DAY_OF_MONTH);
+                GoalStorage.PlanData todayPlan = GoalStorage.getPlan(this, todayKey);
+                if (todayPlan != null && todayPlan.planId > 0) {
+                    planIdForRecord = todayPlan.planId;
+                    Log.d(TAG, "코칭 record — plan_day_id 첨부: " + planIdForRecord);
+                }
+            }
+
             RunningRecordRequest request = new RunningRecordRequest(
                     userId,
-                    null,
+                    planIdForRecord,
                     distanceKm,
                     durationSec,
                     paceSecPerKm,
@@ -122,7 +139,8 @@ public class WearListenerService extends WearableListenerService {
                     gpsTraces,
                     null
             );
-            saveWatchRunningRecord(request, event.getDataItem().getUri(), isCoaching, durationSec);
+            saveWatchRunningRecord(request, event.getDataItem().getUri(), isCoaching, durationSec,
+                    distanceKm, paceSecPerKm, planIdForRecord);
         }
     }
 
@@ -183,7 +201,8 @@ public class WearListenerService extends WearableListenerService {
      * 워치 러닝 기록을 서버에 저장하는 함수임
      */
     private void saveWatchRunningRecord(RunningRecordRequest request, Uri dataItemUri,
-                                        boolean isCoaching, int durationSec) {
+                                        boolean isCoaching, int durationSec,
+                                        float distanceKm, int paceSecPerKm, Integer planDayId) {
         RunningRepository runningRepository = new RunningRepository();
 
         runningRepository.saveRunningRecord(request, new RunningRepository.OnResultListener<RunningRecordResponse>() {
@@ -227,6 +246,38 @@ public class WearListenerService extends WearableListenerService {
                                 Log.e(TAG, "goalId 파싱 실패: " + plan.goalId);
                             }
                         }
+                    }
+
+                    // AI 피드백 생성 요청 — plan_day_id 있을 때만 (폰 RunningFragment.requestAiFeedback과 동일 패턴)
+                    if (planDayId != null && planDayId > 0) {
+                        FeedbackRequest feedbackReq = new FeedbackRequest(
+                                planDayId,
+                                distanceKm,
+                                durationSec,
+                                paceSecPerKm / 60f   // 초/km → 분/km
+                        );
+                        new CoachingRepository().requestFeedback(planDayId, feedbackReq,
+                                new CoachingRepository.OnResultListener<FeedbackResponse>() {
+                                    @Override
+                                    public void onSuccess(FeedbackResponse r) {
+                                        Log.d(TAG, "워치 코칭 AI 피드백 생성 성공");
+                                        // GoalStorage에 피드백 코멘트 저장 → 코칭 탭 진입 시 즉시 표시
+                                        if (r.getAiFeedbackComment() != null) {
+                                            String key = today.get(Calendar.YEAR) + "-"
+                                                    + (today.get(Calendar.MONTH) + 1) + "-"
+                                                    + today.get(Calendar.DAY_OF_MONTH);
+                                            GoalStorage.PlanData p2 = GoalStorage.getPlan(WearListenerService.this, key);
+                                            if (p2 != null) {
+                                                p2.aiFeedbackComment = r.getAiFeedbackComment();
+                                                GoalStorage.savePlan(WearListenerService.this, key, p2);
+                                            }
+                                        }
+                                    }
+                                    @Override
+                                    public void onError(String message) {
+                                        Log.e(TAG, "워치 코칭 AI 피드백 생성 실패: " + message);
+                                    }
+                                });
                     }
                 }
 

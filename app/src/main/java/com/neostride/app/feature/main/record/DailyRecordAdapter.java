@@ -73,10 +73,17 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
         holder.tvPace.setText(record.getPace());
         holder.tvCalories.setText(record.getCalories());
 
-        // ── AI Coaching 색상 로직 ──
+        // ── AI Coaching 색상 + 라벨 텍스트 로직 ──
+        //  - 좌측 액센트 바는 자유 러닝과 동일하게 형광 초록 고정 (시각적 일관성)
+        //  - 상단 글자 색/텍스트는 활성 goal 매칭 여부에 따라 분기:
+        //     활성 goal + completed → "AI Coaching" 형광 초록
+        //     활성 goal + missed    → "AI Coaching" 빨강
+        //     활성 goal + pending   → "AI Coaching" 주황
+        //     활성 goal 아님(목표 삭제) → "AI Coaching (Inactive)" 회색 (꺼진 상태)
         if (record.isAiCoaching()) {
             holder.tvAiLabel.setVisibility(View.VISIBLE);
-            int barColor = 0xFFFF9500;
+            int labelColor = 0xFF888888;                    // 기본: 회색
+            String labelText = "AI Coaching (Inactive)";    // 기본: 비활성 표기
             try {
                 String dateStr = record.getDate();
                 String[] parts = dateStr.split("T")[0].split("-");
@@ -86,15 +93,18 @@ public class DailyRecordAdapter extends RecyclerView.Adapter<DailyRecordAdapter.
                 String key = y + "-" + m + "-" + d;
                 GoalStorage.PlanData plan = GoalStorage.getPlan(holder.itemView.getContext(), key);
                 if (plan != null) {
+                    labelText = "AI Coaching"; // 활성 goal과 매칭됨 → (Inactive) 빼고 표기
                     switch (plan.getEffectiveStatus(key)) {
-                        case "completed": barColor = 0xFFCCFF00; break;
-                        case "missed":    barColor = 0xFFFF3B30; break;
-                        default:          barColor = 0xFFFF9500; break;
+                        case "completed": labelColor = 0xFFCCFF00; break;
+                        case "missed":    labelColor = 0xFFFF3B30; break;
+                        default:          labelColor = 0xFFFF9500; break;
                     }
                 }
-            } catch (Exception e) { /* 안전하게 주황색 유지 */ }
-            holder.accentBar.setBackgroundColor(barColor);
-            holder.tvAiLabel.setTextColor(barColor);
+                // plan == null이면 위에서 초기화한 회색 + "(Inactive)" 유지
+            } catch (Exception e) { /* 회색 + (Inactive) 유지 */ }
+            holder.tvAiLabel.setText(labelText);
+            holder.tvAiLabel.setTextColor(labelColor);
+            holder.accentBar.setBackgroundColor(0xFFCCFF00); // 바는 항상 형광 초록 고정
         } else {
             holder.tvAiLabel.setVisibility(View.GONE);
             holder.accentBar.setBackgroundColor(0xFFCCFF00);

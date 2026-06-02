@@ -264,6 +264,8 @@ public class FeedRecordDetailDialog implements OnMapReadyCallback {
     }
 
     // ── 페이스별 색상 폴리라인을 지도에 그림 ─────────────────────────────
+    //  좌표 간 시간 갭이 PAUSE_GAP_MS 초과면 일시정지로 보고 polyline을 끊는다.
+    private static final long PAUSE_GAP_MS = 10_000L;
     private void drawFullRoute(List<GpsTraceRequest> path) {
         if (path.size() < 2) return;
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
@@ -272,9 +274,16 @@ public class FeedRecordDetailDialog implements OnMapReadyCallback {
             GpsTraceRequest p2 = path.get(i + 1);
             LatLng from = new LatLng(p1.getLatitude(), p1.getLongitude());
             LatLng to   = new LatLng(p2.getLatitude(), p2.getLongitude());
+
+            long timeMs = parseIsoTime(p2.getTime()) - parseIsoTime(p1.getTime());
+            if (timeMs > PAUSE_GAP_MS) {
+                builder.include(from); builder.include(to);
+                continue;
+            }
+
             double dist = distanceBetween(p1.getLatitude(), p1.getLongitude(),
                     p2.getLatitude(), p2.getLongitude());
-            long   time = (parseIsoTime(p2.getTime()) - parseIsoTime(p1.getTime())) / 1000;
+            long time = timeMs / 1000;
             int color = COLOR_NORMAL;
             if (dist > 0 && time > 0) color = getPaceColor((float) ((time / 60.0) / dist));
             mMap.addPolyline(new PolylineOptions()

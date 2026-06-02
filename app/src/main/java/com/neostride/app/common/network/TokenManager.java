@@ -57,11 +57,30 @@ public class TokenManager {
 
     public static int getUserId(Context context) {
         // getInt로 읽기 (saveUserInfo의 putInt와 타입 통일)
-        // 구버전 앱이 putLong으로 저장했을 경우를 위해 getLong으로 fallback
-        int fromInt = getPrefs(context).getInt(KEY_USER_ID, 0);
-        if (fromInt > 0) return fromInt;
-        long fromLong = getPrefs(context).getLong(KEY_USER_ID, 0L);
-        return (int) fromLong;
+        //  구버전이 putLong으로 저장했다면 getInt가 ClassCastException을 던지므로 try-catch로 감싸야 한다.
+        //  (예외를 안 잡으면 LoginActivity.onCreate에서 그대로 터져 앱이 부팅 시 즉시 크래시한다.)
+        SharedPreferences prefs = getPrefs(context);
+        try {
+            int fromInt = prefs.getInt(KEY_USER_ID, 0);
+            if (fromInt > 0) return fromInt;
+            // 값이 0이면 long fallback도 한 번 더 시도
+            try {
+                long fromLong = prefs.getLong(KEY_USER_ID, 0L);
+                return (int) fromLong;
+            } catch (ClassCastException ignored) {
+                return 0;
+            }
+        } catch (ClassCastException e) {
+            // 기존 값이 Long으로 저장돼 있던 경우 — long으로 읽고 int로 영구 마이그레이션
+            try {
+                long fromLong = prefs.getLong(KEY_USER_ID, 0L);
+                int migrated = (int) fromLong;
+                prefs.edit().putInt(KEY_USER_ID, migrated).apply();
+                return migrated;
+            } catch (ClassCastException ignored) {
+                return 0;
+            }
+        }
     }
 
     public static String getNickname(Context context) {
