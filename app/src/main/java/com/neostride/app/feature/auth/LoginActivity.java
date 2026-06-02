@@ -44,14 +44,25 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 로그인 유지 상태라면 로그인 화면을 건너뛰고 메인 화면으로 이동함
-        String accessToken = TokenManager.getAccessToken(this);
+        // 자동 로그인 조건:
+        //  ① keep_login=true 플래그가 있거나
+        //  ② refresh token이 남아있으면
+        boolean hasToken = !TokenManager.getAccessToken(this).isEmpty();
+        boolean keepLogin = TokenManager.isKeepLogin(this);
+        boolean hasRefreshToken = !TokenManager.getRefreshToken(this).isEmpty();
 
-        if (accessToken != null && !accessToken.isEmpty()) {
-            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-            startActivity(intent);
-            finish();
-            return;
+        if (hasToken && (keepLogin || hasRefreshToken)) {
+            if (TokenManager.getUserId(this) > 0) {
+                // userId까지 정상이면 바로 메인으로
+                Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                startActivity(intent);
+                finish();
+                return;
+            }
+            // userId가 0이면: 기존 토큰은 그대로 두고 로그인 화면만 표시
+            // → 재로그인 시 saveUserInfo()가 올바른 userId를 저장하고 덮어씀
+            // clearTokens()를 호출하면 refresh 토큰까지 날아가서
+            // 재로그인 시 체크박스 안 누르면 1시간짜리 세션이 되는 문제 방지
         }
 
         setContentView(R.layout.activity_login);
@@ -130,22 +141,28 @@ public class LoginActivity extends AppCompatActivity {
                     Log.d("LOGIN", "로그인 성공");
                     Log.d("LOGIN", "User ID: " + loginResponse.getUserId());
 
-                    // 로그인 유지 체크 시에만 토큰과 유저 정보를 저장함
+                    // 유저 정보와 accessToken은 항상 저장 (현재 세션 API 호출에 필요)
+                    // refreshToken은 로그인 유지 체크 시에만 저장 (다음 앱 실행 자동 로그인용)
                     if (keepLogin) {
                         TokenManager.saveTokens(
                                 LoginActivity.this,
                                 loginResponse.getAccessToken(),
                                 loginResponse.getRefreshToken()
                         );
-
-                        TokenManager.saveUserInfo(
+                    } else {
+                        TokenManager.saveSessionToken(
                                 LoginActivity.this,
-                                loginResponse.getUserId(),
-                                loginResponse.getNickname()
+                                loginResponse.getAccessToken()
                         );
-
-                        Log.d("LOGIN", "TokenManager 저장 완료");
                     }
+
+                    TokenManager.saveUserInfo(
+                            LoginActivity.this,
+                            loginResponse.getUserId(),
+                            loginResponse.getNickname()
+                    );
+
+                    Log.d("LOGIN", "TokenManager 저장 완료");
 
                     Toast.makeText(LoginActivity.this, "로그인 성공", Toast.LENGTH_SHORT).show();
 
