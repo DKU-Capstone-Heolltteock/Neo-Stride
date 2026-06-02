@@ -341,8 +341,17 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             context.startActivity(intent);
         });
 
-        // ── 프로필/닉네임/배지 클릭 → 내가 쓴 글 탭이므로 항상 본인 글 → 무반응 ──
-        // (프로필 클릭 리스너 미설정 = 기본 무반응)
+        // ── 프로필/닉네임/배지 클릭 → 상대방 글이면 RunnerPageActivity로 이동 ──
+        int myId = com.neostride.app.common.network.TokenManager.getUserId(context);
+        View.OnClickListener feedProfileClick = (item.userId != myId) ? v -> {
+            Intent intent = new Intent(context, com.neostride.app.feature.community.runnerpage.RunnerPageActivity.class);
+            intent.putExtra("user_id", item.userId);
+            intent.putExtra("nickname", item.nickname);
+            context.startActivity(intent);
+        } : null;
+        if (h.ivProfile != null)  h.ivProfile.setOnClickListener(feedProfileClick);
+        if (h.tvUsername != null) h.tvUsername.setOnClickListener(feedProfileClick);
+        if (h.ivBadge != null)    h.ivBadge.setOnClickListener(feedProfileClick);
 
         // ── ··· 더보기 버튼 ──
         if (h.tvMore != null) {
@@ -480,8 +489,19 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             });
         }
 
-        // ── 프로필/닉네임/배지 클릭 → 내가 쓴 글 탭이므로 항상 본인 글 → 무반응 ──
-        // (프로필 클릭 리스너 미설정 = 기본 무반응)
+        // ── 프로필/닉네임/배지 클릭 → 상대방 글이면 RunnerPageActivity로 이동 ──
+        int tipMyId = com.neostride.app.common.network.TokenManager.getUserId(context);
+        boolean tipMine = item.getWriterId() != null && item.getWriterId() == tipMyId;
+        View.OnClickListener tipProfileClick = !tipMine ? v -> {
+            if (item.getWriterId() == null) return;
+            Intent intent = new Intent(context, com.neostride.app.feature.community.runnerpage.RunnerPageActivity.class);
+            intent.putExtra("user_id", item.getWriterId().intValue());
+            intent.putExtra("nickname", item.getNickname());
+            context.startActivity(intent);
+        } : null;
+        if (h.ivProfile != null)  h.ivProfile.setOnClickListener(tipProfileClick);
+        if (h.tvNickname != null) h.tvNickname.setOnClickListener(tipProfileClick);
+        if (h.ivBadge != null)    h.ivBadge.setOnClickListener(tipProfileClick);
 
         // ── ··· 더보기 버튼 ──
         if (h.tvMore != null) {
