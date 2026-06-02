@@ -66,6 +66,11 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void onBookmarkRemoved();
     }
 
+    // 북마크 상태 변경 시 Activity에 알리는 콜백 (추가: true, 해제: false)
+    public interface OnBookmarkChangedListener {
+        void onBookmarkChanged(boolean isNowBookmarked);
+    }
+
     // ── 통합 아이템 래퍼 ───────────────────────────────────────────────────
     public static class PostItem {
         public final int type;
@@ -95,6 +100,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
     private OnPostDeletedListener onPostDeletedListener;     // 삭제 완료 콜백
     private boolean removeOnUnbookmark = false;              // 북마크 해제 시 목록에서 즉시 제거
     private OnBookmarkRemovedListener bookmarkRemovedListener;
+    private OnBookmarkChangedListener bookmarkChangedListener;
 
     public void setOnBlockAction(Runnable onBlockAction) {
         this.onBlockAction = onBlockAction;
@@ -110,6 +116,10 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
     public void setOnBookmarkRemovedListener(OnBookmarkRemovedListener listener) {
         this.bookmarkRemovedListener = listener;
+    }
+
+    public void setOnBookmarkChangedListener(OnBookmarkChangedListener listener) {
+        this.bookmarkChangedListener = listener;
     }
 
     // 내가 쓴 글 탭용 생성자 (헤더 있음, isOwner 일괄 설정)
@@ -253,6 +263,8 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         if (bookmarkRemovedListener != null) bookmarkRemovedListener.onBookmarkRemoved();
                     }
                 }
+                // 북마크 추가/해제 시 카운트 갱신 알림
+                if (bookmarkChangedListener != null) bookmarkChangedListener.onBookmarkChanged(newState);
                 // 백그라운드 서버 동기화 (실패해도 로컬 상태 유지)
                 new MyPageRepository()
                     .toggleBookmark(item.contentId, newState, new retrofit2.Callback<Void>() {
@@ -356,10 +368,8 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         // ── ··· 더보기 버튼 ──
         if (h.tvMore != null) {
             h.tvMore.setVisibility(View.VISIBLE);
-            // 활동탭(hideHeader=true)에서는 아이템별 본인 글 감지, 내가 쓴 글 탭에서는 isOwner 일괄 적용
-            boolean itemMine = hideHeader
-                    ? (item.userId == com.neostride.app.common.network.TokenManager.getUserId(context))
-                    : isOwner;
+            // isOwner=true(내가 쓴 글 탭): 항상 본인 글 / isOwner=false(활동 탭): 아이템별 감지
+            boolean itemMine = isOwner || (item.userId == myId);
             if (itemMine) {
                 h.tvMore.setOnClickListener(v ->
                     showOwnerMorePopup(h.tvMore,
@@ -375,9 +385,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             } else {
                 h.tvMore.setOnClickListener(v ->
                     showReportBlockPopup(h.tvMore,
-                        hideHeader
-                            ? () -> confirmAndBlockUser(item.userId, "작성자")
-                            : onBlockAction));
+                        () -> confirmAndBlockUser(item.userId, "작성자")));
             }
         }
     }
@@ -426,6 +434,8 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
                         if (bookmarkRemovedListener != null) bookmarkRemovedListener.onBookmarkRemoved();
                     }
                 }
+                // 북마크 추가/해제 시 카운트 갱신 알림
+                if (bookmarkChangedListener != null) bookmarkChangedListener.onBookmarkChanged(newState);
                 // 백그라운드 서버 동기화
                 if (item.getTipId() != null) {
                     new TipRepository()
@@ -506,11 +516,8 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         // ── ··· 더보기 버튼 ──
         if (h.tvMore != null) {
             h.tvMore.setVisibility(View.VISIBLE);
-            // 활동탭(hideHeader=true)에서는 아이템별 본인 글 감지
-            boolean itemMine = hideHeader
-                    ? (item.getWriterId() != null
-                        && item.getWriterId() == com.neostride.app.common.network.TokenManager.getUserId(context))
-                    : isOwner;
+            // isOwner=true(내가 쓴 글 탭): 항상 본인 글 / isOwner=false(활동 탭): 아이템별 감지
+            boolean itemMine = isOwner || (item.getWriterId() != null && item.getWriterId() == tipMyId);
             if (itemMine) {
                 h.tvMore.setOnClickListener(v ->
                     showOwnerMorePopup(h.tvMore,
@@ -527,7 +534,7 @@ public class MyPostsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
             } else {
                 h.tvMore.setOnClickListener(v ->
                     showReportBlockPopup(h.tvMore,
-                        hideHeader && item.getWriterId() != null
+                        item.getWriterId() != null
                             ? () -> confirmAndBlockUser(item.getWriterId().intValue(), "작성자")
                             : onBlockAction));
             }

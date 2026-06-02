@@ -827,6 +827,7 @@ public class MyPageActivity extends AppCompatActivity {
             } else {
                 MyPostsAdapter adapter = new MyPostsAdapter(this, combined, currentPostFilter, this::onFilterClick);
                 adapter.setOnPostDeletedListener(this::decrementPostTabCount);
+                adapter.setOnBookmarkChangedListener(this::onBookmarkCountChanged);
                 rvMyFeeds.setAdapter(adapter);
             }
         });
@@ -916,6 +917,7 @@ public class MyPageActivity extends AppCompatActivity {
                     items.add(new MyPostsAdapter.PostItem(f));
                 MyPostsAdapter adapter = new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick);
                 adapter.setOnPostDeletedListener(MyPageActivity.this::decrementPostTabCount);
+                adapter.setOnBookmarkChangedListener(MyPageActivity.this::onBookmarkCountChanged);
                 rvMyFeeds.setAdapter(adapter);
                 if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
             }
@@ -969,6 +971,7 @@ public class MyPageActivity extends AppCompatActivity {
                         items.add(new MyPostsAdapter.PostItem(t));
                     MyPostsAdapter adapter = new MyPostsAdapter(MyPageActivity.this, items, currentPostFilter, MyPageActivity.this::onFilterClick);
                     adapter.setOnPostDeletedListener(MyPageActivity.this::decrementPostTabCount);
+                    adapter.setOnBookmarkChangedListener(MyPageActivity.this::onBookmarkCountChanged);
                     rvMyFeeds.setAdapter(adapter);
                     if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE);
                 } else {
@@ -1007,6 +1010,14 @@ public class MyPageActivity extends AppCompatActivity {
             int tipCount  = (cachedUserData.tipCount  != null) ? cachedUserData.tipCount  : 0;
             postTab.setText("내가 쓴 글 " + (feedCount + tipCount));
         }
+    }
+
+    // ─── 내가 쓴 글 탭에서 북마크 추가/해제 시 카운트 즉시 갱신 ───
+    private void onBookmarkCountChanged(boolean isNowBookmarked) {
+        if (cachedUserData == null) return;
+        if (cachedUserData.bookmarkedFeedCount == null) cachedUserData.bookmarkedFeedCount = 0;
+        cachedUserData.bookmarkedFeedCount += isNowBookmarked ? 1 : -1;
+        if (cachedUserData.bookmarkedFeedCount < 0) cachedUserData.bookmarkedFeedCount = 0;
     }
 
     // ─── 북마크 목록에서 아이템이 제거될 때 카운트 즉시 갱신 ───

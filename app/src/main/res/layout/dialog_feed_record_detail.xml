@@ -70,7 +70,7 @@
             android:layout_gravity="end|center_vertical"
             android:layout_marginEnd="4dp"
             android:padding="8dp"
-            android:text="업로드"
+            android:text="선택"
             android:textColor="#CCFF00"
             android:textSize="15sp"
             android:textStyle="bold"

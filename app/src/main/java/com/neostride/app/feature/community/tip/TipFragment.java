@@ -261,6 +261,7 @@ public class TipFragment extends Fragment {
         filteredTipList.clear();
         tipDisplayedCount = 0;
         if (tipAdapter != null) tipAdapter.notifyDataSetChanged();
+        if (tvEmptyState != null) tvEmptyState.setVisibility(View.GONE); // 로딩 시작 시 빈 문구 숨김
         startLoadingAnimation();
 
         // liked·commented 교차 확인용 (API 2, 3에서 채워짐)
@@ -578,9 +579,10 @@ public class TipFragment extends Fragment {
             tipAdapter.notifyDataSetChanged();
         }
 
-        // 빈 목록 안내
+        // 빈 목록 안내 (로딩 중에는 표시하지 않음)
         if (tvEmptyState != null) {
-            if (allFilteredTips.isEmpty()) {
+            boolean isLoading = tvLoading != null && tvLoading.getVisibility() == View.VISIBLE;
+            if (!isLoading && allFilteredTips.isEmpty()) {
                 if (tipList.isEmpty()) {
                     tvEmptyState.setText("아직 작성된 팁이 없어요\n러닝 노하우를 공유해보세요");
                 } else {
