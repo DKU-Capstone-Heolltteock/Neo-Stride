@@ -92,6 +92,7 @@ public class FeedDetailActivity extends AppCompatActivity {
 
     private LinearLayout layoutCommentList;
     private TextView tvEmptyComment;
+    private android.widget.ScrollView scrollFeedDetail;
 
     private EditText etComment;
     private ImageView btnSendComment;
@@ -289,6 +290,7 @@ public class FeedDetailActivity extends AppCompatActivity {
 
         layoutCommentList = findViewById(R.id.layout_comment_list);
         tvEmptyComment = findViewById(R.id.tv_empty_comment);
+        scrollFeedDetail = findViewById(R.id.scroll_feed_detail);
 
         etComment = findViewById(R.id.et_detail_comment);
         btnSendComment = findViewById(R.id.btn_send_comment);
@@ -847,8 +849,8 @@ public class FeedDetailActivity extends AppCompatActivity {
                             return;
                         }
 
-                        // 새 댓글을 기존 댓글 목록 맨 위에 추가함
-                        commentList.add(0, data);
+                        // 새 댓글을 기존 댓글 목록 맨 끝에 추가함 (날짜순)
+                        commentList.add(data);
 
                         // 댓글 수를 1 증가시킴
                         commentCount++;
@@ -864,6 +866,11 @@ public class FeedDetailActivity extends AppCompatActivity {
 
                         // 입력창을 비움
                         etComment.setText("");
+
+                        // 새 댓글 위치(맨 하단)로 스크롤
+                        if (scrollFeedDetail != null) {
+                            scrollFeedDetail.post(() -> scrollFeedDetail.fullScroll(android.widget.ScrollView.FOCUS_DOWN));
+                        }
 
                         Toast.makeText(
                                 FeedDetailActivity.this,
@@ -1162,13 +1169,20 @@ public class FeedDetailActivity extends AppCompatActivity {
                 ivTagBadge.setVisibility(View.GONE);
             }
 
-            // 프로필·닉네임·배지·행 전체 클릭 — 해당 유저의 러너페이지로 이동
+            // 프로필·닉네임·배지·행 전체 클릭 — 본인이면 마이페이지, 타인이면 러너페이지로 이동
+            int myId = com.neostride.app.common.network.TokenManager.getUserId(this);
             View.OnClickListener goRunnerPage = v -> {
                 popup.dismiss();
-                Intent intent = new Intent(this, RunnerPageActivity.class);
-                intent.putExtra("user_id", user.getUserId() != null ? user.getUserId().intValue() : -1);
-                intent.putExtra("nickname", user.getNickname());
-                startActivity(intent);
+                int tagUserId = user.getUserId() != null ? user.getUserId().intValue() : -1;
+                if (tagUserId == myId) {
+                    Intent intent = new Intent(this, com.neostride.app.feature.community.mypage.MyPageActivity.class);
+                    startActivity(intent);
+                } else {
+                    Intent intent = new Intent(this, RunnerPageActivity.class);
+                    intent.putExtra("user_id", tagUserId);
+                    intent.putExtra("nickname", user.getNickname());
+                    startActivity(intent);
+                }
             };
             ivTagProfile.setOnClickListener(goRunnerPage);
             tvNickname.setOnClickListener(goRunnerPage);

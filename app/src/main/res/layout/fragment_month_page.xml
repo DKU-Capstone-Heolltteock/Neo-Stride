@@ -179,7 +179,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:orientation="horizontal"
-                                    android:gravity="bottom">
+                                    android:gravity="center_vertical">
                                     <TextView
                                         android:id="@+id/tv_stat_distance"
                                         android:layout_width="wrap_content"
@@ -188,13 +188,13 @@
                                         android:textColor="#FFFFFF"
                                         android:textSize="32sp"
                                         android:textStyle="bold"
-                                        android:includeFontPadding="false" />
+                                        android:includeFontPadding="false"
+                                        android:maxLines="1" />
                                     <ImageView
                                         android:id="@+id/iv_compare_distance"
                                         android:layout_width="32dp"
                                         android:layout_height="32dp"
                                         android:layout_marginStart="4dp"
-                                        android:layout_marginBottom="4dp"
                                         android:visibility="gone"
                                         android:src="@drawable/ic_double_arrow_down" />
                                 </LinearLayout>

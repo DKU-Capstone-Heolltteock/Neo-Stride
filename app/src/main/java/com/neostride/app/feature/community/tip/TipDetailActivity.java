@@ -85,6 +85,8 @@ public class TipDetailActivity extends AppCompatActivity {
 
     // 댓글 목록을 동적으로 추가할 레이아웃임
     private LinearLayout layoutComments;
+    private android.widget.ScrollView scrollTipDetail;
+    private boolean scrollToBottomAfterBind = false;
 
     // GPS 코스 카드 전체 (gpsVisible에 따라 GONE/VISIBLE)
     private View cardTipGps;
@@ -191,6 +193,7 @@ public class TipDetailActivity extends AppCompatActivity {
 
         cardTipGps = findViewById(R.id.card_tip_gps);
         layoutComments = findViewById(R.id.layout_tip_detail_comments);
+        scrollTipDetail = findViewById(R.id.scroll_tip_detail);
         layoutGpsBanner = findViewById(R.id.layout_tip_detail_gps_banner);
         layoutCourseMap = findViewById(R.id.layout_tip_detail_course_map);
 
@@ -476,6 +479,11 @@ public class TipDetailActivity extends AppCompatActivity {
         for (TipCommentResponse comment : comments) {
             View commentView = createCommentView(comment);
             layoutComments.addView(commentView);
+        }
+
+        if (scrollToBottomAfterBind && scrollTipDetail != null) {
+            scrollToBottomAfterBind = false;
+            scrollTipDetail.post(() -> scrollTipDetail.fullScroll(android.widget.ScrollView.FOCUS_DOWN));
         }
     }
 
@@ -852,6 +860,7 @@ public class TipDetailActivity extends AppCompatActivity {
                          * 댓글 작성 후 상세 정보를 다시 조회해서
                          * 댓글 목록과 댓글 개수를 최신 상태로 갱신함
                          */
+                        scrollToBottomAfterBind = true;
                         loadTipDetail();
                     }
 

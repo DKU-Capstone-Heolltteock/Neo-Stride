@@ -7,6 +7,7 @@
     android:background="#0B0B0B">
 
     <ScrollView
+        android:id="@+id/scroll_feed_detail"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:clipToPadding="false"
@@ -580,7 +581,8 @@
     <!-- 하단 댓글 입력창 -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="58dp"
+        android:layout_height="wrap_content"
+        android:minHeight="58dp"
         android:layout_gravity="bottom"
         android:layout_marginStart="24dp"
         android:layout_marginEnd="24dp"
@@ -595,12 +597,14 @@
         <EditText
             android:id="@+id/et_detail_comment"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="@android:color/transparent"
             android:hint="댓글을 입력하세요."
-            android:inputType="text"
-            android:singleLine="true"
+            android:inputType="textMultiLine"
+            android:maxLines="5"
+            android:gravity="center_vertical"
+            android:scrollbars="vertical"
             android:textColor="#FFFFFF"
             android:textColorHint="#BBBBBB"
             android:textSize="14sp" />

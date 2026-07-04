@@ -285,6 +285,8 @@ public class MonthPageFragment extends Fragment {
         float prevPace = (prevDist > 0) ? (float)((prevSec / 60.0) / prevDist) : 0;
 
         tvStatDistance.setText(String.format(Locale.getDefault(), "%.2f km", curDist));
+        tvStatDistance.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP,
+                curDist >= 100 ? 24f : curDist >= 10 ? 28f : 32f);
         tvStatCalories.setText(String.format(Locale.getDefault(), "%.0f kcal", curCal));
         if (curPace > 0) {
             int min = (int) curPace;

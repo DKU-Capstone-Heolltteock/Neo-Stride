@@ -127,6 +127,24 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private Handler timerHandler = new Handler(Looper.getMainLooper());
     private long startTime = 0, pausedDuration = 0, pauseStartTime = 0, elapsedMillis = 0;
     private boolean isRunning = false, isPaused = false, isCoachingRun = false;
+
+    // ── Keep-alive: 화면 꺼진 상태에서 1분마다 지도를 1px 미세 스크롤해 앱 활성 상태 유지 ──
+    private final Handler keepAliveHandler = new Handler(Looper.getMainLooper());
+    private boolean keepAliveScrolledUp = false;
+    private final Runnable keepAliveRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isRunning) return;
+            if (!isScreenOn && mMap != null) {
+                try {
+                    float delta = keepAliveScrolledUp ? -1f : 1f;
+                    mMap.moveCamera(CameraUpdateFactory.scrollBy(0f, delta));
+                    keepAliveScrolledUp = !keepAliveScrolledUp;
+                } catch (Exception ignored) {}
+            }
+            keepAliveHandler.postDelayed(this, 60_000);
+        }
+    };
     // 한 번의 측정에 대해 sendDataToBackend가 중복 호출되어 409 충돌을 일으키지 않도록 보호하는 플래그
     //  (코칭 모드는 handleGoalCompleted, 자유 러닝은 btnResultConfirm 클릭에서 호출되는데 분기에 따라 둘 다 트리거될 수 있음)
     private boolean alreadySentToBackend = false;
@@ -919,6 +937,8 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         startTime = SystemClock.elapsedRealtime();
         LocationTrackingService.postImmediateNotification(requireContext()); // 즉시 알림 표시
         timerHandler.post(timerRunnable);
+        keepAliveScrolledUp = false;
+        keepAliveHandler.postDelayed(keepAliveRunnable, 60_000);
         // GPS 서비스는 prepareToStart에서 이미 시작됐을 수 있음 → startLocationUpdates는 idempotent하게 호출
         startLocationUpdates();
         btnStop.setVisibility(View.VISIBLE); btnPause.setVisibility(View.VISIBLE);
@@ -1065,6 +1085,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private void handleGoalCompleted() {
         isRunning = false;
         timerHandler.removeCallbacks(timerRunnable);
+        keepAliveHandler.removeCallbacks(keepAliveRunnable);
         stopLocationUpdates();
 
         if (isPaused) pausedDuration += SystemClock.elapsedRealtime() - pauseStartTime;
@@ -1211,6 +1232,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
     private void stopTracking(boolean showResult) {
         isRunning = false;
         timerHandler.removeCallbacks(timerRunnable);
+        keepAliveHandler.removeCallbacks(keepAliveRunnable);
         stopLocationUpdates();
 
         if (isPaused) {
@@ -1437,6 +1459,7 @@ public class RunningFragment extends Fragment implements OnMapReadyCallback {
         // 카운트다운 진행 중에 화면 떠나면 GPS 서비스도 같이 정리
         if (isPreparingToStart) { stopLocationUpdates(); }
         countdownHandler.removeCallbacksAndMessages(null);
+        keepAliveHandler.removeCallbacksAndMessages(null);
         isPreparingToStart = false;
     }
 }

@@ -125,7 +125,10 @@ public class FeedRecordDetailDialog implements OnMapReadyCallback {
         btnRouteCenter     = dialog.findViewById(R.id.btn_route_center);
 
         btnBack.setOnClickListener(v -> dialog.dismiss());
-        btnUpload.setOnClickListener(v -> captureMapAndUpload());
+        btnUpload.setOnClickListener(v -> {
+            v.setEnabled(false);
+            captureMapAndUpload();
+        });
 
         setupBasicUI();
         updatePaceThresholds();

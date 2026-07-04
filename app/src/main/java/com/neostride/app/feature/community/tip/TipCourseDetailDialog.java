@@ -124,7 +124,10 @@ public class TipCourseDetailDialog implements OnMapReadyCallback {
         btnRouteCenter     = dialog.findViewById(R.id.btn_route_center);
 
         btnBack.setOnClickListener(v -> dialog.dismiss());
-        btnSelect.setOnClickListener(v -> captureMapAndSelect());
+        btnSelect.setOnClickListener(v -> {
+            v.setEnabled(false);
+            captureMapAndSelect();
+        });
 
         setupBasicUI();
         updatePaceThresholds();

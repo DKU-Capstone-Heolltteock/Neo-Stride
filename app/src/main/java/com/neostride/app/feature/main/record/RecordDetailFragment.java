@@ -229,12 +229,16 @@ public class RecordDetailFragment extends Fragment implements OnMapReadyCallback
                 // 팁 모드: GPS 경로 선택 확인 버튼
                 btnShare.setImageResource(R.drawable.ic_write_feed);
                 btnShare.setOnClickListener(v -> {
+                    v.setEnabled(false);
                     Toast.makeText(requireContext(), "GPS 경로가 선택되었습니다", Toast.LENGTH_SHORT).show();
                     confirmTipGpsSelection();
                 });
             } else {
                 // 일반 모드: 피드 공유 버튼
-                btnShare.setOnClickListener(v -> captureMapAndOpenFeedDialog());
+                btnShare.setOnClickListener(v -> {
+                    v.setEnabled(false);
+                    captureMapAndOpenFeedDialog();
+                });
             }
         }
 
