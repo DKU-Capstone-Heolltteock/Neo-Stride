@@ -139,26 +139,32 @@ public class AiLineChartView extends View {
                 if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
                 canvas.drawCircle(x, y, 12f, pointPaint);
 
-                // 데이터 라벨을 5:30 형식으로 변경
-                textPaint.setColor(Color.WHITE);
-                textPaint.setTextAlign(Paint.Align.CENTER);
+                // 데이터 라벨 정렬 결정: 양쪽 끝 점은 화면 밖으로 잘리지 않도록 LEFT/RIGHT 정렬
+                Paint.Align labelAlign;
+                if (records.size() == 1) {
+                    labelAlign = Paint.Align.CENTER;
+                } else if (i == 0) {
+                    labelAlign = Paint.Align.LEFT;
+                } else if (i == records.size() - 1) {
+                    labelAlign = Paint.Align.RIGHT;
+                } else {
+                    labelAlign = Paint.Align.CENTER;
+                }
 
-                // pace < 60이면 구버전(분 단위), >= 60이면 신버전(초 단위)
+                textPaint.setColor(Color.WHITE);
+                textPaint.setTextAlign(labelAlign);
+
                 int paceSeconds = res.getPace() < 60 ? (int)(res.getPace() * 60) : (int) res.getPace();
                 int pMin = paceSeconds / 60;
                 int pSec = paceSeconds % 60;
-
-                // 2. 분:초 형식으로 문자열을 조립합니다.
                 String formattedPace = String.format(Locale.KOREA, "%d:%02d", pMin, pSec);
-
-                // 3. 화면에 출력합니다.
                 canvas.drawText(formattedPace, x, y - 30f, textPaint);
 
                 // 하단 날짜
                 String dateStr = res.getCreatedAt().substring(5, 10).replace("-", "/");
                 canvas.drawText(dateStr, x, height - 40f, textPaint);
 
-                // 하단 거리 표기 수정 (3.20km 형식)
+                // 하단 거리 표기 (3.20km 형식)
                 if (dailyTargetDistances != null && i < dailyTargetDistances.size()) {
                     String distStr = String.format(Locale.KOREA, "%.2fkm", dailyTargetDistances.get(i));
                     canvas.drawText(distStr, x, height - 5f, textPaint);

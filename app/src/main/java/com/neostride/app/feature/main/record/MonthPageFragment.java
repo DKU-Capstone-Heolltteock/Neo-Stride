@@ -630,7 +630,18 @@ public class MonthPageFragment extends Fragment {
             } catch (Exception e) { e.printStackTrace(); }
         }
 
-        for (java.util.Map.Entry<String, RunningRecordResponse> entry : dailyBestMap.entrySet()) {
+        // 그래프 X축은 왼→오 = 과거→최신이어야 함
+        //  서버가 record를 desc(최신순)로 반환할 수 있으므로 createdAt 오름차순으로 정렬 후 차트에 넘긴다.
+        List<java.util.Map.Entry<String, RunningRecordResponse>> sortedEntries =
+                new ArrayList<>(dailyBestMap.entrySet());
+        sortedEntries.sort((a, b) -> {
+            String ca = a.getValue().getCreatedAt();
+            String cb = b.getValue().getCreatedAt();
+            if (ca == null) return -1;
+            if (cb == null) return 1;
+            return ca.compareTo(cb); // ISO 문자열 — string 비교가 곧 시간 순서
+        });
+        for (java.util.Map.Entry<String, RunningRecordResponse> entry : sortedEntries) {
             coachingRecords.add(entry.getValue());
             targetList.add(dailyTargetMap.getOrDefault(entry.getKey(), 0f));
         }
